@@ -1,0 +1,23 @@
+---
+name: buda
+description: Universal repository instructions for one explicitly selected Buda wiki.
+version: "0.1.0"
+---
+
+## Buda Wiki
+
+This repository is the Buda wiki `{{WIKI_ID}}`. Its canonical OKF bundle is
+`{{BUNDLE}}`.
+
+Load the `guiho-s-0002-buda` skill for explicit requests to remember, save,
+ingest, find, cite, curate, or maintain knowledge. Pass this repository path
+through `--wiki` on every Buda repository command. Never infer another wiki,
+search multiple repositories, or copy knowledge between repositories.
+
+For capture and ingest, preserve source provenance and claim citations, then
+run `buda lint --wiki <path>` and `buda index --wiki <path>`. For retrieval,
+cite repository-relative concept paths plus source IDs or resources. Surface
+unverified, stale, deprecated, conflicting, or missing evidence.
+
+Repository instruction files define agent behavior; they are not access
+control. Repository-specific policy belongs outside this managed block.
