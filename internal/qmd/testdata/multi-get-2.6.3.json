@@ -1,0 +1,8 @@
+[
+  {
+    "file": "knowledge/concepts/api-policy.md",
+    "title": "API policy",
+    "context": "Architecture decisions",
+    "body": "---\ntype: Decision\n---\nPublic APIs use durable external identifiers.\n"
+  }
+]
