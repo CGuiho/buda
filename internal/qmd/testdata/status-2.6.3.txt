@@ -1,0 +1,8 @@
+QMD Status
+
+Index: .qmd/index.sqlite
+
+Documents
+  Total:    1,234 files indexed
+  Vectors:  100 embedded
+  Pending:  12 need embedding (run 'qmd embed')

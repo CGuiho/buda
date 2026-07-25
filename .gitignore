@@ -1,0 +1,6 @@
+/dist/
+/.cache/
+/buda
+/buda.exe
+*.test
+*.out

@@ -1,3 +1,18 @@
+---
+name: buda-skill-retrieval
+purpose: Define cited retrieval from one selected wiki through Buda.
+description: Retrieval guidance for qmd-backed discovery, concept reads, citations, and evidence disclosure.
+created: 2026-07-26
+owner: buda-skill-0002-references
+flags: []
+tags:
+  - retrieval
+  - citations
+keywords:
+  - qmd query
+  - cited evidence
+---
+
 # Cited retrieval
 
 Call `buda query --wiki <path> --text <query>` for exactly one wiki. Retrieve

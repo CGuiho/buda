@@ -1,7 +1,18 @@
 ---
 name: buda
+purpose: Provide the bounded repository instruction block for one selected Buda wiki.
 description: Universal repository instructions for one explicitly selected Buda wiki.
+created: 2026-07-26
 version: "0.1.0"
+owner: buda-prompts
+flags: []
+tags:
+  - repository-instructions
+  - knowledge
+keywords:
+  - Buda
+  - explicit wiki
+  - OKF
 ---
 
 ## Buda Wiki

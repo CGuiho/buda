@@ -1,0 +1,17 @@
+schema: 1
+extensions:
+  supported:
+    - .xdocs.md
+ai:
+  mode: auto
+scan:
+  exclude:
+    - .git
+    - .buda
+    - .cache
+    - .qmd
+    - dist
+    - build
+    - vendor
+project:
+  name: buda

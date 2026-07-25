@@ -1,0 +1,91 @@
+---
+name: buda-readme
+purpose: Introduce Buda and document its repository-agnostic wiki workflow.
+description: Public overview of the Go/Cobra CLI, explicit-wiki contract, OKF knowledge model, qmd boundary, commands, and agent resources.
+created: 2026-07-26
+owner: buda-package
+flags: []
+tags:
+  - readme
+  - cli
+  - knowledge
+keywords:
+  - Buda
+  - Open Knowledge Format
+  - qmd
+  - LLM Wiki
+---
+
+# Buda
+
+Buda (B-U-D-A) is a public Go/Cobra CLI and agent-skill collection for helping
+agents save, navigate, read, validate, and maintain any one explicitly selected
+AI-maintained wiki. It follows the persistent knowledge operating pattern in
+[Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
+and stores portable knowledge according to Google's canonical
+[Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
+Google Cloud's
+[official OKF overview](https://cloud.google.com/blog/products/data-analytics/how-the-open-knowledge-format-can-improve-data-sharing)
+is useful explanatory context.
+
+The name honors José António Ernesto, a former high-school philosophy professor
+known as Buda. The note explains the name; it does not affect the technical
+contract.
+
+## Boundaries
+
+Every repository command requires `--wiki <path>`. Buda never guesses a wiki,
+stores a default wiki, searches several wikis, moves knowledge between
+repositories, or publishes a wiki. Personal knowledge, research, team or
+project knowledge, company knowledge, and application documentation are only
+examples; Buda does not encode fixed use cases, visibility classes, or corpus
+roles.
+
+[qmd](https://github.com/tobi/qmd) is the external project-local indexing and
+retrieval engine. Buda delegates lexical, semantic, and hybrid retrieval,
+embeddings, ranking, reranking, document lookup, and index diagnostics to qmd.
+Buda owns explicit repository selection, OKF-aware initialization, capture and
+ingest orchestration, provenance, citations, health checks, stable output,
+agent skills, instructions, and deterministic packaging.
+
+## Commands
+
+```text
+buda init --wiki <path> --wiki-id <id>
+buda capture --wiki <path> ...
+buda ingest --wiki <path> --source <path-or-url> ...
+buda lint --wiki <path>
+buda index --wiki <path> [--embed]
+buda query --wiki <path> --text <query> [--mode lexical|semantic|hybrid]
+buda get --wiki <path> <concept-path-or-result-id>
+buda status --wiki <path>
+buda pack --wiki <path> --output <path>
+buda doctor --wiki <path>
+buda agent ...
+```
+
+Every command supports `--help`, `--help-tree`, positive
+`--help-tree-depth`, and `--help-docs`. Root also supports `--version` and
+`-v`. Repository commands provide stable text and one-document JSON output.
+
+## Wiki layout
+
+An initialized wiki contains strict `buda.yaml`, canonical OKF files under
+`knowledge/`, disposable project-local qmd state under `.qmd/`, and disposable
+Buda staging/report state under `.buda/`. Canonical Markdown and source evidence
+remain readable without Buda or qmd.
+
+## Development
+
+Buda requires a supported Go toolchain and builds with `CGO_ENABLED=0`.
+
+```powershell
+go mod tidy
+go test ./...
+go vet ./...
+go run . --help-tree
+```
+
+qmd is a separate runtime dependency. Buda does not vendor or silently install
+it. The repository currently implements the approved MVP contract; releases,
+tags, and publication are separate explicitly authorized operations.
