@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"strings"
-	"time"
 
 	"github.com/CGuiho/buda/internal/health"
 	"github.com/CGuiho/buda/internal/ingest"
@@ -14,9 +13,10 @@ import (
 func NewIngestCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	var explicitSource, title, actor string
 	command := &cobra.Command{
-		Use:   "ingest",
-		Short: "Register one explicit durable source and create an agent work item.",
-		Args:  NoArgs,
+		Use:     "ingest",
+		Short:   "Register one explicit durable source and create an agent work item.",
+		Example: "  buda ingest --wiki ./wiki --source ./research.pdf --actor human:owner",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if explicitSource == "" || actor == "" {
 				return UsageError("--source and --actor are required")
@@ -39,10 +39,19 @@ func NewIngestCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command
 			}
 			candidates := make([]ingest.Evidence, 0, len(matches))
 			for _, match := range matches {
-				candidates = append(candidates, ingest.Evidence{Path: match.Path, Rank: match.Rank, Score: match.Score, Snippet: match.Snippet})
+				normalized := normalizeEvidence(repo, qmd.ModeHybrid, match)
+				sources := make([]ingest.EvidenceSource, 0, len(normalized.Sources))
+				for _, source := range normalized.Sources {
+					sources = append(sources, ingest.EvidenceSource{ID: source.ID, Resource: source.Resource, Title: source.Title, Joined: source.Joined})
+				}
+				candidates = append(candidates, ingest.Evidence{
+					Path: normalized.Path, DocumentID: normalized.DocumentID, Rank: normalized.Rank,
+					Score: normalized.Score, Snippet: normalized.Snippet, Metadata: normalized.Metadata,
+					Sources: sources, Warnings: normalized.Warnings,
+				})
 			}
 			result, err := ingest.Run(command.Context(), repo, ingest.Request{
-				Source: explicitSource, Title: title, Actor: actor, Now: time.Now().UTC(), Candidates: candidates,
+				Source: explicitSource, Title: title, Actor: actor, Now: dependencyNow(deps), HTTPClient: deps.HTTPClient, Candidates: candidates,
 			})
 			if err != nil {
 				if strings.HasPrefix(strings.ToLower(explicitSource), "http://") || strings.HasPrefix(strings.ToLower(explicitSource), "https://") {
@@ -50,7 +59,7 @@ func NewIngestCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command
 				}
 				return MutationError("ingest explicit local source", err)
 			}
-			report, err := health.Scan(repo.Bundle, repo.Config.WikiID, time.Now().UTC())
+			report, err := health.Scan(repo.Bundle, repo.Config.WikiID, dependencyNow(deps))
 			if err != nil {
 				return MutationError("validate ingested source record", err)
 			}
@@ -67,8 +76,8 @@ func NewIngestCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command
 			if JSONRequested(deps) {
 				return WriteJSON(command, output)
 			}
-			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nsource: %s\ndigest: %s\nartifact: %s\nsource concept: %s\nwork item: %s\n",
-				repo.Root, result.SourceID, result.Digest, result.Artifact, result.SourceConcept, result.WorkItem)
+			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nbundle: %s\nqmd project: %s\ncollection: %s\nsource: %s\ndigest: %s\nartifact: %s\nsource concept: %s\nwork item: %s\n",
+				repo.Root, repo.Bundle, repo.QMDProject, repo.Collection, result.SourceID, result.Digest, result.Artifact, result.SourceConcept, result.WorkItem)
 			fmt.Fprintf(command.OutOrStdout(), "existing qmd candidates: %d\nvalidation: conformant=%t healthy=%t\nqmd index: refreshed\n",
 				len(candidates), report.Conformant, report.Healthy)
 			return nil

@@ -4,6 +4,7 @@
 package health
 
 import (
+	"bytes"
 	"crypto/sha256"
 	"encoding/hex"
 	"fmt"
@@ -65,9 +66,10 @@ type concept struct {
 }
 
 var (
-	markdownLink = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
-	footnote     = regexp.MustCompile(`\[\^([^\]]+)\]`)
-	footnoteDef  = regexp.MustCompile(`(?m)^\[\^([^\]]+)\]:`)
+	markdownLink    = regexp.MustCompile(`\[[^\]]*\]\(([^)]+)\)`)
+	footnote        = regexp.MustCompile(`\[\^([^\]]+)\]`)
+	footnoteDef     = regexp.MustCompile(`(?m)^\[\^([^\]]+)\]:`)
+	footnoteDefLine = regexp.MustCompile(`(?m)^\[\^([^\]]+)\]:.*$`)
 )
 
 func Scan(bundle, wikiID string, today time.Time) (Report, error) {
@@ -92,6 +94,11 @@ func Scan(bundle, wikiID string, today time.Time) (Report, error) {
 			return err
 		}
 		relative = filepath.ToSlash(relative)
+		// Immutable evidence under references/raw is canonical source material,
+		// not an OKF concept. Raw Markdown must not be parsed as frontmatter.
+		if strings.HasPrefix(strings.ToLower(relative), "references/raw/") {
+			return nil
+		}
 		data, err := os.ReadFile(path)
 		if err != nil {
 			return fmt.Errorf("read canonical file %q: %w", relative, err)
@@ -165,6 +172,10 @@ func checkConcepts(report *Report, concepts []concept, indexBodies map[string][]
 			if !internal {
 				continue
 			}
+			if escapedBundle(resolved) {
+				report.add(BudaHealth, Error, "escaped_link", indexPath, fmt.Sprintf("link target %q escapes the canonical bundle", target))
+				continue
+			}
 			absolute := filepath.Join(report.Bundle, filepath.FromSlash(resolved))
 			if _, err := os.Stat(absolute); err != nil {
 				report.add(BudaHealth, Error, "broken_link", indexPath, fmt.Sprintf("link target %q does not exist", target))
@@ -227,7 +238,9 @@ func checkConcepts(report *Report, concepts []concept, indexBodies map[string][]
 		if resource := strings.TrimSpace(document.String("resource")); resource != "" {
 			byResource[resource] = append(byResource[resource], item.path)
 		}
-		normalizedContent := strings.Join(strings.Fields(strings.ReplaceAll(string(item.raw), "\r\n", "\n")), " ")
+		// Frontmatter contains identity and provenance. Duplicate knowledge is a
+		// duplicate normalized concept body, even when those fields differ.
+		normalizedContent := strings.Join(strings.Fields(strings.ReplaceAll(string(document.Body), "\r\n", "\n")), " ")
 		if normalizedContent != "" {
 			digest := fmt.Sprintf("%x", sha256.Sum256([]byte(normalizedContent)))
 			byContent[digest] = append(byContent[digest], item.path)
@@ -236,6 +249,10 @@ func checkConcepts(report *Report, concepts []concept, indexBodies map[string][]
 		for _, target := range links(document.Body) {
 			resolved, internal := resolveLink(item.path, target)
 			if !internal {
+				continue
+			}
+			if escapedBundle(resolved) {
+				report.add(BudaHealth, Error, "escaped_link", item.path, fmt.Sprintf("link target %q escapes the canonical bundle", target))
 				continue
 			}
 			absolute := filepath.Join(report.Bundle, filepath.FromSlash(resolved))
@@ -267,12 +284,61 @@ func checkSourcesAndCitations(report *Report, item concept) {
 		return
 	}
 	ids := map[string]int{}
+	resources := map[string]string{}
 	for _, source := range sources {
 		if strings.TrimSpace(source.Resource) == "" {
 			report.add(BudaHealth, Error, "missing_source_resource", item.path, "each sources entry must contain resource")
 		}
-		if source.ID != "" {
-			ids[source.ID]++
+		if strings.TrimSpace(source.ID) == "" {
+			report.add(BudaHealth, Error, "missing_source_id", item.path, "each Buda source entry must contain an id for claim citation joins")
+			continue
+		}
+		ids[source.ID]++
+		resources[source.ID] = strings.TrimSpace(source.Resource)
+		if resource := strings.TrimSpace(source.Resource); strings.HasPrefix(resource, "/references/") {
+			local := strings.TrimPrefix(resource, "/")
+			if escapedBundle(local) {
+				report.add(BudaHealth, Error, "escaped_source_resource", item.path, fmt.Sprintf("source %q resource escapes the canonical bundle", source.ID))
+			} else if _, err := os.Stat(filepath.Join(report.Bundle, filepath.FromSlash(local))); err != nil {
+				report.add(BudaHealth, Error, "missing_source_artifact", item.path, fmt.Sprintf("source %q local resource %q does not exist", source.ID, resource))
+			}
+		}
+	}
+	if metadata, present, err := item.document.Buda(); err == nil && present {
+		for sourceID := range resources {
+			if _, exists := metadata.SourceDigests[sourceID]; !exists {
+				report.add(BudaHealth, Error, "source_without_digest", item.path, fmt.Sprintf("source %q has no matching buda.source_digests entry", sourceID))
+			}
+		}
+		for sourceID, expected := range metadata.SourceDigests {
+			resource, exists := resources[sourceID]
+			if !exists {
+				report.add(BudaHealth, Error, "digest_without_source", item.path, fmt.Sprintf("source digest %q has no matching sources[].id", sourceID))
+				continue
+			}
+			if resource == "buda:capture" {
+				captured := bytes.TrimSpace(bytes.Split(item.document.Body, []byte("[^"+sourceID+"]"))[0])
+				actual := fmt.Sprintf("sha256:%x", sha256.Sum256(captured))
+				if !strings.EqualFold(actual, expected) {
+					report.add(BudaHealth, Error, "source_digest_mismatch", item.path, fmt.Sprintf("source %q digest does not match captured evidence", sourceID))
+				}
+				continue
+			}
+			if !strings.HasPrefix(resource, "/references/raw/") {
+				continue
+			}
+			local := strings.TrimPrefix(resource, "/")
+			if escapedBundle(local) {
+				continue
+			}
+			data, readErr := os.ReadFile(filepath.Join(report.Bundle, filepath.FromSlash(local)))
+			if readErr != nil {
+				continue
+			}
+			actual := fmt.Sprintf("sha256:%x", sha256.Sum256(data))
+			if !strings.EqualFold(actual, expected) {
+				report.add(BudaHealth, Error, "source_digest_mismatch", item.path, fmt.Sprintf("source %q digest does not match local raw evidence", sourceID))
+			}
 		}
 	}
 	for id, count := range ids {
@@ -284,13 +350,29 @@ func checkSourcesAndCitations(report *Report, item concept) {
 	for _, match := range footnoteDef.FindAllSubmatch(item.document.Body, -1) {
 		definitions[string(match[1])] = true
 	}
-	for _, match := range footnote.FindAllSubmatch(item.document.Body, -1) {
+	claims := map[string]bool{}
+	claimBody := footnoteDefLine.ReplaceAll(item.document.Body, nil)
+	for _, match := range footnote.FindAllSubmatch(claimBody, -1) {
 		id := string(match[1])
+		claims[id] = true
 		if ids[id] == 0 {
 			report.add(BudaHealth, Error, "citation_without_source", item.path, fmt.Sprintf("footnote %q has no matching sources[].id", id))
 		}
 		if !definitions[id] {
 			report.add(BudaHealth, Error, "citation_without_definition", item.path, fmt.Sprintf("footnote %q has no definition", id))
+		}
+	}
+	for id := range definitions {
+		if ids[id] == 0 {
+			report.add(BudaHealth, Error, "citation_without_source", item.path, fmt.Sprintf("footnote definition %q has no matching sources[].id", id))
+		}
+	}
+	for id := range ids {
+		if !claims[id] {
+			report.add(BudaHealth, Error, "source_without_claim_citation", item.path, fmt.Sprintf("source %q is not cited by a claim footnote", id))
+		}
+		if !definitions[id] {
+			report.add(BudaHealth, Error, "source_without_footnote_definition", item.path, fmt.Sprintf("source %q has no footnote definition", id))
 		}
 	}
 }
@@ -326,6 +408,11 @@ func resolveLink(from, target string) (string, bool) {
 		return clean, true
 	}
 	return clean, true
+}
+
+func escapedBundle(path string) bool {
+	clean := filepath.ToSlash(filepath.Clean(filepath.FromSlash(path)))
+	return clean == ".." || strings.HasPrefix(clean, "../") || filepath.IsAbs(filepath.FromSlash(path))
 }
 
 func addDuplicates(report *Report, values map[string][]string, code, label string) {

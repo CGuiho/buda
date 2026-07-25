@@ -22,7 +22,9 @@ func main() {
 		Target:  buildTarget,
 	}
 	if err := cmd.Execute(info); err != nil {
-		fmt.Fprintln(os.Stderr, err)
+		if !cmd.IsErrorRendered(err) {
+			fmt.Fprintln(os.Stderr, err)
+		}
 		os.Exit(cmd.ExitCode(err))
 	}
 }

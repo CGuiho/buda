@@ -13,7 +13,10 @@ func TestInstallersUseExactTagsAndRequiredArtifacts(t *testing.T) {
 			t.Fatal(err)
 		}
 		text := string(content)
-		for _, required := range []string{"guiho-s-0002-buda.zip", "checksums.txt", "qmd", "--wiki <path>"} {
+		for _, required := range []string{
+			"guiho-s-0002-buda.zip", "checksums.txt", "qmd", "--wiki <path>",
+			">=2.5.0,<3.0.0", "agent skill update", "buda-backup", "buda v",
+		} {
 			if !strings.Contains(text, required) {
 				t.Fatalf("%s missing %q", path, required)
 			}

@@ -55,7 +55,7 @@ func openQMD(deps Dependencies, factories []QMDFactory) (repository.Repository, 
 }
 
 func externalError(operation string, err error) error {
-	if errors.Is(err, context.Canceled) || errors.Is(err, context.DeadlineExceeded) {
+	if errors.Is(err, context.Canceled) && !errors.Is(err, context.DeadlineExceeded) {
 		return &codedError{code: 130, message: operation, cause: err}
 	}
 	return &codedError{code: 4, message: operation, cause: err}
@@ -64,9 +64,10 @@ func externalError(operation string, err error) error {
 func NewIndexCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	var embed bool
 	command := &cobra.Command{
-		Use:   "index",
-		Short: "Refresh the explicit wiki collection through qmd.",
-		Args:  NoArgs,
+		Use:     "index",
+		Short:   "Refresh the explicit wiki collection through qmd.",
+		Example: "  buda index --wiki ./wiki --embed",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			repo, client, err := openQMD(deps, factories)
 			if err != nil {

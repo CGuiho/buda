@@ -4,7 +4,6 @@ import (
 	"bytes"
 	"fmt"
 	"io"
-	"time"
 
 	"github.com/CGuiho/buda/internal/capture"
 	"github.com/CGuiho/buda/internal/health"
@@ -16,9 +15,10 @@ func NewCaptureCommand(deps Dependencies, factories ...QMDFactory) *cobra.Comman
 	var target, title, description, conceptType, text, actor string
 	var replace bool
 	command := &cobra.Command{
-		Use:   "capture",
-		Short: "Save explicit user-directed text as one cited OKF concept.",
-		Args:  NoArgs,
+		Use:     "capture",
+		Short:   "Save explicit user-directed text as one cited OKF concept.",
+		Example: "  buda capture --wiki ./wiki --target concepts/decision.md --title Decision --actor human:owner --text \"Use stable IDs.\"",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if target == "" || title == "" || actor == "" {
 				return UsageError("--target, --title, and --actor are required")
@@ -44,12 +44,12 @@ func NewCaptureCommand(deps Dependencies, factories ...QMDFactory) *cobra.Comman
 			deps.Options.Wiki = repo.Root
 			result, err := capture.Run(repo, capture.Request{
 				Target: target, Title: title, Description: description, Type: conceptType,
-				Text: input, Actor: actor, Now: time.Now().UTC(), Replace: replace,
+				Text: input, Actor: actor, Now: dependencyNow(deps), Replace: replace,
 			})
 			if err != nil {
 				return MutationError("capture concept", err)
 			}
-			report, err := health.Scan(repo.Bundle, repo.Config.WikiID, time.Now().UTC())
+			report, err := health.Scan(repo.Bundle, repo.Config.WikiID, dependencyNow(deps))
 			if err != nil {
 				return MutationError("validate captured concept", err)
 			}
@@ -72,8 +72,8 @@ func NewCaptureCommand(deps Dependencies, factories ...QMDFactory) *cobra.Comman
 			if JSONRequested(deps) {
 				return WriteJSON(command, output)
 			}
-			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nconcept: %s\nuid: %s\nsource: %s (%s)\n",
-				repo.Root, result.Path, result.UID, result.SourceID, result.Digest)
+			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nbundle: %s\nqmd project: %s\ncollection: %s\nconcept: %s\nuid: %s\nsource: %s (%s)\n",
+				repo.Root, repo.Bundle, repo.QMDProject, repo.Collection, result.Path, result.UID, result.SourceID, result.Digest)
 			fmt.Fprintf(command.OutOrStdout(), "validation: conformant=%t healthy=%t\nqmd index: refreshed\n", report.Conformant, report.Healthy)
 			return nil
 		},

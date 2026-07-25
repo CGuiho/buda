@@ -136,6 +136,10 @@ func TestLocalSkillRequiresExplicitWikiAndUsesBothLocalTargets(t *testing.T) {
 		t.Fatalf("missing local wiki error = %v", err)
 	}
 	wiki := t.TempDir()
+	if _, err := service.InstallSkill(true, wiki); err == nil || err.(*Error).ExitCode() != 3 {
+		t.Fatalf("non-wiki local target error = %v", err)
+	}
+	writeWikiConfig(t, wiki, "wiki-local")
 	results, err := service.InstallSkill(true, wiki)
 	if err != nil {
 		t.Fatal(err)

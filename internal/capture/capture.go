@@ -119,27 +119,29 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 	data = append(data, []byte("---\n\n")...)
 	data = append(data, body...)
 
-	created, updated := false, false
+	created, updated, unchanged := false, false, false
 	if existing, err := os.ReadFile(absolute); err == nil {
 		document, parseErr := okf.ParseConcept(relative, existing)
 		if parseErr != nil {
 			return Result{}, fmt.Errorf("refusing to replace invalid existing concept %q: %w", relative, parseErr)
 		}
 		existingBody := bytes.TrimSpace(bytes.Split(document.Body, []byte("[^"+sourceID+"]"))[0])
-		if document.String("type") == request.Type && document.String("title") == request.Title && bytes.Equal(existingBody, bytes.TrimSpace(request.Text)) {
-			return Result{Path: relative, UID: uid, SourceID: sourceID, Digest: digest, Unchanged: true}, nil
-		}
-		if !request.Replace {
+		if document.String("type") == request.Type && document.String("title") == request.Title && document.String("description") == request.Description && bytes.Equal(existingBody, bytes.TrimSpace(request.Text)) {
+			unchanged = true
+		} else if !request.Replace {
 			return Result{}, fmt.Errorf("concept %q already exists with different content; pass explicit replacement approval", relative)
+		} else {
+			updated = true
 		}
-		updated = true
 	} else if errors.Is(err, os.ErrNotExist) {
 		created = true
 	} else {
 		return Result{}, fmt.Errorf("inspect capture target %q: %w", relative, err)
 	}
-	if err := repository.AtomicWriteFile(absolute, data, 0o644); err != nil {
-		return Result{}, err
+	if !unchanged {
+		if err := repository.AtomicWriteFile(absolute, data, 0o644); err != nil {
+			return Result{}, err
+		}
 	}
 	if err := updateIndex(selected.Bundle, relative, request.Title, request.Description); err != nil {
 		return Result{}, err
@@ -147,7 +149,7 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 	if err := updateLog(selected.Bundle, relative, request.Title, request.Now, updated); err != nil {
 		return Result{}, err
 	}
-	return Result{Path: relative, UID: uid, SourceID: sourceID, Digest: digest, Created: created, Updated: updated}, nil
+	return Result{Path: relative, UID: uid, SourceID: sourceID, Digest: digest, Created: created, Updated: updated, Unchanged: unchanged}, nil
 }
 
 func updateIndex(bundle, path, title, description string) error {

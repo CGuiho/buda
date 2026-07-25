@@ -74,7 +74,15 @@ func Create(options Options) (Result, error) {
 	if _, err := contained(options.WikiRoot, options.BundleRoot); err != nil {
 		return Result{}, fmt.Errorf("pack bundle: %w", err)
 	}
-	if _, err := contained(options.BundleRoot, options.Output); err == nil {
+	resolvedBundle, err := filepath.EvalSymlinks(options.BundleRoot)
+	if err != nil {
+		return Result{}, fmt.Errorf("resolve canonical bundle: %w", err)
+	}
+	resolvedOutput, err := resolveOutputPath(options.Output)
+	if err != nil {
+		return Result{}, err
+	}
+	if _, err := contained(resolvedBundle, resolvedOutput); err == nil {
 		return Result{}, errors.New("pack output may not be inside the canonical bundle")
 	}
 	if options.BundleName == "" {
@@ -262,6 +270,31 @@ func contained(root, candidate string) (string, error) {
 		return "", fmt.Errorf("path %q escapes %q", candidate, root)
 	}
 	return candidate, nil
+}
+
+func resolveOutputPath(target string) (string, error) {
+	missing := make([]string, 0)
+	cursor := filepath.Clean(target)
+	for {
+		if _, err := os.Lstat(cursor); err == nil {
+			resolved, resolveErr := filepath.EvalSymlinks(cursor)
+			if resolveErr != nil {
+				return "", fmt.Errorf("resolve pack output symlinks: %w", resolveErr)
+			}
+			for index := len(missing) - 1; index >= 0; index-- {
+				resolved = filepath.Join(resolved, missing[index])
+			}
+			return resolved, nil
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return "", fmt.Errorf("inspect pack output: %w", err)
+		}
+		parent := filepath.Dir(cursor)
+		if parent == cursor {
+			return "", fmt.Errorf("no existing parent for pack output %q", target)
+		}
+		missing = append(missing, filepath.Base(cursor))
+		cursor = parent
+	}
 }
 
 func replace(source, destination string) error {

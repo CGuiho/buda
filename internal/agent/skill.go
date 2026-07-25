@@ -9,6 +9,8 @@ import (
 	"path/filepath"
 	"sort"
 	"strings"
+
+	"github.com/CGuiho/buda/internal/repository"
 )
 
 type SkillInstallation struct {
@@ -114,11 +116,11 @@ func (s *Service) scopeRoot(local bool, wiki string) (string, string, error) {
 		if strings.TrimSpace(wiki) == "" {
 			return "", "", usage("--local requires an explicit --wiki")
 		}
-		absolute, err := filepath.Abs(wiki)
+		selected, err := repository.Open(wiki)
 		if err != nil {
-			return "", "", repositoryError("resolve --wiki", err)
+			return "", "", repositoryError("open selected wiki for local skill operation", err)
 		}
-		return filepath.Clean(absolute), "local", nil
+		return selected.Root, "local", nil
 	}
 	resolver := s.homeDir
 	if resolver == nil {

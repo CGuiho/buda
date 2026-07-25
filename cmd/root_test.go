@@ -4,9 +4,12 @@ import (
 	"bytes"
 	"errors"
 	"path/filepath"
+	"reflect"
+	"sort"
 	"strings"
 	"testing"
 
+	"github.com/CGuiho/buda/internal/qmd"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -14,7 +17,11 @@ import (
 func executeTest(t *testing.T, arguments ...string) (string, string, error) {
 	t.Helper()
 	var output, diagnostics bytes.Buffer
-	deps := Dependencies{In: strings.NewReader(""), Out: &output, Err: &diagnostics, Options: &Options{}}
+	deps := Dependencies{
+		In: strings.NewReader(""), Out: &output, Err: &diagnostics, Options: &Options{},
+		Executable:          func() (string, error) { return "buda", nil },
+		ScheduleMaintenance: func(_, _ string) error { return nil },
+	}
 	command := &cobra.Command{Use: "status", Short: "Report canonical and qmd state.", Args: NoArgs, RunE: func(*cobra.Command, []string) error { return nil }}
 	root := NewRootCommand(deps, BuildInfo{Version: "1.2.3"}, command)
 	root.SetArgs(arguments)
@@ -23,6 +30,22 @@ func executeTest(t *testing.T, arguments ...string) (string, string, error) {
 		err = nil
 	}
 	return output.String(), diagnostics.String(), err
+}
+
+func TestJSONErrorDocumentIncludesQMDContext(t *testing.T) {
+	var output bytes.Buffer
+	err := externalError("query qmd", &qmd.CommandError{
+		Capability: "hybrid", Version: "2.6.3", ExitCode: 17, Stderr: "model unavailable",
+	})
+	if writeErr := writeErrorJSON(&output, err); writeErr != nil {
+		t.Fatal(writeErr)
+	}
+	text := output.String()
+	for _, expected := range []string{`"code": 4`, `"capability": "hybrid"`, `"version": "2.6.3"`, `"exit_code": 17`, `"stderr": "model unavailable"`} {
+		if !strings.Contains(text, expected) {
+			t.Fatalf("JSON error missing %s: %s", expected, text)
+		}
+	}
 }
 
 func TestRootWelcomeVersionAndJSON(t *testing.T) {
@@ -70,6 +93,10 @@ func TestDeveloperHelpUsesInvokedSubtreeAndPositiveDepth(t *testing.T) {
 	if err != nil || !strings.HasPrefix(output, "## buda agent skill") || strings.Contains(output, "buda status") {
 		t.Fatalf("scoped docs = %q, err = %v", output, err)
 	}
+	output, _, err = executeTest(t, "agent", "prompt", "show", "--help-tree-depth", "1")
+	if err != nil || !strings.HasPrefix(output, "COMMAND TREE\n\nbuda agent prompt show") {
+		t.Fatalf("required-positional developer help = %q, err = %v", output, err)
+	}
 }
 
 func TestAliasPolicy(t *testing.T) {
@@ -88,6 +115,58 @@ func TestAliasPolicy(t *testing.T) {
 			}
 			t.Errorf("forbidden shorthand -%s on %s --%s", flag.Shorthand, command.CommandPath(), flag.Name)
 		})
+	}
+}
+
+func TestComposedPublicTreeAndMissingWikiContract(t *testing.T) {
+	deps := Dependencies{
+		In: strings.NewReader(""), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{},
+		Executable:          func() (string, error) { return "buda", nil },
+		ScheduleMaintenance: func(string, string) error { return nil },
+	}
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewApplicationCommands(deps)...)
+	var names []string
+	for _, command := range root.Commands() {
+		if !command.Hidden {
+			names = append(names, command.Name())
+		}
+	}
+	sort.Strings(names)
+	want := []string{"agent", "capture", "doctor", "get", "index", "ingest", "init", "lint", "pack", "query", "status"}
+	if !reflect.DeepEqual(names, want) {
+		t.Fatalf("public commands = %#v, want %#v", names, want)
+	}
+
+	for _, name := range want[1:] {
+		t.Run("missing-wiki-"+name, func(t *testing.T) {
+			localDeps := deps
+			localDeps.Options = &Options{}
+			command := NewRootCommand(localDeps, BuildInfo{Version: "test"}, NewApplicationCommands(localDeps)...)
+			arguments := []string{name}
+			if name == "get" {
+				arguments = append(arguments, "concept.md")
+			}
+			command.SetArgs(arguments)
+			err := command.Execute()
+			if ExitCode(err) != 3 {
+				t.Fatalf("%s missing wiki error=%v code=%d", name, err, ExitCode(err))
+			}
+		})
+	}
+}
+
+func TestComposedHelpTreeIncludesPositionalsAndNestedHelp(t *testing.T) {
+	var output bytes.Buffer
+	deps := Dependencies{In: strings.NewReader(""), Out: &output, Err: &bytes.Buffer{}, Options: &Options{}}
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewApplicationCommands(deps)...)
+	root.SetArgs([]string{"get", "--help-tree-depth", "1"})
+	if err := root.Execute(); !errors.Is(err, errHelpRendered) {
+		t.Fatalf("help tree error = %v", err)
+	}
+	for _, expected := range []string{"buda get <concept-path-or-result-id>", "-h, --help"} {
+		if !strings.Contains(output.String(), expected) {
+			t.Fatalf("help tree omits %q:\n%s", expected, output.String())
+		}
 	}
 }
 

@@ -1,6 +1,8 @@
 package maintenance
 
 import (
+	"crypto/sha256"
+	"encoding/hex"
 	"errors"
 	"fmt"
 	"os"
@@ -44,7 +46,7 @@ func Run(service *agent.Service, wiki string) error {
 	if service == nil {
 		return fmt.Errorf("maintenance worker requires agent service")
 	}
-	lock, acquired, err := acquireLock()
+	lock, acquired, err := acquireLock(wiki)
 	if err != nil || !acquired {
 		return err
 	}
@@ -61,7 +63,7 @@ func Run(service *agent.Service, wiki string) error {
 	return nil
 }
 
-func acquireLock() (*os.File, bool, error) {
+func acquireLock(wiki string) (*os.File, bool, error) {
 	home, err := os.UserHomeDir()
 	if err != nil {
 		return nil, false, fmt.Errorf("resolve home directory: %w", err)
@@ -70,7 +72,8 @@ func acquireLock() (*os.File, bool, error) {
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return nil, false, fmt.Errorf("create Buda state directory: %w", err)
 	}
-	path := filepath.Join(directory, "agent-maintenance.lock")
+	digest := sha256.Sum256([]byte(filepath.Clean(wiki)))
+	path := filepath.Join(directory, "agent-maintenance-"+hex.EncodeToString(digest[:8])+".lock")
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err == nil {
 		_, _ = fmt.Fprintf(file, "%d\n", os.Getpid())

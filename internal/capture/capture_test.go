@@ -1,6 +1,7 @@
 package capture
 
 import (
+	"bytes"
 	"os"
 	"path/filepath"
 	"testing"
@@ -62,5 +63,33 @@ func TestCaptureRequiresExplicitTargetAndReplacement(t *testing.T) {
 	base.Replace = true
 	if result, err := Run(selected, base); err != nil || !result.Updated {
 		t.Fatalf("approved update = %+v, %v", result, err)
+	}
+}
+
+func TestCaptureRetryRepairsIndexAndLog(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	selected, _ := repository.Open(wiki)
+	request := Request{Target: "concepts/recover.md", Title: "Recover", Text: []byte("recoverable"), Actor: "human:owner", Now: time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC)}
+	if _, err := Run(selected, request); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(selected.Bundle, "index.md"), []byte("---\nokf_version: \"0.2\"\n---\n# Knowledge\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(filepath.Join(selected.Bundle, "log.md"), []byte("# Log\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	result, err := Run(selected, request)
+	if err != nil || !result.Unchanged {
+		t.Fatalf("retry = %+v, %v", result, err)
+	}
+	for _, name := range []string{"index.md", "log.md"} {
+		data, readErr := os.ReadFile(filepath.Join(selected.Bundle, name))
+		if readErr != nil || !bytes.Contains(data, []byte("concepts/recover.md")) {
+			t.Fatalf("%s not repaired: %v\n%s", name, readErr, data)
+		}
 	}
 }

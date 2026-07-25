@@ -51,9 +51,10 @@ func NewQueryCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command 
 	var limit int
 	var explain bool
 	command := &cobra.Command{
-		Use:   "query",
-		Short: "Retrieve normalized OKF evidence through one explicit qmd collection.",
-		Args:  NoArgs,
+		Use:     "query",
+		Short:   "Retrieve normalized OKF evidence through one explicit qmd collection.",
+		Example: "  buda query --wiki ./wiki --text \"authentication decisions\" --mode hybrid",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if strings.TrimSpace(text) == "" {
 				return UsageError("--text is required")

@@ -7,15 +7,19 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strings"
+	"sync"
 	"time"
 
 	"go.yaml.in/yaml/v3"
 )
 
 type Adapter struct {
-	config Config
-	runner Runner
+	config  Config
+	runner  Runner
+	mu      sync.RWMutex
+	version string
 }
 
 func New(config Config, runner Runner) (*Adapter, error) {
@@ -59,7 +63,7 @@ func New(config Config, runner Runner) (*Adapter, error) {
 }
 
 func (adapter *Adapter) Version(ctx context.Context) (Version, error) {
-	result, err := adapter.run(ctx, "version", "--version")
+	result, err := adapter.runAt(ctx, adapter.compatibilityDirectory(), "version", "--version")
 	if err != nil {
 		return Version{}, err
 	}
@@ -78,6 +82,7 @@ func (adapter *Adapter) Version(ctx context.Context) (Version, error) {
 	if compareVersion(version, minimum) < 0 || compareVersion(version, maximum) >= 0 {
 		return Version{}, fmt.Errorf("unsupported qmd version %d.%d.%d; supported range is >=%s <%s", version.Major, version.Minor, version.Patch, adapter.config.MinimumVersion, adapter.config.MaximumVersion)
 	}
+	adapter.setKnownVersion(fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch))
 	return version, nil
 }
 
@@ -89,12 +94,15 @@ func (adapter *Adapter) CheckCompatibility(ctx context.Context) (Compatibility, 
 	if err != nil {
 		return Compatibility{}, err
 	}
-	result, err := adapter.run(ctx, "capabilities", "--help")
+	result, err := adapter.runAt(ctx, adapter.compatibilityDirectory(), "capabilities", "--help")
 	if err != nil {
 		return Compatibility{}, err
 	}
 	help := string(result.Stdout)
-	required := []string{"qmd search", "qmd vsearch", "qmd query", "qmd multi-get", "qmd status", "qmd doctor", "qmd update", "qmd embed", "--format", "--collection"}
+	// qmd 2.5+ provides doctor, but its root help does not list that command.
+	// Version gating establishes doctor availability; root-help proof covers the
+	// commands and flags that the root help actually advertises.
+	required := []string{"qmd search", "qmd vsearch", "qmd query", "qmd multi-get", "qmd status", "qmd update", "qmd embed", "--format", "--collection"}
 	for _, capability := range required {
 		if !strings.Contains(help, capability) {
 			return Compatibility{}, fmt.Errorf("qmd %d.%d.%d lacks required capability %q", version.Major, version.Minor, version.Patch, capability)
@@ -129,7 +137,11 @@ func (adapter *Adapter) EnsureProject(ctx context.Context) error {
 			}
 		}
 	}
-	if _, err := adapter.run(ctx, "collection mapping", "collection", "show", adapter.config.Collection); err != nil {
+	configured, err := adapter.localCollectionConfigured()
+	if err != nil {
+		return err
+	}
+	if !configured {
 		relativeBundle, relErr := filepath.Rel(adapter.config.WikiRoot, adapter.config.BundleRoot)
 		if relErr != nil {
 			return relErr
@@ -178,13 +190,24 @@ func (adapter *Adapter) ValidateCollection(ctx context.Context) error {
 }
 
 func (adapter *Adapter) validateLocalConfiguration() error {
+	configured, err := adapter.localCollectionConfigured()
+	if err != nil {
+		return err
+	}
+	if !configured {
+		return fmt.Errorf("qmd project does not define configured collection %q", adapter.config.Collection)
+	}
+	return nil
+}
+
+func (adapter *Adapter) localCollectionConfigured() (bool, error) {
 	configPath := filepath.Join(adapter.config.ProjectDirectory, "index.yml")
 	if _, err := os.Stat(configPath); errors.Is(err, os.ErrNotExist) {
 		configPath = filepath.Join(adapter.config.ProjectDirectory, "index.yaml")
 	}
 	input, err := os.Open(configPath)
 	if err != nil {
-		return fmt.Errorf("open qmd project configuration %q: %w", configPath, err)
+		return false, fmt.Errorf("open qmd project configuration %q: %w", configPath, err)
 	}
 	defer input.Close()
 	var project struct {
@@ -193,14 +216,17 @@ func (adapter *Adapter) validateLocalConfiguration() error {
 		} `yaml:"collections"`
 	}
 	if err := yaml.NewDecoder(input).Decode(&project); err != nil {
-		return fmt.Errorf("decode qmd project configuration %q: %w", configPath, err)
+		return false, fmt.Errorf("decode qmd project configuration %q: %w", configPath, err)
+	}
+	if len(project.Collections) == 0 {
+		return false, nil
 	}
 	if len(project.Collections) != 1 {
-		return fmt.Errorf("qmd project must contain exactly one collection, found %d", len(project.Collections))
+		return false, fmt.Errorf("qmd project must contain exactly one collection, found %d", len(project.Collections))
 	}
 	collection, exists := project.Collections[adapter.config.Collection]
 	if !exists {
-		return fmt.Errorf("qmd project does not define configured collection %q", adapter.config.Collection)
+		return false, fmt.Errorf("qmd project does not define configured collection %q", adapter.config.Collection)
 	}
 	mappedPath := collection.Path
 	if !filepath.IsAbs(mappedPath) {
@@ -208,16 +234,16 @@ func (adapter *Adapter) validateLocalConfiguration() error {
 	}
 	mappedPath, err = filepath.Abs(mappedPath)
 	if err != nil {
-		return err
+		return false, err
 	}
 	expected, err := filepath.Abs(adapter.config.BundleRoot)
 	if err != nil {
-		return err
+		return false, err
 	}
 	if !samePath(mappedPath, expected) {
-		return fmt.Errorf("qmd collection %q maps to %q, expected canonical bundle %q", adapter.config.Collection, mappedPath, expected)
+		return false, fmt.Errorf("qmd collection %q maps to %q, expected canonical bundle %q", adapter.config.Collection, mappedPath, expected)
 	}
-	return nil
+	return true, nil
 }
 
 func (adapter *Adapter) Update(ctx context.Context) (IndexResult, error) {
@@ -228,7 +254,7 @@ func (adapter *Adapter) Update(ctx context.Context) (IndexResult, error) {
 	if err != nil {
 		return IndexResult{}, err
 	}
-	return IndexResult{Capability: "index", Output: strings.TrimSpace(string(result.Stdout))}, nil
+	return IndexResult{Capability: "index", State: "refreshed", Output: strings.TrimSpace(string(result.Stdout))}, nil
 }
 
 func (adapter *Adapter) Embed(ctx context.Context) (IndexResult, error) {
@@ -239,7 +265,7 @@ func (adapter *Adapter) Embed(ctx context.Context) (IndexResult, error) {
 	if err != nil {
 		return IndexResult{}, err
 	}
-	return IndexResult{Capability: "embed", Output: strings.TrimSpace(string(result.Stdout))}, nil
+	return IndexResult{Capability: "embed", State: "refreshed", Output: strings.TrimSpace(string(result.Stdout))}, nil
 }
 
 func (adapter *Adapter) Search(ctx context.Context, options SearchOptions) ([]Match, error) {
@@ -352,23 +378,128 @@ func (adapter *Adapter) diagnostic(ctx context.Context, capability string) (Diag
 		return Diagnostic{}, err
 	}
 	version := compatibility.Version
-	return Diagnostic{Capability: capability, Version: fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch), Output: strings.TrimSpace(string(result.Stdout))}, nil
+	output := strings.TrimSpace(string(result.Stdout))
+	diagnostic := Diagnostic{Capability: capability, Version: fmt.Sprintf("%d.%d.%d", version.Major, version.Minor, version.Patch), State: "ready", Output: output}
+	if capability == "doctor" {
+		diagnostic.Checks, diagnostic.Warnings, diagnostic.Failures = parseDoctorChecks(output)
+		if diagnostic.Checks == 0 {
+			return Diagnostic{}, &CommandError{Capability: capability, Version: diagnostic.Version, Stderr: "qmd doctor output did not contain recognizable checks"}
+		}
+		if diagnostic.Failures > 0 {
+			diagnostic.State = "degraded"
+		}
+	} else if capability == "status" {
+		clean := ansiEscape.ReplaceAllString(output, "")
+		if !statusTotal.MatchString(clean) || !statusVectors.MatchString(clean) {
+			return Diagnostic{}, &CommandError{Capability: capability, Version: diagnostic.Version, Stderr: "qmd status output did not contain recognizable document and vector counts"}
+		}
+		diagnostic.Documents, diagnostic.Vectors, diagnostic.Pending = parseStatusCounts(output)
+		if diagnostic.Pending > 0 {
+			diagnostic.State = "degraded"
+		}
+	}
+	return diagnostic, nil
+}
+
+var (
+	ansiEscape    = regexp.MustCompile(`\x1b\[[0-9;]*m`)
+	statusTotal   = regexp.MustCompile(`(?m)^\s*Total:\s*([0-9,]+)\s+files indexed`)
+	statusVectors = regexp.MustCompile(`(?m)^\s*Vectors:\s*([0-9,]+)\s+embedded`)
+	statusPending = regexp.MustCompile(`(?m)^\s*Pending:\s*([0-9,]+)\s+need embedding`)
+)
+
+func parseDoctorChecks(output string) (checks, warnings, failures int) {
+	clean := ansiEscape.ReplaceAllString(output, "")
+	for _, line := range strings.Split(clean, "\n") {
+		line = strings.TrimSpace(line)
+		switch {
+		case strings.HasPrefix(line, "✓ "):
+			checks++
+		case strings.HasPrefix(line, "⚠ "):
+			checks++
+			warnings++
+			label := strings.TrimSpace(strings.SplitN(strings.TrimPrefix(line, "⚠ "), ":", 2)[0])
+			if operationalDoctorLabel(label) {
+				failures++
+			}
+		}
+	}
+	return checks, warnings, failures
+}
+
+func operationalDoctorLabel(label string) bool {
+	switch label {
+	case "SQLite runtime", "sqlite-vec", "index config", "model cache", "legacy fingerprint adoption",
+		"embedding freshness", "mixed named embedding fingerprints", "embedding fingerprints", "embedding vector sample":
+		return true
+	default:
+		return false
+	}
+}
+
+func parseStatusCounts(output string) (documents, vectors, pending int) {
+	clean := ansiEscape.ReplaceAllString(output, "")
+	documents = matchCount(statusTotal, clean)
+	vectors = matchCount(statusVectors, clean)
+	pending = matchCount(statusPending, clean)
+	return documents, vectors, pending
+}
+
+func matchCount(pattern *regexp.Regexp, value string) int {
+	match := pattern.FindStringSubmatch(value)
+	if len(match) != 2 {
+		return 0
+	}
+	normalized := strings.ReplaceAll(match[1], ",", "")
+	var result int
+	_, _ = fmt.Sscan(normalized, &result)
+	return result
 }
 
 func (adapter *Adapter) run(ctx context.Context, capability string, arguments ...string) (ProcessResult, error) {
+	return adapter.runAt(ctx, adapter.config.WikiRoot, capability, arguments...)
+}
+
+func (adapter *Adapter) runAt(ctx context.Context, directory, capability string, arguments ...string) (ProcessResult, error) {
 	requestContext, cancel := context.WithTimeout(ctx, adapter.config.Timeout)
 	defer cancel()
-	result, err := adapter.runner.Run(requestContext, Request{Executable: adapter.config.Executable, Arguments: append([]string(nil), arguments...), Directory: adapter.config.WikiRoot})
+	result, err := adapter.runner.Run(requestContext, Request{Executable: adapter.config.Executable, Arguments: append([]string(nil), arguments...), Directory: directory})
 	if requestContext.Err() != nil {
-		return result, &CommandError{Capability: capability, ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr), Cause: requestContext.Err()}
+		return result, &CommandError{Capability: capability, Version: adapter.knownVersion(), ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr), Cause: requestContext.Err()}
 	}
 	if err != nil {
-		return result, &CommandError{Capability: capability, ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr), Cause: err}
+		return result, &CommandError{Capability: capability, Version: adapter.knownVersion(), ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr), Cause: err}
 	}
 	if result.ExitCode != 0 {
-		return result, &CommandError{Capability: capability, ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr)}
+		return result, &CommandError{Capability: capability, Version: adapter.knownVersion(), ExitCode: result.ExitCode, Stderr: adapter.sanitizeDiagnostics(result.Stderr)}
 	}
 	return result, nil
+}
+
+func (adapter *Adapter) setKnownVersion(version string) {
+	adapter.mu.Lock()
+	defer adapter.mu.Unlock()
+	adapter.version = version
+}
+
+func (adapter *Adapter) knownVersion() string {
+	adapter.mu.RLock()
+	defer adapter.mu.RUnlock()
+	return adapter.version
+}
+
+func (adapter *Adapter) compatibilityDirectory() string {
+	directory := adapter.config.WikiRoot
+	for {
+		if info, err := os.Stat(directory); err == nil && info.IsDir() {
+			return directory
+		}
+		parent := filepath.Dir(directory)
+		if parent == directory {
+			return directory
+		}
+		directory = parent
+	}
 }
 
 func (adapter *Adapter) sanitizeDiagnostics(value []byte) string {

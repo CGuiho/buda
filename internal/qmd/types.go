@@ -95,10 +95,18 @@ type Document struct {
 type Diagnostic struct {
 	Capability string `json:"capability"`
 	Version    string `json:"version,omitempty"`
-	Output     string `json:"output"`
+	State      string `json:"state"`
+	Checks     int    `json:"checks,omitempty"`
+	Warnings   int    `json:"warnings,omitempty"`
+	Failures   int    `json:"operational_failures,omitempty"`
+	Documents  int    `json:"documents,omitempty"`
+	Vectors    int    `json:"vectors,omitempty"`
+	Pending    int    `json:"pending_embeddings,omitempty"`
+	Output     string `json:"-"`
 }
 
 type IndexResult struct {
 	Capability string `json:"capability"`
-	Output     string `json:"output"`
+	State      string `json:"state"`
+	Output     string `json:"-"`
 }

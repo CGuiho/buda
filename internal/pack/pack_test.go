@@ -59,6 +59,20 @@ func TestCreateRejectsOutputInsideBundle(t *testing.T) {
 	}
 }
 
+func TestCreateRejectsOutputAliasedIntoBundle(t *testing.T) {
+	root := t.TempDir()
+	bundle := filepath.Join(root, "knowledge")
+	mustWrite(t, filepath.Join(bundle, "index.md"), "# Index\n")
+	alias := filepath.Join(root, "alias")
+	if err := os.Symlink(bundle, alias); err != nil {
+		t.Skipf("symlink unavailable: %v", err)
+	}
+	_, err := Create(Options{WikiRoot: root, BundleRoot: bundle, WikiID: "wiki", Output: filepath.Join(alias, "pack.zip")})
+	if err == nil {
+		t.Fatal("expected resolved output containment error")
+	}
+}
+
 func mustWrite(t *testing.T, path, content string) {
 	t.Helper()
 	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {

@@ -22,7 +22,7 @@ type treeItem struct {
 func Tree(command *cobra.Command, depth int) string {
 	var output strings.Builder
 	output.WriteString("COMMAND TREE\n\n")
-	fmt.Fprintf(&output, "%s  %s\n", command.CommandPath(), command.Short)
+	fmt.Fprintf(&output, "%s  %s\n", commandUsage(command), command.Short)
 	renderChildren(&output, command, "", 1, depth)
 	return output.String()
 }
@@ -46,10 +46,11 @@ func renderChildren(output *strings.Builder, command *cobra.Command, prefix stri
 }
 
 func commandTreeItems(command *cobra.Command) []treeItem {
+	command.InitDefaultHelpFlag()
 	var items []treeItem
 	for _, child := range command.Commands() {
 		if !child.Hidden {
-			items = append(items, treeItem{name: child.Name(), description: child.Short, command: child})
+			items = append(items, treeItem{name: child.Use, description: child.Short, command: child})
 		}
 	}
 	seen := map[string]bool{}
@@ -78,6 +79,14 @@ func commandTreeItems(command *cobra.Command) []treeItem {
 		return items[i].name < items[j].name
 	})
 	return items
+}
+
+func commandUsage(command *cobra.Command) string {
+	suffix := strings.TrimSpace(strings.TrimPrefix(command.Use, command.Name()))
+	if suffix == "" {
+		return command.CommandPath()
+	}
+	return command.CommandPath() + " " + suffix
 }
 
 // Markdown renders deterministic documentation for the live public subtree.

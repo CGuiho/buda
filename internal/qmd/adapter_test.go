@@ -134,15 +134,34 @@ func TestVersionRange(t *testing.T) {
 }
 
 func TestCompatibilityRequiresEveryUsedCapability(t *testing.T) {
-	help := "qmd search\nqmd vsearch\nqmd query\nqmd multi-get\nqmd status\nqmd doctor\nqmd update\nqmd embed\n--format\n-c, --collection"
+	help := "qmd search\nqmd vsearch\nqmd query\nqmd multi-get\nqmd status\nqmd update\nqmd embed\n--format\n-c, --collection"
 	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.6.3\n")}, {Stdout: []byte(help)}}}
 	adapter := testAdapter(t, runner)
 	compatibility, err := adapter.CheckCompatibility(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if compatibility.Version.Major != 2 || len(compatibility.Capabilities) != 10 {
+	if compatibility.Version.Major != 2 || len(compatibility.Capabilities) != 9 {
 		t.Fatalf("compatibility = %#v", compatibility)
+	}
+}
+
+func TestCompatibilityUsesExistingParentBeforeWikiInitialization(t *testing.T) {
+	parent := t.TempDir()
+	wiki := filepath.Join(parent, "not-created", "wiki")
+	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.6.3\n")}}}
+	adapter, err := New(Config{
+		WikiRoot: wiki, BundleRoot: filepath.Join(wiki, "knowledge"),
+		ProjectDirectory: filepath.Join(wiki, ".qmd"), Collection: "buda-wiki",
+	}, runner)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if _, err := adapter.Version(context.Background()); err != nil {
+		t.Fatal(err)
+	}
+	if runner.requests[0].Directory != parent {
+		t.Fatalf("compatibility directory = %q, want existing parent %q", runner.requests[0].Directory, parent)
 	}
 }
 
@@ -174,6 +193,25 @@ func TestValidateCollectionAcceptsOneContainedRelativeMapping(t *testing.T) {
 	}
 	if err := adapter.ValidateCollection(context.Background()); err != nil {
 		t.Fatal(err)
+	}
+}
+
+func TestNormalizeDoctorAndStatusOutput(t *testing.T) {
+	doctorOutput, err := os.ReadFile(filepath.Join("testdata", "doctor-2.6.3.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	checks, warnings, failures := parseDoctorChecks(string(doctorOutput))
+	if checks != 8 || warnings != 1 || failures != 0 {
+		t.Fatalf("doctor checks=%d warnings=%d failures=%d", checks, warnings, failures)
+	}
+	statusOutput, err := os.ReadFile(filepath.Join("testdata", "status-2.6.3.txt"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	documents, vectors, pending := parseStatusCounts(string(statusOutput))
+	if documents != 1234 || vectors != 100 || pending != 12 {
+		t.Fatalf("status documents=%d vectors=%d pending=%d", documents, vectors, pending)
 	}
 }
 

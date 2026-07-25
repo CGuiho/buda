@@ -19,9 +19,10 @@ type GetResult struct {
 
 func NewGetCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	return &cobra.Command{
-		Use:   "get <concept-path-or-result-id>",
-		Short: "Retrieve one contained concept through qmd.",
-		Args:  ExactArgs(1),
+		Use:     "get <concept-path-or-result-id>",
+		Short:   "Retrieve one contained concept through qmd.",
+		Example: "  buda get --wiki ./wiki concepts/authentication.md",
+		Args:    ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
 			repo, client, err := openQMD(deps, factories)
 			if err != nil {

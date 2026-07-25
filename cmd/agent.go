@@ -15,10 +15,11 @@ import (
 
 func newAgentCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "agent",
-		Short: "Manage Buda agent skills, instructions, and prompts.",
-		Args:  NoArgs,
-		RunE:  showHelp,
+		Use:     "agent",
+		Short:   "Manage Buda agent skills, instructions, and prompts.",
+		Example: "  buda agent skill list",
+		Args:    NoArgs,
+		RunE:    showHelp,
 	}
 	command.AddCommand(newAgentSkillCommand(deps))
 	command.AddCommand(newAgentInstructionCommand(deps))
@@ -29,18 +30,20 @@ func newAgentCommand(deps Dependencies) *cobra.Command {
 func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 	var local bool
 	command := &cobra.Command{
-		Use:   "skill",
-		Short: "Manage the embedded guiho-s-0002-buda skill.",
-		Args:  NoArgs,
-		RunE:  showHelp,
+		Use:     "skill",
+		Short:   "Manage the embedded guiho-s-0002-buda skill.",
+		Example: "  buda agent skill update\n  buda agent skill update --local --wiki ./wiki",
+		Args:    NoArgs,
+		RunE:    showHelp,
 	}
 	command.PersistentFlags().BoolVar(&local, "local", false, "Use both project-local skill destinations under --wiki")
 	for _, action := range []string{"install", "uninstall", "update"} {
 		action := action
 		command.AddCommand(&cobra.Command{
-			Use:   action,
-			Short: skillActionDescription(action),
-			Args:  NoArgs,
+			Use:     action,
+			Short:   skillActionDescription(action),
+			Example: "  buda agent skill " + action,
+			Args:    NoArgs,
 			RunE: func(command *cobra.Command, _ []string) error {
 				var (
 					result []agent.SkillInstallation
@@ -59,9 +62,10 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 		})
 	}
 	command.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List the embedded skill and both resolved installation states.",
-		Args:  NoArgs,
+		Use:     "list",
+		Short:   "List the embedded skill and both resolved installation states.",
+		Example: "  buda agent skill list",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			skill, err := deps.Agents.Skill()
 			if err != nil {
@@ -75,8 +79,9 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 		},
 	})
 	command.AddCommand(&cobra.Command{
-		Use:   "show [id]",
-		Short: "Show embedded skill metadata and both installation states.",
+		Use:     "show [id]",
+		Short:   "Show embedded skill metadata and both installation states.",
+		Example: "  buda agent skill show guiho-s-0002-buda",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return UsageError("accepts at most 1 arg(s), received %d", len(args))
@@ -103,17 +108,19 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 
 func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "instruction",
-		Short: "Manage bounded Buda blocks in repository instructions.",
-		Args:  NoArgs,
-		RunE:  showHelp,
+		Use:     "instruction",
+		Short:   "Manage bounded Buda blocks in repository instructions.",
+		Example: "  buda agent instruction update --wiki ./wiki",
+		Args:    NoArgs,
+		RunE:    showHelp,
 	}
 	for _, action := range []string{"apply", "remove", "update"} {
 		action := action
 		command.AddCommand(&cobra.Command{
-			Use:   action,
-			Short: instructionActionDescription(action),
-			Args:  NoArgs,
+			Use:     action,
+			Short:   instructionActionDescription(action),
+			Example: "  buda agent instruction " + action + " --wiki ./wiki",
+			Args:    NoArgs,
 			RunE: func(command *cobra.Command, _ []string) error {
 				var (
 					result []agent.InstructionTarget
@@ -132,9 +139,10 @@ func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 		})
 	}
 	command.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List the embedded instruction and managed target states.",
-		Args:  NoArgs,
+		Use:     "list",
+		Short:   "List the embedded instruction and managed target states.",
+		Example: "  buda agent instruction list --wiki ./wiki",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			context, err := deps.Agents.ReadInstructionContext(deps.Options.Wiki)
 			if err != nil {
@@ -154,8 +162,9 @@ func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 		},
 	})
 	command.AddCommand(&cobra.Command{
-		Use:   "show [AGENTS.md|CLAUDE.md]",
-		Short: "Show the embedded block or one selected installed block.",
+		Use:     "show [AGENTS.md|CLAUDE.md]",
+		Short:   "Show the embedded block or one selected installed block.",
+		Example: "  buda agent instruction show AGENTS.md --wiki ./wiki",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return UsageError("accepts at most 1 arg(s), received %d", len(args))
@@ -192,15 +201,17 @@ func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 
 func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
-		Use:   "prompt",
-		Short: "Inspect embedded Buda prompt resources without running a model.",
-		Args:  NoArgs,
-		RunE:  showHelp,
+		Use:     "prompt",
+		Short:   "Inspect embedded Buda prompt resources without running a model.",
+		Example: "  buda agent prompt show buda",
+		Args:    NoArgs,
+		RunE:    showHelp,
 	}
 	command.AddCommand(&cobra.Command{
-		Use:   "list",
-		Short: "List embedded Buda prompts.",
-		Args:  NoArgs,
+		Use:     "list",
+		Short:   "List embedded Buda prompts.",
+		Example: "  buda agent prompt list",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			prompt, err := deps.Agents.Prompt()
 			if err != nil {
@@ -211,9 +222,10 @@ func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 		},
 	})
 	command.AddCommand(&cobra.Command{
-		Use:   "show <id>",
-		Short: "Print one raw embedded Buda prompt.",
-		Args:  ExactArgs(1),
+		Use:     "show <id>",
+		Short:   "Print one raw embedded Buda prompt.",
+		Example: "  buda agent prompt show buda",
+		Args:    ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
 			if args[0] != agent.PromptID {
 				return UsageError("unknown prompt id %q", args[0])

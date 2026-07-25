@@ -3,7 +3,6 @@ package cmd
 import (
 	"fmt"
 	"path/filepath"
-	"time"
 
 	"github.com/CGuiho/buda/internal/config"
 	"github.com/CGuiho/buda/internal/repository"
@@ -13,9 +12,10 @@ import (
 func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	var wikiID string
 	command := &cobra.Command{
-		Use:   "init",
-		Short: "Initialize one explicit OKF-compatible Buda wiki.",
-		Args:  NoArgs,
+		Use:     "init",
+		Short:   "Initialize one explicit OKF-compatible Buda wiki.",
+		Example: "  buda init --wiki ./wiki --wiki-id team-knowledge",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if wikiID == "" {
 				return UsageError("--wiki-id is required")
@@ -41,7 +41,7 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 			}
 			result, err := repository.Initialize(root, repository.InitOptions{
 				WikiID: wikiID,
-				Now:    time.Now().UTC(),
+				Now:    dependencyNow(deps),
 				BeforeCommit: func(candidate repository.Repository) error {
 					if err := client.EnsureProject(command.Context()); err != nil {
 						return externalError("validate qmd and establish project-local collection", err)

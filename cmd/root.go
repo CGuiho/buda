@@ -5,13 +5,17 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
+	"time"
 
 	"github.com/CGuiho/buda/internal/agent"
 	clihelp "github.com/CGuiho/buda/internal/help"
 	"github.com/CGuiho/buda/internal/maintenance"
+	"github.com/CGuiho/buda/internal/qmd"
+	"github.com/CGuiho/buda/internal/source"
 	"github.com/spf13/cobra"
 )
 
@@ -38,6 +42,8 @@ type Dependencies struct {
 
 	Executable          func() (string, error)
 	ScheduleMaintenance func(executable, wiki string) error
+	Now                 func() time.Time
+	HTTPClient          source.Doer
 }
 
 type exitCoder interface {
@@ -48,6 +54,22 @@ type codedError struct {
 	code    int
 	message string
 	cause   error
+}
+
+type renderedError struct{ cause error }
+
+func (e *renderedError) Error() string { return e.cause.Error() }
+func (e *renderedError) Unwrap() error { return e.cause }
+func (e *renderedError) ExitCode() int { return ExitCode(e.cause) }
+
+type errorDocument struct {
+	Error errorBody `json:"error"`
+}
+
+type errorBody struct {
+	Code    int               `json:"code"`
+	Message string            `json:"message"`
+	QMD     *qmd.CommandError `json:"qmd,omitempty"`
 }
 
 func (e *codedError) Error() string {
@@ -83,6 +105,8 @@ func DefaultDependencies() Dependencies {
 		Agents:              agent.NewService(agent.DefaultResources()),
 		Executable:          os.Executable,
 		ScheduleMaintenance: maintenance.Schedule,
+		Now:                 time.Now,
+		HTTPClient:          &http.Client{Timeout: 30 * time.Second},
 	}
 }
 
@@ -93,7 +117,32 @@ func Execute(info BuildInfo) error {
 	if errors.Is(err, errHelpRendered) {
 		return nil
 	}
+	if err != nil && deps.Options.JSON && !IsErrorRendered(err) {
+		if renderErr := writeErrorJSON(deps.Err, err); renderErr == nil {
+			return &renderedError{cause: err}
+		}
+	}
 	return err
+}
+
+// IsErrorRendered reports whether Execute already emitted the one-document
+// JSON diagnostic selected by --json.
+func IsErrorRendered(err error) bool {
+	var rendered *renderedError
+	return errors.As(err, &rendered)
+}
+
+func writeErrorJSON(writer io.Writer, err error) error {
+	body := errorBody{Code: ExitCode(err), Message: err.Error()}
+	var qmdError *qmd.CommandError
+	if errors.As(err, &qmdError) {
+		copy := *qmdError
+		body.QMD = &copy
+	}
+	encoder := json.NewEncoder(writer)
+	encoder.SetEscapeHTML(false)
+	encoder.SetIndent("", "  ")
+	return encoder.Encode(errorDocument{Error: body})
 }
 
 func ExitCode(err error) int {
@@ -118,6 +167,7 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	root := &cobra.Command{
 		Use:           "buda",
 		Short:         "Maintain and retrieve one explicit evidence-backed OKF wiki.",
+		Example:       "  buda status --wiki C:\\knowledge\\team-wiki",
 		Version:       info.Version,
 		SilenceUsage:  true,
 		SilenceErrors: true,
@@ -192,7 +242,34 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	root.AddCommand(commands...)
 	root.AddCommand(newAgentCommand(deps))
 	root.AddCommand(newMaintenanceCommand(deps))
+	wrapDeveloperHelpArgs(root)
 	return root
+}
+
+// wrapDeveloperHelpArgs lets the three generated developer-help forms inspect
+// any command scope without satisfying that command's ordinary positionals.
+// Cobra evaluates Args before PersistentPreRunE, so this must wrap the live
+// tree rather than relying on the pre-run renderer alone.
+func wrapDeveloperHelpArgs(command *cobra.Command) {
+	original := command.Args
+	command.Args = func(current *cobra.Command, args []string) error {
+		if developerHelpRequested(current) {
+			return nil
+		}
+		if original == nil {
+			return nil
+		}
+		return original(current, args)
+	}
+	for _, child := range command.Commands() {
+		wrapDeveloperHelpArgs(child)
+	}
+}
+
+func developerHelpRequested(command *cobra.Command) bool {
+	return command.Flags().Changed("help-tree") ||
+		command.Flags().Changed("help-tree-depth") ||
+		command.Flags().Changed("help-docs")
 }
 
 func normalizeDependencies(deps Dependencies) Dependencies {
@@ -216,6 +293,12 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	}
 	if deps.ScheduleMaintenance == nil {
 		deps.ScheduleMaintenance = maintenance.Schedule
+	}
+	if deps.Now == nil {
+		deps.Now = time.Now
+	}
+	if deps.HTTPClient == nil {
+		deps.HTTPClient = &http.Client{Timeout: 30 * time.Second}
 	}
 	return deps
 }
@@ -260,4 +343,11 @@ func WriteJSON(command *cobra.Command, value any) error {
 
 func JSONRequested(deps Dependencies) bool {
 	return deps.Options != nil && deps.Options.JSON
+}
+
+func dependencyNow(deps Dependencies) time.Time {
+	if deps.Now != nil {
+		return deps.Now().UTC()
+	}
+	return time.Now().UTC()
 }

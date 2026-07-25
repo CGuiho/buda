@@ -24,10 +24,21 @@ import (
 const maxCandidates = 25
 
 type Evidence struct {
-	Path    string  `json:"path"`
-	Rank    int     `json:"rank,omitempty"`
-	Score   float64 `json:"score,omitempty"`
-	Snippet string  `json:"snippet,omitempty"`
+	Path       string           `json:"path"`
+	DocumentID string           `json:"document_id,omitempty"`
+	Rank       int              `json:"rank,omitempty"`
+	Score      float64          `json:"score,omitempty"`
+	Snippet    string           `json:"snippet,omitempty"`
+	Metadata   map[string]any   `json:"metadata,omitempty"`
+	Sources    []EvidenceSource `json:"sources,omitempty"`
+	Warnings   []string         `json:"warnings,omitempty"`
+}
+
+type EvidenceSource struct {
+	ID       string `json:"id"`
+	Resource string `json:"resource"`
+	Title    string `json:"title,omitempty"`
+	Joined   bool   `json:"claim_footnote_joined"`
 }
 
 type Request struct {
@@ -127,7 +138,7 @@ func Run(ctx context.Context, selected repository.Repository, request Request) (
 	body := fmt.Sprintf("# Source\n\nBuda registered immutable evidence from `%s`.[^original]\n\n[^original]: Original explicit ingest source.\n", artifact.Original)
 	conceptData := append([]byte("---\n"), front...)
 	conceptData = append(conceptData, []byte("---\n\n"+body)...)
-	conceptUnchanged, err := ensureSourceConcept(conceptAbsolute, conceptRelative, conceptData, selected.Config.WikiID, stored.Digest)
+	conceptUnchanged, err := ensureSourceConcept(conceptAbsolute, conceptRelative, conceptData, selected.Config.WikiID, stored.Digest, artifact.Original)
 	if err != nil {
 		return Result{}, err
 	}
@@ -152,7 +163,7 @@ func Run(ctx context.Context, selected repository.Repository, request Request) (
 	workData = append(workData, '\n')
 	digestHex := strings.TrimPrefix(stored.Digest, "sha256:")
 	workAbsolute := filepath.Join(selected.Derived, "ingest", digestHex+".json")
-	workUnchanged, err := ensureWorkItem(workAbsolute, workData, selected.Config.WikiID, stored.Digest)
+	workUnchanged, err := ensureWorkItem(workAbsolute, workData, selected.Config.WikiID, stored.Digest, artifact.Original)
 	if err != nil {
 		return Result{}, err
 	}
@@ -185,7 +196,7 @@ func deriveTitle(original, fallback string) string {
 	return fallback
 }
 
-func ensureSourceConcept(path, relative string, data []byte, wikiID, digest string) (bool, error) {
+func ensureSourceConcept(path, relative string, data []byte, wikiID, digest, original string) (bool, error) {
 	existing, err := os.ReadFile(path)
 	if err == nil {
 		document, parseErr := okf.ParseConcept(relative, existing)
@@ -193,7 +204,8 @@ func ensureSourceConcept(path, relative string, data []byte, wikiID, digest stri
 			return false, fmt.Errorf("existing source record is invalid: %w", parseErr)
 		}
 		metadata, present, parseErr := document.Buda()
-		if parseErr != nil || !present || metadata.WikiID != wikiID || metadata.SourceDigests["original"] != digest {
+		sources, sourcesErr := document.Sources()
+		if parseErr != nil || !present || metadata.WikiID != wikiID || metadata.SourceDigests["original"] != digest || sourcesErr != nil || len(sources) != 1 || sources[0].Resource != original {
 			return false, fmt.Errorf("existing source record %q does not match selected wiki and digest", relative)
 		}
 		if document.String("type") == "Reference" {
@@ -210,7 +222,7 @@ func ensureSourceConcept(path, relative string, data []byte, wikiID, digest stri
 	return false, nil
 }
 
-func ensureWorkItem(path string, data []byte, wikiID, digest string) (bool, error) {
+func ensureWorkItem(path string, data []byte, wikiID, digest, original string) (bool, error) {
 	existing, err := os.ReadFile(path)
 	if err == nil {
 		var work WorkItem
@@ -219,7 +231,7 @@ func ensureWorkItem(path string, data []byte, wikiID, digest string) (bool, erro
 		if err := decoder.Decode(&work); err != nil {
 			return false, fmt.Errorf("decode existing ingest work item: %w", err)
 		}
-		if work.Schema != 1 || work.WikiID != wikiID || work.Digest != digest {
+		if work.Schema != 1 || work.WikiID != wikiID || work.Digest != digest || work.OriginalResource != original {
 			return false, fmt.Errorf("existing ingest work item %q does not match selected wiki and digest", path)
 		}
 		return true, nil

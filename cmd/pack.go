@@ -13,9 +13,10 @@ import (
 func NewPackCommand(deps Dependencies) *cobra.Command {
 	var output string
 	command := &cobra.Command{
-		Use:   "pack",
-		Short: "Create a deterministic archive of the entire canonical OKF bundle.",
-		Args:  NoArgs,
+		Use:     "pack",
+		Short:   "Create a deterministic archive of the entire canonical OKF bundle.",
+		Example: "  buda pack --wiki ./wiki --output ./wiki.zip",
+		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			if strings.TrimSpace(output) == "" {
 				return UsageError("--output is required")
@@ -40,7 +41,7 @@ func NewPackCommand(deps Dependencies) *cobra.Command {
 					"pack": result, "sharing_safety_certified": false,
 				})
 			}
-			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nbundle: %s\noutput: %s\nfiles: %d\nsha256: %s\n", repo.Root, repo.Bundle, result.Output, result.Files, result.ArchiveSHA256)
+			fmt.Fprintf(command.OutOrStdout(), "wiki: %s\nbundle: %s\nqmd project: %s\ncollection: %s\noutput: %s\nfiles: %d\nsha256: %s\n", repo.Root, repo.Bundle, repo.QMDProject, repo.Collection, result.Output, result.Files, result.ArchiveSHA256)
 			fmt.Fprintln(command.OutOrStdout(), "notice: this pack does not certify that the wiki is safe to share")
 			return nil
 		},
