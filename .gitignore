@@ -4,3 +4,4 @@
 /buda.exe
 *.test
 *.out
+/.tmp/
