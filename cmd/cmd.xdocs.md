@@ -18,8 +18,8 @@ files:
   pack_test.go: Packaging command integration tests.
   query.go: qmd-backed query and normalized evidence command.
   query_test.go: Query command normalization and failure tests.
-  root.go: Fresh Cobra root, persistent flags, help routes, dependency injection, and exit handling.
-  root_test.go: Root command, help, JSON-error, and maintenance-scheduling tests.
+  root.go: Fresh Cobra root, persistent flags, help routes, dependency injection, bare global bootstrap, explicit-wiki reconciliation routing, and exit handling.
+  root_test.go: Root command, help, JSON-error, and bootstrap-scheduling tests.
   status.go: Repository, health, and qmd readiness status command.
 documents: {}
 tags:

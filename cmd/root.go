@@ -15,6 +15,7 @@ import (
 	clihelp "github.com/CGuiho/buda/internal/help"
 	"github.com/CGuiho/buda/internal/maintenance"
 	"github.com/CGuiho/buda/internal/qmd"
+	"github.com/CGuiho/buda/internal/repository"
 	"github.com/CGuiho/buda/internal/source"
 	"github.com/spf13/cobra"
 )
@@ -188,7 +189,13 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 				fmt.Fprint(command.OutOrStdout(), clihelp.Tree(command, helpDepth))
 				return errHelpRendered
 			}
-			if isRepositoryCommand(command) {
+			if command == command.Root() && strings.TrimSpace(options.Wiki) != "" {
+				repo, err := repository.Open(options.Wiki)
+				if err != nil {
+					return RepositoryError("open explicit --wiki", err)
+				}
+				options.Wiki = repo.Root
+			} else if isRepositoryCommand(command) {
 				if strings.TrimSpace(options.Wiki) == "" {
 					return RepositoryError("--wiki is required; Buda never selects a wiki implicitly", nil)
 				}
@@ -201,7 +208,7 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 			return nil
 		},
 		PersistentPostRunE: func(command *cobra.Command, _ []string) error {
-			if !maintenance.ShouldSchedule(command) || options.Wiki == "" {
+			if !maintenance.ShouldSchedule(command) {
 				return nil
 			}
 			executable, err := deps.Executable()

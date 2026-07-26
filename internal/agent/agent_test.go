@@ -1,6 +1,8 @@
 package agent
 
 import (
+	"errors"
+	"fmt"
 	"os"
 	"path/filepath"
 	"strings"
@@ -228,6 +230,187 @@ func TestInstructionUpdateConvergesDuplicatesAndRejectsMalformedMarkers(t *testi
 	unchanged, _ := os.ReadFile(path)
 	if string(unchanged) != malformed {
 		t.Fatalf("malformed target was changed: %q", unchanged)
+	}
+}
+
+func TestInstructionMutationRejectsMarkerLikeVariantsWithoutChangingBytes(t *testing.T) {
+	variants := []string{
+		"owner\n<!--  BEGIN BUDA INSTRUCTIONS -->\nstale\n<!-- END BUDA INSTRUCTIONS -->\n",
+		"owner\n<!-- BEGIN  BUDA INSTRUCTIONS -->\nstale\n<!-- END BUDA INSTRUCTIONS -->\n",
+		"owner\n<!-- begin buda instructions -->\nstale\n<!-- end buda instructions -->\n",
+		"owner\n  <!-- BEGIN BUDA INSTRUCTIONS -->\nstale\n<!-- END BUDA INSTRUCTIONS -->\n",
+	}
+	for index, variant := range variants {
+		t.Run(fmt.Sprintf("variant-%d", index), func(t *testing.T) {
+			wiki := t.TempDir()
+			writeWikiConfig(t, wiki, "marker-variant")
+			path := filepath.Join(wiki, "AGENTS.md")
+			if err := os.WriteFile(path, []byte(variant), 0o644); err != nil {
+				t.Fatal(err)
+			}
+			service := testService(t, t.TempDir())
+			for _, operation := range []struct {
+				name string
+				run  func(string) ([]InstructionTarget, error)
+			}{{"apply", service.ApplyInstructions}, {"update", service.ApplyInstructions}, {"remove", service.RemoveInstructions}} {
+				t.Run(operation.name, func(t *testing.T) {
+					if _, err := operation.run(wiki); err == nil || !strings.Contains(err.Error(), "malformed") {
+						t.Fatalf("marker variant error = %v", err)
+					}
+					unchanged, err := os.ReadFile(path)
+					if err != nil {
+						t.Fatal(err)
+					}
+					if string(unchanged) != variant {
+						t.Fatalf("marker variant changed: %q", unchanged)
+					}
+				})
+			}
+		})
+	}
+}
+
+func TestInstructionMutationRejectsSymlinkTarget(t *testing.T) {
+	wiki := t.TempDir()
+	writeWikiConfig(t, wiki, "symlink-target")
+	external := filepath.Join(t.TempDir(), "owner.md")
+	original := []byte("owner external\n")
+	if err := os.WriteFile(external, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	link := filepath.Join(wiki, "AGENTS.md")
+	if err := os.Symlink(external, link); err != nil {
+		t.Skipf("symlinks unavailable: %v", err)
+	}
+	service := testService(t, t.TempDir())
+	if _, err := service.ApplyInstructions(wiki); err == nil || !strings.Contains(err.Error(), "symlinked") {
+		t.Fatalf("symlink target error = %v", err)
+	}
+	content, err := os.ReadFile(external)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if string(content) != string(original) {
+		t.Fatalf("symlink target changed: %q", content)
+	}
+	if info, err := os.Lstat(link); err != nil || info.Mode()&os.ModeSymlink == 0 {
+		t.Fatalf("instruction symlink replaced: info=%v err=%v", info, err)
+	}
+}
+
+func TestInstructionTargetPrecedence(t *testing.T) {
+	for _, test := range []struct {
+		name     string
+		existing []string
+		want     []string
+	}{
+		{name: "neither creates AGENTS", want: []string{"AGENTS.md"}},
+		{name: "AGENTS only", existing: []string{"AGENTS.md"}, want: []string{"AGENTS.md"}},
+		{name: "CLAUDE only", existing: []string{"CLAUDE.md"}, want: []string{"CLAUDE.md"}},
+		{name: "both", existing: []string{"AGENTS.md", "CLAUDE.md"}, want: []string{"AGENTS.md", "CLAUDE.md"}},
+	} {
+		t.Run(test.name, func(t *testing.T) {
+			wiki := t.TempDir()
+			writeWikiConfig(t, wiki, "target-precedence")
+			for _, name := range test.existing {
+				if err := os.WriteFile(filepath.Join(wiki, name), []byte("owner policy\r\n"), 0o644); err != nil {
+					t.Fatal(err)
+				}
+			}
+			service := testService(t, t.TempDir())
+			results, err := service.ApplyInstructions(wiki)
+			if err != nil {
+				t.Fatal(err)
+			}
+			if len(results) != len(test.want) {
+				t.Fatalf("targets = %#v, want %v", results, test.want)
+			}
+			for index, name := range test.want {
+				if results[index].Path != filepath.Join(wiki, name) {
+					t.Errorf("target[%d] = %q, want %q", index, results[index].Path, filepath.Join(wiki, name))
+				}
+			}
+		})
+	}
+}
+
+func TestInstructionTransactionRestoresBothTargetsAfterSecondCommitFailure(t *testing.T) {
+	wiki := t.TempDir()
+	writeWikiConfig(t, wiki, "transaction-rollback")
+	agentsPath := filepath.Join(wiki, "AGENTS.md")
+	claudePath := filepath.Join(wiki, "CLAUDE.md")
+	agentsOriginal := []byte("owner agents\r\n")
+	claudeOriginal := []byte("owner claude\n")
+	if err := os.WriteFile(agentsPath, agentsOriginal, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudePath, claudeOriginal, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	originalRename := renameInstructionFile
+	renameInstructionFile = func(oldPath, newPath string) error {
+		base := filepath.Base(oldPath)
+		if newPath == claudePath && strings.HasPrefix(base, ".buda-instruction-") && !strings.HasPrefix(base, ".buda-instruction-backup-") {
+			return errors.New("forced second-target commit failure")
+		}
+		return os.Rename(oldPath, newPath)
+	}
+	t.Cleanup(func() { renameInstructionFile = originalRename })
+	service := testService(t, t.TempDir())
+	if _, err := service.ApplyInstructions(wiki); err == nil || !strings.Contains(err.Error(), "forced second-target") {
+		t.Fatalf("transaction error = %v", err)
+	}
+	for path, want := range map[string][]byte{agentsPath: agentsOriginal, claudePath: claudeOriginal} {
+		got, err := os.ReadFile(path)
+		if err != nil {
+			t.Fatal(err)
+		}
+		if string(got) != string(want) {
+			t.Errorf("%s = %q, want exact %q", path, got, want)
+		}
+	}
+}
+
+func TestInstructionRollbackFailureRetainsRecoverableBackupAndReportsBothErrors(t *testing.T) {
+	wiki := t.TempDir()
+	writeWikiConfig(t, wiki, "transaction-recovery")
+	agentsPath := filepath.Join(wiki, "AGENTS.md")
+	claudePath := filepath.Join(wiki, "CLAUDE.md")
+	original := []byte("owner agents\n")
+	if err := os.WriteFile(agentsPath, original, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(claudePath, []byte("owner claude\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	var retainedBackup string
+	originalRename := renameInstructionFile
+	renameInstructionFile = func(oldPath, newPath string) error {
+		base := filepath.Base(oldPath)
+		if newPath == claudePath && strings.HasPrefix(base, ".buda-instruction-") && !strings.HasPrefix(base, ".buda-instruction-backup-") {
+			return errors.New("forced commit failure")
+		}
+		if newPath == agentsPath && strings.Contains(filepath.Base(oldPath), ".buda-instruction-backup-") {
+			retainedBackup = oldPath
+			return errors.New("forced rollback failure")
+		}
+		return os.Rename(oldPath, newPath)
+	}
+	t.Cleanup(func() { renameInstructionFile = originalRename })
+	service := testService(t, t.TempDir())
+	_, err := service.ApplyInstructions(wiki)
+	if err == nil || !strings.Contains(err.Error(), "forced commit failure") || !strings.Contains(err.Error(), "forced rollback failure") {
+		t.Fatalf("combined transaction error = %v", err)
+	}
+	if retainedBackup == "" {
+		t.Fatal("rollback did not attempt to restore the first target")
+	}
+	content, readErr := os.ReadFile(retainedBackup)
+	if readErr != nil {
+		t.Fatalf("recoverable backup missing: %v", readErr)
+	}
+	if string(content) != string(original) {
+		t.Fatalf("recoverable backup = %q, want %q", content, original)
 	}
 }
 

@@ -2,6 +2,7 @@ package agent
 
 import (
 	"bytes"
+	"errors"
 	"fmt"
 	"io"
 	"io/fs"
@@ -174,7 +175,11 @@ func instructionTargets(wiki string, createDefault bool) ([]string, error) {
 	candidates := []string{filepath.Join(wiki, "AGENTS.md"), filepath.Join(wiki, "CLAUDE.md")}
 	var targets []string
 	for _, path := range candidates {
-		if _, err := os.Stat(path); err == nil {
+		info, err := os.Lstat(path)
+		if err == nil && info.Mode()&os.ModeSymlink != 0 {
+			return nil, mutation("refuse symlinked instruction target "+path, nil)
+		}
+		if err == nil {
 			targets = append(targets, path)
 		} else if !os.IsNotExist(err) {
 			return nil, mutation("inspect instruction target", err)
@@ -193,6 +198,14 @@ type instructionBlock struct {
 }
 
 func parseInstructionBlocks(content string) ([]instructionBlock, error) {
+	for _, line := range strings.Split(strings.ReplaceAll(content, "\r\n", "\n"), "\n") {
+		upper := strings.ToUpper(line)
+		if strings.Contains(upper, "<!--") && strings.Contains(upper, "BUDA") &&
+			(strings.Contains(upper, "BEGIN") || strings.Contains(upper, "END")) &&
+			line != InstructionBegin && line != InstructionEnd {
+			return nil, fmt.Errorf("unrecognized Buda marker text")
+		}
+	}
 	upper := strings.ToUpper(content)
 	if strings.Count(upper, "<!-- BEGIN BUDA") != strings.Count(content, InstructionBegin) ||
 		strings.Count(upper, "<!-- END BUDA") != strings.Count(content, InstructionEnd) {
@@ -274,12 +287,18 @@ func normalizeNewlines(value string) string {
 }
 
 type fileStage struct {
-	destination string
-	temporary   string
-	backup      string
-	existed     bool
-	committed   bool
+	destination   string
+	temporary     string
+	backup        string
+	existed       bool
+	originalMoved bool
+	committed     bool
 }
+
+var (
+	renameInstructionFile = os.Rename
+	removeInstructionFile = os.Remove
+)
 
 func prepareFileStage(destination string, content []byte, mode fs.FileMode) (fileStage, error) {
 	stage := fileStage{destination: destination}
@@ -319,14 +338,13 @@ func commitFileStages(stages []fileStage) error {
 	for index := range stages {
 		stage := &stages[index]
 		if stage.existed {
-			if err := os.Rename(stage.destination, stage.backup); err != nil {
-				_ = rollbackFileStages(stages)
-				return mutation("stage existing instruction file", err)
+			if err := renameInstructionFile(stage.destination, stage.backup); err != nil {
+				return mutationWithRollback("stage existing instruction file", err, stages)
 			}
+			stage.originalMoved = true
 		}
-		if err := os.Rename(stage.temporary, stage.destination); err != nil {
-			_ = rollbackFileStages(stages)
-			return mutation("atomically replace instruction file", err)
+		if err := renameInstructionFile(stage.temporary, stage.destination); err != nil {
+			return mutationWithRollback("atomically replace instruction file", err, stages)
 		}
 		stage.temporary = ""
 		stage.committed = true
@@ -335,24 +353,41 @@ func commitFileStages(stages []fileStage) error {
 	return nil
 }
 
+func mutationWithRollback(message string, operationErr error, stages []fileStage) error {
+	rollbackErr := rollbackFileStages(stages)
+	if rollbackErr == nil {
+		return mutation(message, operationErr)
+	}
+	return mutation(message, errors.Join(operationErr, fmt.Errorf("rollback instruction transaction: %w", rollbackErr)))
+}
+
 func rollbackFileStages(stages []fileStage) error {
 	var failures []string
 	for index := len(stages) - 1; index >= 0; index-- {
 		stage := &stages[index]
 		if stage.committed {
-			if err := os.Remove(stage.destination); err != nil && !os.IsNotExist(err) {
+			if err := removeInstructionFile(stage.destination); err != nil && !os.IsNotExist(err) {
+				failures = append(failures, err.Error())
+				continue
+			}
+		}
+		if stage.existed && stage.originalMoved {
+			if _, err := os.Stat(stage.backup); err == nil {
+				if err := renameInstructionFile(stage.backup, stage.destination); err != nil {
+					failures = append(failures, err.Error())
+				}
+			} else if !os.IsNotExist(err) {
 				failures = append(failures, err.Error())
 			}
 		}
-		if stage.existed {
-			if _, err := os.Stat(stage.backup); err == nil {
-				if err := os.Rename(stage.backup, stage.destination); err != nil {
-					failures = append(failures, err.Error())
-				}
-			}
+	}
+	// Temporaries are disposable, but any backup left after a failed restore is
+	// deliberately retained as the recoverable copy of owner-managed content.
+	for _, stage := range stages {
+		if stage.temporary != "" {
+			_ = os.Remove(stage.temporary)
 		}
 	}
-	cleanupFileStages(stages)
 	if len(failures) > 0 {
 		return fmt.Errorf("%s", strings.Join(failures, "; "))
 	}

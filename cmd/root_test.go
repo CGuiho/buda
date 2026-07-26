@@ -211,6 +211,56 @@ func TestSuccessfulRepositoryCommandSchedulesFailureIsolatedMaintenance(t *testi
 	}
 }
 
+func TestBareRootSchedulesGlobalOnlyMaintenanceWithoutSelectingWiki(t *testing.T) {
+	var scheduledWiki string
+	var scheduled int
+	deps := Dependencies{
+		In: strings.NewReader(""), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{},
+		Executable: func() (string, error) { return "buda", nil },
+		ScheduleMaintenance: func(_, wiki string) error {
+			scheduled++
+			scheduledWiki = wiki
+			return errors.New("failure remains isolated")
+		},
+	}
+	root := NewRootCommand(deps, BuildInfo{Version: "test"})
+	root.SetArgs(nil)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if scheduled != 1 || scheduledWiki != "" {
+		t.Fatalf("bare root scheduled %d times with wiki %q", scheduled, scheduledWiki)
+	}
+}
+
+func TestRootWithExplicitWikiValidatesAndSchedulesOnlyThatWiki(t *testing.T) {
+	wiki := initializedWiki(t)
+	var scheduledWiki string
+	deps := Dependencies{
+		In: strings.NewReader(""), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{},
+		Executable:          func() (string, error) { return "buda", nil },
+		ScheduleMaintenance: func(_, selected string) error { scheduledWiki = selected; return nil },
+	}
+	root := NewRootCommand(deps, BuildInfo{Version: "test"})
+	root.SetArgs([]string{"--wiki", wiki})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	opened, err := filepath.EvalSymlinks(wiki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if scheduledWiki != filepath.Clean(opened) {
+		t.Fatalf("scheduled wiki = %q, want %q", scheduledWiki, filepath.Clean(opened))
+	}
+
+	root = NewRootCommand(Dependencies{Options: &Options{}, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}, BuildInfo{Version: "test"})
+	root.SetArgs([]string{"--wiki", t.TempDir()})
+	if err := root.Execute(); ExitCode(err) != 3 {
+		t.Fatalf("invalid explicit wiki error = %v, code = %d", err, ExitCode(err))
+	}
+}
+
 func TestAgentHumanOutputIsDistinctFromJSON(t *testing.T) {
 	human, _, err := executeTest(t, "agent", "prompt", "list")
 	if err != nil {

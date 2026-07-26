@@ -12,7 +12,11 @@ func TestInstructionPromptKeepsExplicitWikiAndBudaBoundary(t *testing.T) {
 		t.Fatal(err)
 	}
 	text := string(data)
-	for _, expected := range []string{"{{WIKI_ID}}", "{{BUNDLE}}", "--wiki", "guiho-s-0002-buda", "Never infer another wiki"} {
+	for _, expected := range []string{
+		"{{WIKI_ID}}", "{{BUNDLE}}", "--wiki", "guiho-s-0002-buda",
+		"Buda is the required tool", "evaluate the returned evidence", "do not bypass Buda",
+		"Never infer another wiki",
+	} {
 		if !strings.Contains(text, expected) {
 			t.Errorf("instruction prompt omits %q", expected)
 		}

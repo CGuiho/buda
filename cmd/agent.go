@@ -251,9 +251,6 @@ func newMaintenanceCommand(deps Dependencies) *cobra.Command {
 		Args:   NoArgs,
 		RunE: func(_ *cobra.Command, _ []string) error {
 			wiki := strings.TrimSpace(deps.Options.Wiki)
-			if wiki == "" {
-				return RepositoryError("hidden agent maintenance requires --wiki", nil)
-			}
 			return maintenance.Run(deps.Agents, wiki)
 		},
 	}

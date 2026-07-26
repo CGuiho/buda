@@ -32,7 +32,8 @@ tagging, releasing, publishing, or opening a pull request.
    query, get, status, and doctor normalization. No retrieval fallback exists.
 4. Agent behavior: embedded `guiho-s-0002-buda`, prompt/instruction resources,
    transactional global/local skill targets, bounded repository instructions,
-   and the failure-isolated first-success reconciler.
+   and failure-isolated first-success reconciliation split between bare
+   global-only bootstrap and explicit-wiki instruction bootstrap.
 5. Portability: deterministic canonical-bundle pack plus the eight pure-Go
    executable and eleven-artifact build contract.
 6. Documentation and validation: XDocs metadata for every module, public usage
@@ -40,9 +41,11 @@ tagging, releasing, publishing, or opening a pull request.
    and foreign build-only verification.
 
 Dependencies flow from foundation and repository resolution into domain and qmd
-commands. Agent maintenance depends only on resolved repository paths and
-embedded bytes; it must not call qmd or the network. Packaging depends only on
-the canonical bundle.
+commands. Bare agent maintenance depends only on embedded bytes and global skill
+destinations. Wiki instruction maintenance additionally depends on the absolute
+repository path already resolved from explicit `--wiki`; it must not discover
+repositories, cross repository boundaries, call qmd, or use the network.
+Packaging depends only on the canonical bundle.
 
 ## MVP acceptance
 
@@ -59,6 +62,15 @@ the canonical bundle.
 - Base OKF conformance and Buda health are separate results.
 - Agent resources and instruction blocks are idempotent, atomic, bounded, and
   tested for both global/local tool destinations and AGENTS/CLAUDE precedence.
+- Bare `buda` success may reconcile only the two global skill destinations;
+  repository instructions are reconciled only when `buda --wiki <path>` or a
+  repository command supplies and resolves an explicit wiki.
+- The managed instructions identify the selected wiki and bundle, declare Buda
+  the required maintenance and retrieval tool, require explicit `--wiki` on
+  every repository operation, require evidence evaluation and concept-path plus
+  source-ID or resource citations, prohibit bypassing Buda or invoking qmd
+  directly, and state that instructions are behavior rather than access
+  control.
 - Packs contain only canonical bundle material plus deterministic manifest and
   checksums; they do not claim sharing safety or publish anything.
 - The release definition contains exactly the approved eleven artifact names.

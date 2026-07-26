@@ -68,6 +68,28 @@ Every command supports `--help`, `--help-tree`, positive
 `--help-tree-depth`, and `--help-docs`. Root also supports `--version` and
 `-v`. Repository commands provide stable text and one-document JSON output.
 
+## Agent resource bootstrap
+
+A successful bare `buda` invocation may schedule a hidden, non-blocking
+reconciler for the embedded Buda skill in both global agent-skill locations. It
+has no wiki context and never writes repository instructions.
+
+A successful `buda --wiki <path>` invocation or successful repository command
+may schedule the same global reconciliation and, because it carries an
+explicitly resolved wiki, reconcile Buda's bounded instruction block in only
+that selected wiki. The block identifies the selected wiki and bundle, declares
+Buda the required tool for maintaining and retrieving it, requires every
+repository operation to pass `--wiki`, and requires agents to evaluate evidence
+and cite concept paths plus source IDs or resources. Agents maintain the wiki
+through Buda rather than bypassing it or invoking qmd directly. The block also
+requires weak evidence to be surfaced and says that repository instructions are
+behavior rather than access control.
+
+Bootstrap performs no qmd or network operation, does not discover repositories,
+and never reads or writes another wiki. Worker startup or reconciliation failure
+cannot change foreground output or exit status. Explicit `buda agent ...`, help,
+version, and hidden-worker routes do not schedule reconciliation.
+
 ## Wiki layout
 
 An initialized wiki contains strict `buda.yaml`, canonical OKF files under

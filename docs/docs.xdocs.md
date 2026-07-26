@@ -5,8 +5,8 @@ parent: buda-package
 children: []
 files: {}
 documents:
-  ARCHITECTURE.md: Component ownership, canonical-versus-derived state, qmd process boundary, and distribution architecture.
-  IMPLEMENTATION.md: Approved vertical MVP phases, dependencies, acceptance criteria, validation commands, and release boundaries.
+  ARCHITECTURE.md: Component ownership, global-only and explicit-wiki bootstrap boundaries, canonical-versus-derived state, qmd process boundary, and distribution architecture.
+  IMPLEMENTATION.md: Approved vertical MVP phases, bootstrap routing, dependencies, acceptance criteria, validation commands, and release boundaries.
   QMD_COMPATIBILITY.md: Supported qmd version range, pinned upstream revision, project-local process mapping, fixtures, and runtime-validation gap.
   REFERENCES.md: Normative and informative authorities for LLM Wiki operation, OKF representation, and the approved GUIHO RFC revision.
 tags:

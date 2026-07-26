@@ -17,7 +17,8 @@ files:
   xdocs.yaml: XDocs YAML configuration using automatic documentation updates and generated-directory exclusions.
 documents:
   AGENTS.md: Repository engineering, product-boundary, documentation, validation, and release instructions.
-  README.md: Public overview of Buda, its explicit-wiki model, OKF and qmd boundaries, commands, and development workflow.
+  CHANGELOG.md: Chronological Buda release scope, compatibility boundaries, and exact distribution artifact contract.
+  README.md: Public overview of Buda, its explicit-wiki model, OKF and qmd boundaries, agent bootstrap, commands, and development workflow.
 tags:
   - go
   - cli

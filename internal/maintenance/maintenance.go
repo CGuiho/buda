@@ -7,6 +7,7 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/CGuiho/buda/internal/agent"
@@ -15,17 +16,23 @@ import (
 
 const WorkerCommand = "__agent-maintenance"
 
-// ShouldSchedule identifies successful public repository operations. The root,
-// all agent routes, hidden workers, help, and version never schedule work.
+// ShouldSchedule identifies successful normal operations. The root is included
+// so a plain invocation can reconcile the global skill without selecting a
+// wiki. Agent routes, hidden workers, and uninstall never schedule work.
 func ShouldSchedule(command *cobra.Command) bool {
-	if command == nil || command == command.Root() || command.Hidden {
+	if command == nil || command.Hidden {
 		return false
+	}
+	for current := command; current != nil; current = current.Parent() {
+		if current.Hidden || current.Name() == "uninstall" {
+			return false
+		}
 	}
 	top := command
 	for top.Parent() != nil && top.Parent() != command.Root() {
 		top = top.Parent()
 	}
-	if top.Hidden || top.Name() == "agent" || top.Name() == "uninstall" {
+	if top.Hidden || top.Name() == "agent" {
 		return false
 	}
 	return true
@@ -34,45 +41,90 @@ func ShouldSchedule(command *cobra.Command) bool {
 // Schedule starts the hidden worker and returns immediately. The caller must
 // deliberately ignore errors so bootstrap cannot alter foreground behavior.
 func Schedule(executable, wiki string) error {
-	if executable == "" || wiki == "" {
-		return fmt.Errorf("maintenance worker requires executable and wiki")
+	if executable == "" {
+		return fmt.Errorf("maintenance worker requires executable")
 	}
-	return startDetached(executable, WorkerCommand, "--wiki", wiki)
+	arguments := []string{WorkerCommand}
+	if strings.TrimSpace(wiki) != "" {
+		arguments = append(arguments, "--wiki", wiki)
+	}
+	return startDetached(executable, arguments...)
 }
 
-// Run reconciles only embedded agent resources for the already-resolved wiki.
-// It performs no qmd, network, repository discovery, or cross-repository work.
-func Run(service *agent.Service, wiki string) error {
+type runOptions struct {
+	stateDirectory string
+}
+
+// RunOption customizes maintenance execution without changing its operational
+// boundary. It is primarily useful for isolated tests.
+type RunOption func(*runOptions)
+
+// WithStateDirectory stores the worker lock in directory instead of the
+// default ~/.guiho/buda location.
+func WithStateDirectory(directory string) RunOption {
+	return func(options *runOptions) { options.stateDirectory = directory }
+}
+
+// Run reconciles the embedded global skill and, when wiki is explicit, the
+// instruction block for exactly that already-resolved wiki. It performs no
+// qmd, network, repository discovery, or cross-repository work.
+func Run(service *agent.Service, wiki string, options ...RunOption) error {
 	if service == nil {
 		return fmt.Errorf("maintenance worker requires agent service")
 	}
-	lock, acquired, err := acquireLock(wiki)
-	if err != nil || !acquired {
+	settings := runOptions{}
+	for _, option := range options {
+		option(&settings)
+	}
+	if strings.TrimSpace(wiki) != "" && (!filepath.IsAbs(wiki) || filepath.Clean(wiki) != wiki) {
+		return fmt.Errorf("maintenance worker requires an absolute canonical --wiki path")
+	}
+	globalLock, acquired, err := acquireLock("global-agent-resources", settings.stateDirectory)
+	if err != nil {
 		return err
 	}
-	defer func() {
-		_ = lock.Close()
-		_ = os.Remove(lock.Name())
-	}()
-	if _, err := service.InstallSkill(false, ""); err != nil {
-		return fmt.Errorf("reconcile global Buda skill: %w", err)
+	if acquired {
+		if _, err := service.InstallSkill(false, ""); err != nil {
+			releaseLock(globalLock)
+			return fmt.Errorf("reconcile global Buda skill: %w", err)
+		}
+		releaseLock(globalLock)
 	}
-	if _, err := service.ApplyInstructions(wiki); err != nil {
-		return fmt.Errorf("reconcile Buda instructions: %w", err)
+	if strings.TrimSpace(wiki) != "" {
+		wikiLock, wikiAcquired, err := acquireLock("wiki-instructions:"+wiki, settings.stateDirectory)
+		if err != nil {
+			return err
+		}
+		if wikiAcquired {
+			defer releaseLock(wikiLock)
+			if _, err := service.ApplyInstructions(wiki); err != nil {
+				return fmt.Errorf("reconcile Buda instructions: %w", err)
+			}
+		}
 	}
 	return nil
 }
 
-func acquireLock(wiki string) (*os.File, bool, error) {
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return nil, false, fmt.Errorf("resolve home directory: %w", err)
+func releaseLock(lock *os.File) {
+	if lock == nil {
+		return
 	}
-	directory := filepath.Join(home, ".guiho", "buda")
+	_ = lock.Close()
+	_ = os.Remove(lock.Name())
+}
+
+func acquireLock(scope, directory string) (*os.File, bool, error) {
+	if strings.TrimSpace(directory) == "" {
+		home, err := os.UserHomeDir()
+		if err != nil {
+			return nil, false, fmt.Errorf("resolve home directory: %w", err)
+		}
+		directory = filepath.Join(home, ".guiho", "buda")
+	}
 	if err := os.MkdirAll(directory, 0o755); err != nil {
 		return nil, false, fmt.Errorf("create Buda state directory: %w", err)
 	}
-	digest := sha256.Sum256([]byte(filepath.Clean(wiki)))
+	digest := sha256.Sum256([]byte(scope))
 	path := filepath.Join(directory, "agent-maintenance-"+hex.EncodeToString(digest[:8])+".lock")
 	file, err := os.OpenFile(path, os.O_WRONLY|os.O_CREATE|os.O_EXCL, 0o600)
 	if err == nil {

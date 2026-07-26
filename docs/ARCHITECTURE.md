@@ -45,6 +45,27 @@ The `cmd` package assembles one new Cobra tree for every invocation. Command
 handlers translate stable CLI input/output to focused service APIs. `main.go`
 only supplies linker metadata, invokes the command tree, and maps exit codes.
 
+## Agent bootstrap boundary
+
+The first successful bare `buda` invocation may detach a global-only worker
+that reconciles the embedded Buda skill in both established global locations.
+Because the invocation has no wiki selection, that worker never resolves or
+writes repository instructions.
+
+A successful `buda --wiki <path>` root invocation or successful repository
+command has an already resolved absolute wiki and may detach a worker that also
+reconciles the bounded Buda instruction block in that one wiki. No worker infers
+a repository, searches ancestors, opens a registry, crosses into another
+repository, calls qmd, or uses the network. Worker failures are isolated from
+foreground output, JSON, latency, and exit status.
+
+The bounded instruction text names the selected wiki and bundle, declares Buda
+the required maintenance and retrieval tool, requires explicit `--wiki` on
+every repository operation, and requires evidence evaluation plus concept-path
+and source-ID or resource citations. It directs agents to maintain the wiki
+through Buda rather than bypassing it or invoking qmd directly, and states that
+instruction files govern behavior but are not access control.
+
 ## Canonical and derived state
 
 Canonical state is the OKF bundle under `knowledge/`, including concept
