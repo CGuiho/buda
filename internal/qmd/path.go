@@ -48,8 +48,11 @@ func ResolveResultPath(bundleRoot, collection, qmdPath string) (string, error) {
 	if _, err := os.Lstat(absolute); err == nil {
 		resolvedBundle, bundleErr := filepath.EvalSymlinks(bundleRoot)
 		resolvedResult, resultErr := filepath.EvalSymlinks(absolute)
-		if bundleErr != nil || resultErr != nil {
-			return "", fmt.Errorf("resolve qmd result path %q", qmdPath)
+		if bundleErr != nil {
+			return "", fmt.Errorf("resolve qmd bundle root for result %q: %w", qmdPath, bundleErr)
+		}
+		if resultErr != nil {
+			return "", fmt.Errorf("resolve qmd result path %q: %w", qmdPath, resultErr)
 		}
 		if _, err := containedPath(resolvedBundle, resolvedResult); err != nil {
 			return "", fmt.Errorf("reject qmd result symlink %q: %w", qmdPath, err)

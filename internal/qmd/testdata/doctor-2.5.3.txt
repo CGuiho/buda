@@ -2,11 +2,13 @@ QMD Doctor
 
 Index: .qmd/index.sqlite
 Runtime: better-sqlite3
-✓ SQLite runtime: 3.50.4
-✓ sqlite-vec: 0.1.7
+✓ SQLite runtime: 3.53.1
+✓ better-sqlite3 package: 12.10.0
+✓ sqlite-vec: v0.1.9
 ✓ index config: 1 collection configured
-✓ model cache: 3 active models are downloaded and valid GGUF
-⚠ device probe: running on CPU (4 math cores). Next: install/configure Metal, CUDA, or Vulkan for faster embeddings, or set QMD_FORCE_CPU=1 to make CPU mode explicit
+⚠ environment overrides: 1 set
+✓ model defaults: using QMD codebase defaults
+✓ device mode: CPU forced (QMD_FORCE_CPU)
 ✓ embedding freshness: all active documents match current fingerprint
 ✓ embedding fingerprints: 4 docs on current fingerprint
 ✓ embedding vector sample: 3 sampled chunks reproduce stored vectors

@@ -15,6 +15,9 @@ switch ($env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()) {
 }
 
 if ($Version -eq "latest") {
+  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
+    throw "BUDA_RELEASE_ASSET_DIR requires an exact canonical tag such as buda/v0.0.2."
+  }
   $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repository/releases/latest"
   $Tag = $Release.tag_name
   if ([string]::IsNullOrWhiteSpace($Tag)) { throw "Could not resolve the latest Buda release tag." }
@@ -22,6 +25,11 @@ if ($Version -eq "latest") {
   # Non-latest values are exact full release tags; Buda owns no implicit prefix.
   $Tag = $Version
 }
+
+if ($Tag -notmatch '^buda/v(?<Version>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$') {
+  throw "Invalid Buda release tag '$Tag'; expected buda/v<semver>."
+}
+$ExpectedVersion = $Matches.Version
 
 $BaseUrl = "https://github.com/$Owner/$Repository/releases/download/$Tag"
 $SkillAsset = "guiho-s-0002-buda.zip"
@@ -32,18 +40,39 @@ $BinaryReplaced = $false
 $InstallSucceeded = $false
 New-Item -ItemType Directory -Path $TempDir | Out-Null
 
+function Copy-ReleaseAsset {
+  param(
+    [Parameter(Mandatory = $true)][string]$Name,
+    [Parameter(Mandatory = $true)][string]$Destination
+  )
+
+  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
+    $Source = Join-Path $env:BUDA_RELEASE_ASSET_DIR $Name
+    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
+      throw "Local release asset not found: $Source"
+    }
+    Copy-Item -LiteralPath $Source -Destination $Destination
+    return
+  }
+  Invoke-WebRequest -Uri "$BaseUrl/$Name" -OutFile $Destination
+}
+
 try {
   Write-Host "Initiating Buda installation sequence..."
   Write-Host "Target version: $Tag"
   Write-Host "Target asset: $Asset"
-  Write-Host "Source URL: $BaseUrl/$Asset"
+  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
+    Write-Host "Source directory: $env:BUDA_RELEASE_ASSET_DIR"
+  } else {
+    Write-Host "Source URL: $BaseUrl/$Asset"
+  }
 
   $BinaryPath = Join-Path $TempDir $Asset
   $ChecksumsPath = Join-Path $TempDir "checksums.txt"
   $SkillPath = Join-Path $TempDir $SkillAsset
-  Invoke-WebRequest -Uri "$BaseUrl/$Asset" -OutFile $BinaryPath
-  Invoke-WebRequest -Uri "$BaseUrl/checksums.txt" -OutFile $ChecksumsPath
-  Invoke-WebRequest -Uri "$BaseUrl/$SkillAsset" -OutFile $SkillPath
+  Copy-ReleaseAsset -Name $Asset -Destination $BinaryPath
+  Copy-ReleaseAsset -Name "checksums.txt" -Destination $ChecksumsPath
+  Copy-ReleaseAsset -Name $SkillAsset -Destination $SkillPath
 
   foreach ($Verification in @(@($Asset, $BinaryPath), @($SkillAsset, $SkillPath))) {
     $VerificationName = $Verification[0]
@@ -66,11 +95,16 @@ try {
     throw "Skill archive does not contain guiho-s-0002-buda/SKILL.md."
   }
 
-  $Qmd = Get-Command qmd -ErrorAction SilentlyContinue
+  # npm installs both qmd.cmd and qmd.ps1 on Windows. Prefer the application
+  # launcher so the installer works under PowerShell's default script policy.
+  $Qmd = Get-Command qmd.cmd -CommandType Application -ErrorAction SilentlyContinue
   if (-not $Qmd) {
-    throw "qmd is required but not installed. Install @tobilu/qmd, then run: buda doctor --wiki <path>"
+    $Qmd = Get-Command qmd -CommandType Application -ErrorAction SilentlyContinue
   }
-  $QmdVersionOutput = (& qmd --version | Out-String).Trim()
+  if (-not $Qmd) {
+    throw "qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>"
+  }
+  $QmdVersionOutput = (& $Qmd.Source --version | Out-String).Trim()
   if ($QmdVersionOutput -notmatch '(?i)(?:qmd\s+)?v?(\d+)\.(\d+)\.(\d+)') {
     throw "Could not parse qmd version: $QmdVersionOutput"
   }
@@ -94,14 +128,17 @@ try {
   Write-Host "[OK] Installed both global Buda skill destinations transactionally from embedded resources."
 
   $InstalledVersion = (& $Destination --version | Out-String).Trim()
-  $ExpectedVersion = $Tag.TrimStart("v")
   if ($InstalledVersion -ne "buda v$ExpectedVersion") { throw "Installed version '$InstalledVersion' does not match requested tag '$Tag'." }
   Write-Host $InstalledVersion
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathEntries = @($UserPath -split ";" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   if ($PathEntries -notcontains $InstallDir) {
-    [Environment]::SetEnvironmentVariable("Path", (($PathEntries + $InstallDir) -join ";"), "User")
-    Write-Host "[OK] Added installation directory to the user PATH."
+    try {
+      [Environment]::SetEnvironmentVariable("Path", (($PathEntries + $InstallDir) -join ";"), "User")
+      Write-Host "[OK] Added installation directory to the user PATH."
+    } catch {
+      Write-Warning "Buda is installed, but the user PATH could not be updated. Add '$InstallDir' to PATH manually."
+    }
   }
   Write-Host $QmdVersionOutput
   Write-Host "[OK] Buda installation complete. Repository instructions are installed only for an explicit --wiki path."

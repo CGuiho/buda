@@ -1,6 +1,7 @@
 [
   {
-    "file": "knowledge/concepts/api-policy.md",
+    "file": "concepts/api-policy.md",
+    "docid": "#a1b2c3",
     "title": "API policy",
     "context": "Architecture decisions",
     "body": "---\ntype: Decision\n---\nPublic APIs use durable external identifiers.\n"

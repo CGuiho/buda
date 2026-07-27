@@ -14,6 +14,7 @@ children:
   - buda-internal-pack
   - buda-internal-qmd
   - buda-internal-repository
+  - buda-internal-selfmanage
   - buda-internal-source
 files: {}
 documents: {}

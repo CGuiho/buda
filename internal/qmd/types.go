@@ -8,9 +8,10 @@ import (
 const (
 	DefaultMinimumVersion = "2.5.0"
 	DefaultMaximumVersion = "3.0.0"
+	TestedPackageVersion  = "2.5.3"
 	// TestedUpstreamRevision pins the official qmd source used to map CLI
 	// arguments and JSON fixtures. qmd remains an external runtime dependency.
-	TestedUpstreamRevision = "e428df76bc0274d9e93eb7ca3e95673315c42e90"
+	TestedUpstreamRevision = "53232770867ccb16538c2c6034e7d891dffc9ce3"
 )
 
 // Config defines one project-local qmd integration. All paths must already be

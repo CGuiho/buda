@@ -2,7 +2,7 @@
   {
     "docid": "#a1b2c3",
     "score": 0.73,
-    "file": "knowledge/concepts/api-policy.md",
+    "file": "qmd://buda-wiki/concepts/api-policy.md",
     "line": 12,
     "title": "API policy",
     "context": "Architecture decisions",

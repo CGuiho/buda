@@ -9,15 +9,65 @@ tags:
   - changelog
   - releases
 keywords:
-  - Buda 0.0.1
+  - Buda 0.0.2
   - release notes
   - eleven artifacts
+  - GitHub Releases
 ---
 
 # Changelog
 
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
+
+## [0.0.2] - 2026-07-27
+
+This release completes Buda's first installable GitHub Release workflow and
+hardens the external qmd runtime boundary without introducing a package-manager
+publication.
+
+### Added
+
+- Linux, macOS, and Windows installation instructions for latest and exact
+  canonical `buda/v<version>` releases, plus an explicit 0.0.1-to-0.0.2 upgrade
+  path.
+- Local release-asset inputs for deterministic installer validation without
+  weakening checksum verification or normal GitHub Release downloads.
+- CI and tag-driven GitHub Release validation for the pure-Go CLI and exact
+  eleven-artifact contract.
+- Root `upgrade`, `upgrade check`, `upgrade list`, `upgrade rollback`, and
+  `uninstall` routes with deterministic text and one-document JSON output.
+- Checksum-verified self-upgrades with embedded-target asset selection,
+  progress reporting, safe prior-backup rotation, Unix atomic replacement,
+  detached Windows replacement/removal helpers, final executable verification,
+  agent-resource reconciliation, and automatic rollback on failure.
+
+### Changed
+
+- Root JSON output now reports whether an explicit wiki was selected, and an
+  argument-free invocation preserves the shared GUIHO greeting while never
+  selecting a wiki implicitly.
+- Shell and PowerShell installers now validate the canonical `buda/v<semver>`
+  tag and compare an installed binary against the extracted SemVer. This fixes
+  exact-version verification for tags such as `buda/v0.0.2`.
+- The PowerShell installer prefers npm's `qmd.cmd` application launcher instead
+  of the policy-sensitive `qmd.ps1` shim, and a restricted user-PATH update is
+  now an actionable warning after a verified install rather than a rollback.
+- Runtime guidance pins the tested external qmd 2.5.3 package while retaining
+  Buda's supported `>=2.5.0,<3.0.0` compatibility range.
+- Re-running the exact installer is the documented transactional upgrade from
+  0.0.1 to 0.0.2; canonical wiki content remains untouched.
+- An implicit upgrade to the already-installed latest version is a no-op, and
+  upgrade, rollback, uninstall, and hidden helper routes are excluded from
+  repository selection and background resource reconciliation.
+
+### Distribution
+
+- Buda release tags use `buda/v<version>` and publish only to GitHub Releases.
+- Buda is not published to npm or another package registry. npm may be used by
+  users to install the separate upstream `@tobilu/qmd` runtime dependency.
+- The release payload remains exactly the eight binaries, embedded skill ZIP,
+  instruction Markdown, and checksum manifest defined below.
 
 ## [0.0.1] - 2026-07-26
 

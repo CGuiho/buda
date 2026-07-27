@@ -58,7 +58,7 @@ func TestRootWelcomeVersionAndJSON(t *testing.T) {
 		t.Fatalf("version = %q, err = %v", output, err)
 	}
 	output, _, err = executeTest(t, "--json")
-	if err != nil || !strings.Contains(output, `"message": "Hello Windows - buda v1.2.3"`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
+	if err != nil || !strings.Contains(output, `"message": "Hello Windows - buda v1.2.3"`) || !strings.Contains(output, `"wiki_selected": false`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
 		t.Fatalf("json = %q, err = %v", output, err)
 	}
 }
@@ -132,12 +132,12 @@ func TestComposedPublicTreeAndMissingWikiContract(t *testing.T) {
 		}
 	}
 	sort.Strings(names)
-	want := []string{"agent", "capture", "doctor", "get", "index", "ingest", "init", "lint", "pack", "query", "status"}
+	want := []string{"agent", "capture", "doctor", "get", "index", "ingest", "init", "lint", "pack", "query", "status", "uninstall", "upgrade"}
 	if !reflect.DeepEqual(names, want) {
 		t.Fatalf("public commands = %#v, want %#v", names, want)
 	}
 
-	for _, name := range want[1:] {
+	for _, name := range []string{"capture", "doctor", "get", "index", "ingest", "init", "lint", "pack", "query", "status"} {
 		t.Run("missing-wiki-"+name, func(t *testing.T) {
 			localDeps := deps
 			localDeps.Options = &Options{}
@@ -235,9 +235,10 @@ func TestBareRootSchedulesGlobalOnlyMaintenanceWithoutSelectingWiki(t *testing.T
 
 func TestRootWithExplicitWikiValidatesAndSchedulesOnlyThatWiki(t *testing.T) {
 	wiki := initializedWiki(t)
+	var output bytes.Buffer
 	var scheduledWiki string
 	deps := Dependencies{
-		In: strings.NewReader(""), Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{},
+		In: strings.NewReader(""), Out: &output, Err: &bytes.Buffer{}, Options: &Options{},
 		Executable:          func() (string, error) { return "buda", nil },
 		ScheduleMaintenance: func(_, selected string) error { scheduledWiki = selected; return nil },
 	}
@@ -252,6 +253,9 @@ func TestRootWithExplicitWikiValidatesAndSchedulesOnlyThatWiki(t *testing.T) {
 	}
 	if scheduledWiki != filepath.Clean(opened) {
 		t.Fatalf("scheduled wiki = %q, want %q", scheduledWiki, filepath.Clean(opened))
+	}
+	if !strings.Contains(output.String(), "wiki: "+filepath.Clean(opened)) {
+		t.Fatalf("explicit root output did not report selected wiki: %q", output.String())
 	}
 
 	root = NewRootCommand(Dependencies{Options: &Options{}, Out: &bytes.Buffer{}, Err: &bytes.Buffer{}}, BuildInfo{Version: "test"})

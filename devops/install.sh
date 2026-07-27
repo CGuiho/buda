@@ -14,8 +14,11 @@ require_command() {
   fi
 }
 
-require_command curl
 require_command unzip
+
+if [ -z "${BUDA_RELEASE_ASSET_DIR:-}" ]; then
+  require_command curl
+fi
 
 case "$(uname -s)/$(uname -m)" in
   Linux/x86_64|Linux/amd64) ASSET="buda-linux-amd64" ;;
@@ -28,6 +31,10 @@ case "$(uname -s)/$(uname -m)" in
 esac
 
 if [ "$VERSION" = "latest" ]; then
+  if [ -n "${BUDA_RELEASE_ASSET_DIR:-}" ]; then
+    printf '%s\n' 'error: BUDA_RELEASE_ASSET_DIR requires an exact canonical tag such as buda/v0.0.2' >&2
+    exit 1
+  fi
   TAG="$(curl --fail --silent --show-error "https://api.github.com/repos/${OWNER}/${REPOSITORY}/releases/latest" | sed -n 's/.*"tag_name":[[:space:]]*"\([^"]*\)".*/\1/p' | head -n 1)"
   if [ -z "$TAG" ]; then
     printf 'error: could not resolve latest Buda release tag\n' >&2
@@ -36,6 +43,12 @@ if [ "$VERSION" = "latest" ]; then
 else
   # Non-latest values are exact full release tags; Buda owns no implicit prefix.
   TAG="$VERSION"
+fi
+
+EXPECTED_VERSION="${TAG#buda/v}"
+if [ "$EXPECTED_VERSION" = "$TAG" ] || ! printf '%s\n' "$EXPECTED_VERSION" | grep -Eq '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$'; then
+  printf "error: invalid Buda release tag '%s'; expected buda/v<semver>\n" "$TAG" >&2
+  exit 1
 fi
 
 BASE_URL="https://github.com/${OWNER}/${REPOSITORY}/releases/download/${TAG}"
@@ -59,11 +72,30 @@ cleanup() {
 trap cleanup EXIT
 trap 'exit 1' HUP INT TERM
 
+fetch_asset() {
+  FETCH_NAME="$1"
+  FETCH_DESTINATION="$2"
+  if [ -n "${BUDA_RELEASE_ASSET_DIR:-}" ]; then
+    SOURCE_PATH="${BUDA_RELEASE_ASSET_DIR}/${FETCH_NAME}"
+    if [ ! -f "$SOURCE_PATH" ]; then
+      printf 'error: local release asset not found: %s\n' "$SOURCE_PATH" >&2
+      exit 1
+    fi
+    cp "$SOURCE_PATH" "$FETCH_DESTINATION"
+  else
+    curl --fail --location --progress-bar --output "$FETCH_DESTINATION" "${BASE_URL}/${FETCH_NAME}"
+  fi
+}
+
 printf '%s\n' 'Initiating Buda installation sequence...'
-printf 'Target version: %s\nTarget asset: %s\nSource URL: %s/%s\n' "$TAG" "$ASSET" "$BASE_URL" "$ASSET"
-curl --fail --location --progress-bar --output "${TEMP_DIR}/${ASSET}" "${BASE_URL}/${ASSET}"
-curl --fail --location --progress-bar --output "${TEMP_DIR}/checksums.txt" "${BASE_URL}/checksums.txt"
-curl --fail --location --progress-bar --output "${TEMP_DIR}/${SKILL_ASSET}" "${BASE_URL}/${SKILL_ASSET}"
+if [ -n "${BUDA_RELEASE_ASSET_DIR:-}" ]; then
+  printf 'Target version: %s\nTarget asset: %s\nSource directory: %s\n' "$TAG" "$ASSET" "$BUDA_RELEASE_ASSET_DIR"
+else
+  printf 'Target version: %s\nTarget asset: %s\nSource URL: %s/%s\n' "$TAG" "$ASSET" "$BASE_URL" "$ASSET"
+fi
+fetch_asset "$ASSET" "${TEMP_DIR}/${ASSET}"
+fetch_asset "checksums.txt" "${TEMP_DIR}/checksums.txt"
+fetch_asset "$SKILL_ASSET" "${TEMP_DIR}/${SKILL_ASSET}"
 
 verify_asset() {
   VERIFY_NAME="$1"
@@ -95,7 +127,7 @@ if [ ! -f "${SOURCE_SKILL}/SKILL.md" ]; then
   exit 1
 fi
 if ! command -v qmd >/dev/null 2>&1; then
-  printf '%s\n' 'error: qmd is required but not installed. Install @tobilu/qmd, then run: buda doctor --wiki <path>' >&2
+  printf '%s\n' 'error: qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>' >&2
   exit 1
 fi
 QMD_VERSION_OUTPUT="$(qmd --version)"
@@ -124,7 +156,6 @@ printf '[OK] Installed binary: %s\n' "$DESTINATION"
 printf '%s\n' '[OK] Installed both global Buda skill destinations transactionally from embedded resources.'
 
 INSTALLED_VERSION="$("$DESTINATION" --version)"
-EXPECTED_VERSION="${TAG#v}"
 if [ "$INSTALLED_VERSION" != "buda v${EXPECTED_VERSION}" ]; then
   printf "error: installed version '%s' does not match requested tag '%s'\n" "$INSTALLED_VERSION" "$TAG" >&2
   exit 1

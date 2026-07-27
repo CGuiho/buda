@@ -1,6 +1,6 @@
 ---
 subject: buda-package
-description: Public Go/Cobra Buda CLI, embedded agent resources, OKF wiki services, qmd adapter, documentation, and pure-Go distribution tooling.
+description: Public Go/Cobra Buda CLI, embedded agent resources, OKF wiki services, qmd adapter, documentation, and GitHub Release-only pure-Go distribution tooling.
 parent: null
 children:
   - buda-cmd
@@ -17,8 +17,8 @@ files:
   xdocs.yaml: XDocs YAML configuration using automatic documentation updates and generated-directory exclusions.
 documents:
   AGENTS.md: Repository engineering, product-boundary, documentation, validation, and release instructions.
-  CHANGELOG.md: Chronological Buda release scope, compatibility boundaries, and exact distribution artifact contract.
-  README.md: Public overview of Buda, its explicit-wiki model, OKF and qmd boundaries, agent bootstrap, commands, and development workflow.
+  CHANGELOG.md: Chronological Buda release scope, compatibility boundaries, canonical tags, GitHub Release-only policy, and exact distribution artifact contract.
+  README.md: Public overview of Buda, verified latest and exact installation, installer and native self-upgrade/rollback/uninstall operations, explicit-wiki model, OKF and qmd boundaries, commands, and development workflow.
 tags:
   - go
   - cli
@@ -30,6 +30,8 @@ keywords:
   - Open Knowledge Format
   - qmd
   - LLM Wiki
+  - GitHub Releases
+  - buda/v0.0.2
 flags: []
 status: draft
 ---

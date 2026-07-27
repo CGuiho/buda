@@ -1,6 +1,7 @@
 package cmd
 
 import (
+	"context"
 	"encoding/json"
 	"errors"
 	"fmt"
@@ -16,6 +17,7 @@ import (
 	"github.com/CGuiho/buda/internal/maintenance"
 	"github.com/CGuiho/buda/internal/qmd"
 	"github.com/CGuiho/buda/internal/repository"
+	"github.com/CGuiho/buda/internal/selfmanage"
 	"github.com/CGuiho/buda/internal/source"
 	"github.com/spf13/cobra"
 )
@@ -45,6 +47,10 @@ type Dependencies struct {
 	ScheduleMaintenance func(executable, wiki string) error
 	Now                 func() time.Time
 	HTTPClient          source.Doer
+	RemoveExecutable    func(string) (bool, error)
+	RollbackExecutable  func(string) (bool, error)
+	UpgradeBinary       func(context.Context, selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error)
+	ReconcileInstalled  func(string, string) error
 }
 
 type exitCoder interface {
@@ -108,6 +114,10 @@ func DefaultDependencies() Dependencies {
 		ScheduleMaintenance: maintenance.Schedule,
 		Now:                 time.Now,
 		HTTPClient:          &http.Client{Timeout: 30 * time.Second},
+		RemoveExecutable:    selfmanage.RemoveExecutable,
+		RollbackExecutable:  selfmanage.Rollback,
+		UpgradeBinary:       selfmanage.Upgrade,
+		ReconcileInstalled:  reconcileInstalledResources,
 	}
 }
 
@@ -220,12 +230,18 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 		},
 		RunE: func(command *cobra.Command, _ []string) error {
 			message := fmt.Sprintf("Hello Windows - buda v%s", info.Version)
+			selected := strings.TrimSpace(options.Wiki) != ""
 			if options.JSON {
-				return WriteJSON(command, map[string]any{
-					"command": "buda", "version": info.Version, "message": message,
-				})
+				output := map[string]any{"command": "buda", "version": info.Version, "wiki_selected": selected, "message": message}
+				if selected {
+					output["wiki"] = options.Wiki
+				}
+				return WriteJSON(command, output)
 			}
 			fmt.Fprintln(command.OutOrStdout(), message)
+			if selected {
+				fmt.Fprintf(command.OutOrStdout(), "wiki: %s\n", options.Wiki)
+			}
 			return nil
 		},
 	}
@@ -248,6 +264,8 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 
 	root.AddCommand(commands...)
 	root.AddCommand(newAgentCommand(deps))
+	root.AddCommand(newUpgradeCommand(deps, info))
+	root.AddCommand(newUninstallCommand(deps))
 	root.AddCommand(newMaintenanceCommand(deps))
 	wrapDeveloperHelpArgs(root)
 	return root
@@ -307,6 +325,18 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	if deps.HTTPClient == nil {
 		deps.HTTPClient = &http.Client{Timeout: 30 * time.Second}
 	}
+	if deps.RemoveExecutable == nil {
+		deps.RemoveExecutable = selfmanage.RemoveExecutable
+	}
+	if deps.RollbackExecutable == nil {
+		deps.RollbackExecutable = selfmanage.Rollback
+	}
+	if deps.UpgradeBinary == nil {
+		deps.UpgradeBinary = selfmanage.Upgrade
+	}
+	if deps.ReconcileInstalled == nil {
+		deps.ReconcileInstalled = reconcileInstalledResources
+	}
 	return deps
 }
 
@@ -318,7 +348,7 @@ func isRepositoryCommand(command *cobra.Command) bool {
 	for top.Parent() != nil && top.Parent() != command.Root() {
 		top = top.Parent()
 	}
-	return top.Name() != "agent" && !top.Hidden
+	return top.Name() != "agent" && top.Name() != "upgrade" && top.Name() != "uninstall" && !top.Hidden
 }
 
 func NoArgs(_ *cobra.Command, args []string) error {

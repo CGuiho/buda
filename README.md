@@ -1,7 +1,7 @@
 ---
 name: buda-readme
 purpose: Introduce Buda and document its repository-agnostic wiki workflow.
-description: Public overview of the Go/Cobra CLI, explicit-wiki contract, OKF knowledge model, qmd boundary, commands, and agent resources.
+description: Public overview, verified installation and upgrade instructions, explicit-wiki contract, OKF knowledge model, qmd boundary, commands, and agent resources.
 created: 2026-07-26
 owner: buda-package
 flags: []
@@ -14,13 +14,16 @@ keywords:
   - Open Knowledge Format
   - qmd
   - LLM Wiki
+  - install Buda
+  - buda/v0.0.2
 ---
 
 # GUIHO Buda
 
-GUIHO Buda is a CLI and agent skill collection to manage AI-maintained wiki. Buda help
-agents save, navigate, read, validate, and maintain any one explicitly selected
-AI-maintained wiki. Bult using public Go and Cobra. It follows the persistent knowledge operating pattern in
+GUIHO Buda (B-U-D-A) is a public Go/Cobra CLI and agent-skill collection for
+managing AI-maintained wikis. Buda helps agents save, navigate, read, validate,
+and maintain any one explicitly selected AI-maintained wiki. It follows the
+persistent knowledge operating pattern in
 [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 and stores portable knowledge according to Google's canonical
 [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
@@ -48,6 +51,99 @@ Buda owns explicit repository selection, OKF-aware initialization, capture and
 ingest orchestration, provenance, citations, health checks, stable output,
 agent skills, instructions, and deterministic packaging.
 
+## Install
+
+Buda requires [qmd](https://github.com/tobi/qmd) as its external indexing and
+retrieval engine. Install the tested qmd 2.5.3 release with Node.js 22 or later,
+then confirm that `qmd` is on `PATH`:
+
+```powershell
+npm install --global @tobilu/qmd@2.5.3
+qmd --version
+```
+
+The npm command installs qmd only. Buda itself is distributed exclusively as
+checksum-verified binaries in GitHub Releases; it is not published to npm or
+another package registry.
+
+Install the latest Buda release on Linux or macOS:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh
+```
+
+Install the latest release on Windows PowerShell:
+
+```powershell
+irm https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1 | iex
+```
+
+For a reproducible install, pass the exact canonical release tag. Buda never
+adds or guesses a tag prefix:
+
+```sh
+curl -fsSL -H 'Accept: application/vnd.github.raw+json' \
+  'https://api.github.com/repos/CGuiho/buda/contents/devops/install.sh?ref=buda%2Fv0.0.2' |
+  sh -s -- buda/v0.0.2
+```
+
+```powershell
+$installerSource = Invoke-RestMethod `
+  -Headers @{ Accept = 'application/vnd.github.raw+json' } `
+  -Uri 'https://api.github.com/repos/CGuiho/buda/contents/devops/install.ps1?ref=buda%2Fv0.0.2'
+$installBuda = [scriptblock]::Create($installerSource)
+& $installBuda -Version 'buda/v0.0.2'
+```
+
+The installers select the native release binary, verify both the binary and
+embedded-skill archive against `checksums.txt`, replace an existing binary with
+rollback protection, install Buda's canonical skill in both global agent
+locations, and verify the installed version. They do not install qmd or write
+wiki instructions without an explicit wiki. The default binary destinations
+are `~/.local/bin/buda` on Linux and macOS and
+`%LOCALAPPDATA%\GUIHO\bin\buda.exe` on Windows.
+
+Verify the installation and initialize one explicitly selected wiki:
+
+```text
+buda --version
+buda init --wiki <path> --wiki-id <id>
+buda doctor --wiki <path>
+```
+
+### Upgrade from 0.0.1
+
+Run the exact `buda/v0.0.2` installer command above. The installer stages and
+verifies 0.0.2 before replacing the existing 0.0.1 executable, restores the
+previous executable if installation fails, and refreshes both embedded global
+skill copies. Canonical wiki content and explicit-wiki instructions are not
+rewritten by the installer.
+
+Once Buda is installed, its native self-management routes use only canonical
+`buda/v<semver>` GitHub Releases and checksum-verified platform assets:
+
+```text
+buda upgrade check
+buda upgrade list
+buda upgrade --dry-run
+buda upgrade
+buda upgrade --version 0.0.2
+buda upgrade rollback
+buda uninstall --dry-run
+buda uninstall
+```
+
+`buda upgrade` reports release URLs, download progress, checksum validation,
+the installation path, agent-resource reconciliation, and final version
+verification. On Unix it replaces the executable on the same filesystem and
+automatically rolls back on verification or resource-reconciliation failure.
+On Windows a detached helper waits for the running process to exit before
+performing the same verified replacement. `upgrade`, `uninstall`, and their
+hidden helpers never select a wiki implicitly, run qmd, or trigger Buda's
+background resource reconciler. Pass an explicit `--wiki <path>` only when an
+upgrade or uninstall should also reconcile that wiki's bounded instruction
+block. `buda uninstall --keep-agent-resources` removes only the executable.
+
 ## Commands
 
 ```text
@@ -62,6 +158,8 @@ buda status --wiki <path>
 buda pack --wiki <path> --output <path>
 buda doctor --wiki <path>
 buda agent ...
+buda upgrade [check|list|rollback]
+buda uninstall
 ```
 
 Every command supports `--help`, `--help-tree`, positive
@@ -109,5 +207,6 @@ go run . --help-tree
 ```
 
 qmd is a separate runtime dependency. Buda does not vendor or silently install
-it. The repository currently implements the approved MVP contract; releases,
-tags, and publication are separate explicitly authorized operations.
+it. CI validates the Go CLI and exact eleven-artifact build contract. Canonical
+`buda/v*` tags drive GitHub Release publication of those eleven artifacts only;
+no Buda package is published to npm or another package manager.

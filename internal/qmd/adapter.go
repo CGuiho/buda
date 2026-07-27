@@ -102,7 +102,7 @@ func (adapter *Adapter) CheckCompatibility(ctx context.Context) (Compatibility, 
 	// qmd 2.5+ provides doctor, but its root help does not list that command.
 	// Version gating establishes doctor availability; root-help proof covers the
 	// commands and flags that the root help actually advertises.
-	required := []string{"qmd search", "qmd vsearch", "qmd query", "qmd multi-get", "qmd status", "qmd update", "qmd embed", "--format", "--collection"}
+	required := []string{"qmd search", "qmd vsearch", "qmd query", "qmd get", "qmd multi-get", "qmd init", "qmd status", "qmd update", "qmd embed", "qmd collection", "--format", "--collection"}
 	for _, capability := range required {
 		if !strings.Contains(help, capability) {
 			return Compatibility{}, fmt.Errorf("qmd %d.%d.%d lacks required capability %q", version.Major, version.Minor, version.Patch, capability)
@@ -325,13 +325,14 @@ func (adapter *Adapter) Get(ctx context.Context, conceptPathOrID string) (Docume
 	if value == "" {
 		return Document{}, errors.New("qmd document path or result id is required")
 	}
-	if !strings.HasPrefix(value, "#") {
-		path, err := ResolveResultPath(adapter.config.BundleRoot, adapter.config.Collection, value)
-		if err != nil {
-			return Document{}, err
-		}
-		value = "qmd://" + adapter.config.Collection + "/" + path
+	if strings.HasPrefix(value, "#") {
+		return adapter.getByID(ctx, value)
 	}
+	path, err := ResolveResultPath(adapter.config.BundleRoot, adapter.config.Collection, value)
+	if err != nil {
+		return Document{}, err
+	}
+	value = "qmd://" + adapter.config.Collection + "/" + path
 	result, err := adapter.run(ctx, "get", "multi-get", value, "--format", "json", "--no-line-numbers", "--max-bytes", "1073741824")
 	if err != nil {
 		return Document{}, err
@@ -353,11 +354,52 @@ func (adapter *Adapter) Get(ctx context.Context, conceptPathOrID string) (Docume
 	if documents[0].Skipped {
 		return Document{}, &CommandError{Capability: "get", Stderr: "qmd skipped document: " + documents[0].Reason}
 	}
-	path, err := ResolveResultPath(adapter.config.BundleRoot, adapter.config.Collection, documents[0].File)
+	path, err = ResolveResultPath(adapter.config.BundleRoot, adapter.config.Collection, documents[0].File)
 	if err != nil {
 		return Document{}, &CommandError{Capability: "get", Stderr: err.Error(), Cause: err}
 	}
 	return Document{Path: path, Title: documents[0].Title, Context: documents[0].Context, Body: documents[0].Body}, nil
+}
+
+// qmd 2.5 resolves stable #docids through `get`; multi-get only resolves paths
+// and globs. The text header emitted by get is therefore normalized here while
+// qmd remains the sole document retrieval engine.
+func (adapter *Adapter) getByID(ctx context.Context, documentID string) (Document, error) {
+	result, err := adapter.run(ctx, "get", "get", documentID, "--no-line-numbers")
+	if err != nil {
+		return Document{}, err
+	}
+	output := strings.ReplaceAll(string(result.Stdout), "\r\n", "\n")
+	lines := strings.Split(output, "\n")
+	if len(lines) < 3 {
+		return Document{}, &CommandError{Capability: "get", Stderr: "malformed qmd get output"}
+	}
+	header := strings.Fields(lines[0])
+	if len(header) == 0 || !strings.HasPrefix(header[0], "qmd://") {
+		return Document{}, &CommandError{Capability: "get", Stderr: "qmd get output omitted the canonical document URI"}
+	}
+	path, err := ResolveResultPath(adapter.config.BundleRoot, adapter.config.Collection, header[0])
+	if err != nil {
+		return Document{}, &CommandError{Capability: "get", Stderr: err.Error(), Cause: err}
+	}
+	index := 1
+	contextValue := ""
+	if index < len(lines) && strings.HasPrefix(lines[index], "Folder Context:") {
+		contextValue = strings.TrimSpace(strings.TrimPrefix(lines[index], "Folder Context:"))
+		index++
+	}
+	if index >= len(lines) || strings.TrimSpace(lines[index]) != "---" {
+		return Document{}, &CommandError{Capability: "get", Stderr: "qmd get output omitted the document separator"}
+	}
+	index++
+	if index < len(lines) && lines[index] == "" {
+		index++
+	}
+	body := strings.TrimRight(strings.Join(lines[index:], "\n"), "\n")
+	if body != "" {
+		body += "\n"
+	}
+	return Document{Path: path, Context: contextValue, Body: body}, nil
 }
 
 func (adapter *Adapter) Status(ctx context.Context) (Diagnostic, error) {

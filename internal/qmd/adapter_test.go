@@ -58,8 +58,8 @@ func TestSearchUsesExplicitCollectionAndPreservesOrderAndScore(t *testing.T) {
 	}
 }
 
-func TestSearchParsesPinnedQMD263Fixture(t *testing.T) {
-	fixture, err := os.ReadFile(filepath.Join("testdata", "search-2.6.3.json"))
+func TestSearchParsesPinnedQMD253Fixture(t *testing.T) {
+	fixture, err := os.ReadFile(filepath.Join("testdata", "search-2.5.3.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -101,14 +101,31 @@ func TestGetUsesCollectionQualifiedVirtualPath(t *testing.T) {
 	}
 }
 
-func TestGetParsesPinnedQMD263Fixture(t *testing.T) {
-	fixture, err := os.ReadFile(filepath.Join("testdata", "multi-get-2.6.3.json"))
+func TestGetUsesQMDGetForStableDocumentID(t *testing.T) {
+	output := "qmd://buda-wiki/concepts/a.md  #a1b2c3\nFolder Context: Architecture decisions\n---\n\nbody\n"
+	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte(output)}}}
+	adapter := testAdapter(t, runner)
+	document, err := adapter.Get(context.Background(), "#a1b2c3")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if document.Path != "concepts/a.md" || document.Context != "Architecture decisions" || document.Body != "body\n" {
+		t.Fatalf("document = %#v", document)
+	}
+	wantArguments := []string{"get", "#a1b2c3", "--no-line-numbers"}
+	if !reflect.DeepEqual(runner.requests[0].Arguments, wantArguments) {
+		t.Fatalf("arguments = %#v, want %#v", runner.requests[0].Arguments, wantArguments)
+	}
+}
+
+func TestGetParsesPinnedQMD253Fixture(t *testing.T) {
+	fixture, err := os.ReadFile(filepath.Join("testdata", "multi-get-2.5.3.json"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	runner := &queuedRunner{results: []ProcessResult{{Stdout: fixture}}}
 	adapter := testAdapter(t, runner)
-	document, err := adapter.Get(context.Background(), "#a1b2c3")
+	document, err := adapter.Get(context.Background(), "concepts/api-policy.md")
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -121,7 +138,7 @@ func TestVersionRange(t *testing.T) {
 	for _, test := range []struct {
 		output string
 		ok     bool
-	}{{"qmd 2.5.0\n", true}, {"qmd 2.9.3 (abc123)\n", true}, {"qmd 2.4.9\n", false}, {"qmd 3.0.0\n", false}} {
+	}{{"qmd 2.5.0\n", true}, {"qmd 2.5.3 (5323277)\n", true}, {"qmd 2.9.3 (abc123)\n", true}, {"qmd 2.4.9\n", false}, {"qmd 3.0.0\n", false}} {
 		t.Run(test.output, func(t *testing.T) {
 			runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte(test.output)}}}
 			adapter := testAdapter(t, runner)
@@ -134,22 +151,32 @@ func TestVersionRange(t *testing.T) {
 }
 
 func TestCompatibilityRequiresEveryUsedCapability(t *testing.T) {
-	help := "qmd search\nqmd vsearch\nqmd query\nqmd multi-get\nqmd status\nqmd update\nqmd embed\n--format\n-c, --collection"
-	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.6.3\n")}, {Stdout: []byte(help)}}}
+	help := "qmd search\nqmd vsearch\nqmd query\nqmd get\nqmd multi-get\nqmd init\nqmd status\nqmd update\nqmd embed\nqmd collection add/list/remove/rename/show\n--format\n-c, --collection"
+	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.5.3\n")}, {Stdout: []byte(help)}}}
 	adapter := testAdapter(t, runner)
 	compatibility, err := adapter.CheckCompatibility(context.Background())
 	if err != nil {
 		t.Fatal(err)
 	}
-	if compatibility.Version.Major != 2 || len(compatibility.Capabilities) != 9 {
+	if compatibility.Version.Major != 2 || len(compatibility.Capabilities) != 12 {
 		t.Fatalf("compatibility = %#v", compatibility)
+	}
+}
+
+func TestCompatibilityRejectsRuntimeWithoutQMDGet(t *testing.T) {
+	help := "qmd search\nqmd vsearch\nqmd query\nqmd multi-get\nqmd init\nqmd status\nqmd update\nqmd embed\nqmd collection add/list/remove/rename/show\n--format\n-c, --collection"
+	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.5.3\n")}, {Stdout: []byte(help)}}}
+	adapter := testAdapter(t, runner)
+	_, err := adapter.CheckCompatibility(context.Background())
+	if err == nil || !strings.Contains(err.Error(), `lacks required capability "qmd get"`) {
+		t.Fatalf("error = %v", err)
 	}
 }
 
 func TestCompatibilityUsesExistingParentBeforeWikiInitialization(t *testing.T) {
 	parent := t.TempDir()
 	wiki := filepath.Join(parent, "not-created", "wiki")
-	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.6.3\n")}}}
+	runner := &queuedRunner{results: []ProcessResult{{Stdout: []byte("qmd 2.5.3\n")}}}
 	adapter, err := New(Config{
 		WikiRoot: wiki, BundleRoot: filepath.Join(wiki, "knowledge"),
 		ProjectDirectory: filepath.Join(wiki, ".qmd"), Collection: "buda-wiki",
@@ -197,15 +224,15 @@ func TestValidateCollectionAcceptsOneContainedRelativeMapping(t *testing.T) {
 }
 
 func TestNormalizeDoctorAndStatusOutput(t *testing.T) {
-	doctorOutput, err := os.ReadFile(filepath.Join("testdata", "doctor-2.6.3.txt"))
+	doctorOutput, err := os.ReadFile(filepath.Join("testdata", "doctor-2.5.3.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}
 	checks, warnings, failures := parseDoctorChecks(string(doctorOutput))
-	if checks != 8 || warnings != 1 || failures != 0 {
+	if checks != 10 || warnings != 1 || failures != 0 {
 		t.Fatalf("doctor checks=%d warnings=%d failures=%d", checks, warnings, failures)
 	}
-	statusOutput, err := os.ReadFile(filepath.Join("testdata", "status-2.6.3.txt"))
+	statusOutput, err := os.ReadFile(filepath.Join("testdata", "status-2.5.3.txt"))
 	if err != nil {
 		t.Fatal(err)
 	}

@@ -41,7 +41,11 @@ func NewLintCommand(deps Dependencies) *cobra.Command {
 				}
 			}
 			if !report.Conformant || !report.Healthy {
-				return &codedError{code: 1, message: "wiki lint reported conformance or health findings"}
+				lintErr := &codedError{code: 1, message: "wiki lint reported conformance or health findings"}
+				if JSONRequested(deps) {
+					return &renderedError{cause: lintErr}
+				}
+				return lintErr
 			}
 			return nil
 		},

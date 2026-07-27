@@ -21,6 +21,9 @@ files:
   root.go: Fresh Cobra root, persistent flags, help routes, dependency injection, bare global bootstrap, explicit-wiki reconciliation routing, and exit handling.
   root_test.go: Root command, help, JSON-error, and bootstrap-scheduling tests.
   status.go: Repository, health, and qmd readiness status command.
+  selfmanage_test.go: Upgrade catalog, no-op, operational progress, automatic rollback, deterministic JSON, uninstall preview, and reconciliation-exclusion command tests.
+  uninstall.go: Root native-binary and agent-resource uninstall command with hidden Windows completion route.
+  upgrade.go: GitHub Release discovery, checksum-gated native upgrade, check/list/rollback commands, and hidden Windows replacement routes.
 documents: {}
 tags:
   - cobra

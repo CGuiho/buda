@@ -6,6 +6,8 @@
 
 ## Modules
 
+- [.github/](.github/): GitHub Actions CI and canonical-tag GitHub Release
+  automation with no package-manager publication.
 - [cmd/](cmd/): Cobra command construction and application assembly.
 - [internal/](internal/): Repository, OKF, qmd, health, workflow, agent, help,
   maintenance, and packaging services.

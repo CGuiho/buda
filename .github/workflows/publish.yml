@@ -1,0 +1,240 @@
+name: Publish Go Release
+
+on:
+  push:
+    tags:
+      - 'buda/v*'
+
+permissions:
+  contents: write
+
+jobs:
+  windows-installer-preflight:
+    name: Preflight Windows installer before publication
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - name: Build local release assets and upgrade from 0.0.1
+        shell: pwsh
+        run: |
+          $tag = '${{ github.ref_name }}'
+          if ($tag -notmatch '^buda/v(?<Version>[0-9]+\.[0-9]+\.[0-9]+(?:-[0-9A-Za-z.-]+)?)$') { throw "Invalid Buda tag: $tag" }
+          $version = $Matches.Version
+          $buildDate = (git show -s --format=%cI HEAD | Out-String).Trim()
+          go run .\devops\build-binaries.go --version $version --commit '${{ github.sha }}' --build-date $buildDate
+          if ((Get-ChildItem -LiteralPath dist -File).Count -ne 11) { throw 'Release must contain exactly 11 assets.' }
+
+          $root = Join-Path $env:RUNNER_TEMP 'buda-preflight'
+          $homeDirectory = Join-Path $root 'home'
+          $installDirectory = Join-Path $root 'bin'
+          $fakeBin = Join-Path $root 'fake-bin'
+          New-Item -ItemType Directory -Force -Path $homeDirectory, $installDirectory, $fakeBin | Out-Null
+          go build -trimpath -ldflags '-X main.version=0.0.1' -o (Join-Path $installDirectory 'buda.exe') .
+          Set-Content -LiteralPath (Join-Path $fakeBin 'qmd.cmd') -Value '@echo qmd 2.5.3' -Encoding ASCII
+          $env:HOME = $homeDirectory
+          $env:USERPROFILE = $homeDirectory
+          $env:PATH = "$fakeBin;$env:PATH"
+          $env:BUDA_RELEASE_ASSET_DIR = (Resolve-Path 'dist').Path
+          & .\devops\install.ps1 -Version $tag -InstallDir $installDirectory
+          $actual = (& (Join-Path $installDirectory 'buda.exe') --version | Out-String).Trim()
+          if ($actual -ne "buda v$version") { throw "Unexpected installed version: $actual" }
+
+  publish:
+    needs: windows-installer-preflight
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.release.outputs.version }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - uses: actions/setup-go@v6
+        with:
+          go-version-file: go.mod
+          cache: true
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: '22'
+
+      - name: Install the tested external qmd runtime
+        run: npm install --global @tobilu/qmd@2.5.3
+
+      - name: Resolve canonical release metadata
+        id: release
+        shell: bash
+        run: |
+          if [[ "${GITHUB_REF_NAME}" != buda/v* ]]; then
+            echo "Non-canonical Buda tag: ${GITHUB_REF_NAME}" >&2
+            exit 1
+          fi
+          version="${GITHUB_REF_NAME#buda/v}"
+          if [[ ! "$version" =~ ^[0-9]+\.[0-9]+\.[0-9]+(-[0-9A-Za-z.-]+)?$ ]]; then
+            echo "Invalid Buda semantic version: $version" >&2
+            exit 1
+          fi
+          echo "version=$version" >> "$GITHUB_OUTPUT"
+          echo "build_date=$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
+
+      - name: Verify source
+        run: |
+          test -z "$(gofmt -l .)"
+          go mod tidy
+          git diff --exit-code -- go.mod go.sum
+          go test -count=1 ./...
+          go vet ./...
+
+      - name: Build and verify exact 11 assets
+        run: |
+          go run ./devops/build-binaries.go \
+            --version '${{ steps.release.outputs.version }}' \
+            --commit "${GITHUB_SHA}" \
+            --build-date '${{ steps.release.outputs.build_date }}'
+          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 11
+          (cd dist && sha256sum --check checksums.txt)
+          test "$(dist/buda-linux-amd64 --version)" = 'buda v${{ steps.release.outputs.version }}'
+
+      - name: Extract exact-version release notes
+        shell: bash
+        run: |
+          version='${{ steps.release.outputs.version }}'
+          awk -v heading="## [$version]" '
+            index($0, heading " - ") == 1 || $0 == heading { found = 1; next }
+            found && /^## / { exit }
+            found { print }
+            END { if (!found) exit 1 }
+          ' CHANGELOG.md > "${RUNNER_TEMP}/buda-release-notes.md"
+          test -s "${RUNNER_TEMP}/buda-release-notes.md"
+
+      - name: Preflight Bash installer before publication
+        shell: bash
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+          mkdir -p "$root/home" "$root/install" "$root/fake-bin"
+          go build -trimpath -ldflags '-X main.version=0.0.1' -o "$root/install/buda" .
+          printf '#!/usr/bin/env sh\nprintf "qmd 2.5.3\\n"\n' > "$root/fake-bin/qmd"
+          chmod +x "$root/fake-bin/qmd"
+          export HOME="$root/home"
+          export PATH="$root/fake-bin:$PATH"
+          export GUIHO_INSTALL_DIR="$root/install"
+          export BUDA_RELEASE_ASSET_DIR="$PWD/dist"
+          sh devops/install.sh "${GITHUB_REF_NAME}"
+          test "$("$root/install/buda" --version)" = 'buda v${{ steps.release.outputs.version }}'
+
+      - name: Preflight real qmd project-local retrieval before publication
+        shell: bash
+        run: |
+          set -euo pipefail
+          wiki="${RUNNER_TEMP}/release-wiki"
+          export HOME="${RUNNER_TEMP}/release-home"
+          mkdir -p "$HOME"
+          dist/buda-linux-amd64 init --wiki "$wiki" --wiki-id release-smoke
+          dist/buda-linux-amd64 capture --wiki "$wiki" \
+            --target concepts/release.md \
+            --title 'Release evidence' \
+            --description 'Evidence for the Buda release qmd preflight.' \
+            --actor agent:release \
+            --text 'Buda release retrieval is delegated to qmd.'
+          dist/buda-linux-amd64 query --wiki "$wiki" --mode lexical \
+            --text 'release retrieval' --json > "${RUNNER_TEMP}/release-query.json"
+          jq -e '.results[0].path == "concepts/release.md"' "${RUNNER_TEMP}/release-query.json"
+
+      - name: Create or repair GitHub release
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          mapfile -t assets < <(find dist -maxdepth 1 -type f -printf '%f\n' | sort)
+          test "${#assets[@]}" -eq 11
+          asset_paths=()
+          for asset in "${assets[@]}"; do asset_paths+=("dist/$asset"); done
+          release_flags=(--latest)
+          if [[ '${{ steps.release.outputs.version }}' == *-* ]]; then
+            release_flags=(--prerelease)
+          fi
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            while IFS= read -r current; do
+              if [[ -n "$current" && ! -f "dist/$current" ]]; then
+                gh release delete-asset "${GITHUB_REF_NAME}" "$current" --yes
+              fi
+            done < <(gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name')
+            gh release upload "${GITHUB_REF_NAME}" "${asset_paths[@]}" --clobber
+            gh release edit "${GITHUB_REF_NAME}" \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file "${RUNNER_TEMP}/buda-release-notes.md" \
+              "${release_flags[@]}"
+          else
+            gh release create "${GITHUB_REF_NAME}" "${asset_paths[@]}" \
+              --verify-tag \
+              --title "${GITHUB_REF_NAME}" \
+              --notes-file "${RUNNER_TEMP}/buda-release-notes.md" \
+              "${release_flags[@]}"
+          fi
+
+      - name: Verify exact public asset set
+        env:
+          GH_TOKEN: ${{ github.token }}
+        shell: bash
+        run: |
+          find dist -maxdepth 1 -type f -printf '%f\n' | sort > "${RUNNER_TEMP}/expected-assets.txt"
+          gh release view "${GITHUB_REF_NAME}" --json assets --jq '.assets[].name' | sort > "${RUNNER_TEMP}/actual-assets.txt"
+          test "$(wc -l < "${RUNNER_TEMP}/actual-assets.txt" | tr -d '[:space:]')" -eq 11
+          cmp "${RUNNER_TEMP}/expected-assets.txt" "${RUNNER_TEMP}/actual-assets.txt"
+
+      - name: Verify tag-pinned public Bash installer
+        shell: bash
+        run: |
+          root="$(mktemp -d)"
+          trap 'rm -rf "$root"' EXIT
+          mkdir -p "$root/home" "$root/project" "$root/install" "$root/fake-bin"
+          printf '#!/usr/bin/env sh\nprintf "qmd 2.5.3\\n"\n' > "$root/fake-bin/qmd"
+          chmod +x "$root/fake-bin/qmd"
+          export HOME="$root/home"
+          export PATH="$root/fake-bin:$PATH"
+          export GUIHO_INSTALL_DIR="$root/install"
+          cd "$root/project"
+          curl -fsSL "https://raw.githubusercontent.com/CGuiho/buda/${GITHUB_SHA}/devops/install.sh" |
+            sh -s -- "${GITHUB_REF_NAME}"
+          test "$("$root/install/buda" --version)" = 'buda v${{ steps.release.outputs.version }}'
+          test -s "$HOME/.agents/skills/guiho-s-0002-buda/SKILL.md"
+          test -s "$HOME/.claude/skills/guiho-s-0002-buda/SKILL.md"
+
+  windows-installer:
+    name: Verify tag-pinned public Windows installer
+    needs: publish
+    runs-on: windows-latest
+    steps:
+      - name: Install the exact tagged Buda release
+        shell: pwsh
+        env:
+          BUDA_VERSION: ${{ needs.publish.outputs.version }}
+        run: |
+          $root = Join-Path $env:RUNNER_TEMP 'buda-public'
+          $homeDirectory = Join-Path $root 'home'
+          $installDirectory = Join-Path $root 'bin'
+          $fakeBin = Join-Path $root 'fake-bin'
+          New-Item -ItemType Directory -Force -Path $homeDirectory, $installDirectory, $fakeBin | Out-Null
+          Set-Content -LiteralPath (Join-Path $fakeBin 'qmd.cmd') -Value '@echo qmd 2.5.3' -Encoding ASCII
+          $env:HOME = $homeDirectory
+          $env:USERPROFILE = $homeDirectory
+          $env:PATH = "$fakeBin;$env:PATH"
+          $source = Invoke-RestMethod "https://raw.githubusercontent.com/CGuiho/buda/${{ github.sha }}/devops/install.ps1"
+          & ([scriptblock]::Create($source)) -Version "buda/v$env:BUDA_VERSION" -InstallDir $installDirectory
+          $actual = (& "$installDirectory\buda.exe" --version | Out-String).Trim()
+          if ($actual -ne "buda v$env:BUDA_VERSION") { throw "Unexpected installed version: $actual" }
+          if (-not (Test-Path -LiteralPath "$homeDirectory\.agents\skills\guiho-s-0002-buda\SKILL.md")) {
+            throw 'Missing .agents Buda skill installation.'
+          }
+          if (-not (Test-Path -LiteralPath "$homeDirectory\.claude\skills\guiho-s-0002-buda\SKILL.md")) {
+            throw 'Missing .claude Buda skill installation.'
+          }

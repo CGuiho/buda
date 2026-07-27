@@ -1,7 +1,7 @@
 ---
 name: buda-implementation-plan
-purpose: Record the approved vertical MVP implementation and validation plan.
-description: File/module ownership, phase dependencies, acceptance criteria, validation commands, and release boundaries for the first Buda implementation.
+purpose: Record the approved vertical MVP implementation, validation, installation, and GitHub Release plan.
+description: File/module ownership, phase dependencies, acceptance criteria, validation commands, and GitHub Release boundaries through Buda 0.0.2.
 created: 2026-07-26
 owner: buda-docs
 flags: []
@@ -12,12 +12,16 @@ keywords:
   - Buda MVP
   - vertical slice
   - acceptance criteria
+  - Buda 0.0.2
+  - GitHub Release
 ---
 
-# Buda vertical MVP implementation
+# Buda vertical MVP and 0.0.2 delivery
 
-This plan implements the approved GUIHO RFC 0002 revision without versioning,
-tagging, releasing, publishing, or opening a pull request.
+This plan implements the approved GUIHO RFC 0002 revision and the authorized
+0.0.2 delivery. Buda is distributed only through its GitHub Releases. The
+delivery does not publish Buda to npm or any other package registry; npm is
+relevant only as an upstream installation option for qmd.
 
 ## Phases and ownership
 
@@ -39,6 +43,9 @@ tagging, releasing, publishing, or opening a pull request.
 6. Documentation and validation: XDocs metadata for every module, public usage
    and governing references, format/tidy/test/vet, XDocs checks, native smoke,
    and foreign build-only verification.
+7. Distribution: checksum-verifying latest and exact-tag installers, CI for the
+   CLI and eleven-artifact contract, then a canonical `buda/v0.0.2` Mirror tag
+   that drives the GitHub Release workflow after all validation is clean.
 
 Dependencies flow from foundation and repository resolution into domain and qmd
 commands. Bare agent maintenance depends only on embedded bytes and global skill
@@ -74,6 +81,15 @@ Packaging depends only on the canonical bundle.
 - Packs contain only canonical bundle material plus deterministic manifest and
   checksums; they do not claim sharing safety or publish anything.
 - The release definition contains exactly the approved eleven artifact names.
+- Latest and exact-version installers require an already installed compatible
+  qmd, validate canonical `buda/v<semver>` tags, verify checksums, update both
+  global embedded skills, and roll back a replaced binary when installation
+  fails.
+- Re-running the exact 0.0.2 installer provides the transactional upgrade from
+  0.0.1 without mutating canonical wiki content or selecting a wiki.
+- CI and release automation contain no npm publication or other package-manager
+  publication step. A release publishes exactly the eleven approved artifacts
+  to GitHub Releases.
 
 ## Validation commands
 
@@ -87,10 +103,13 @@ go run . --help-docs
 xdocs meta . --documents --strict
 xdocs tree
 xdocs doctor .
-go run ./devops/build-binaries.go --version 0.0.0-dev `
-  --commit local --build-date 2026-07-26T00:00:00Z
+go run ./devops/build-binaries.go --version 0.0.2 `
+  --commit local --build-date 2026-07-27T00:00:00Z
 ```
 
 Foreign binaries are build-only on this Windows host. qmd integration is
 runtime-validated only when a supported qmd executable is installed; injected
 process tests and structured fixtures do not substitute for that smoke test.
+Mirror planning and application occur only after these validations pass; the
+resulting canonical tag may trigger GitHub Release publication but never a
+package-registry publication.
