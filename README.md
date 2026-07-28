@@ -20,10 +20,9 @@ keywords:
 
 # GUIHO Buda
 
-GUIHO Buda (B-U-D-A) is a public Go/Cobra CLI and agent-skill collection for
-managing AI-maintained wikis. Buda helps agents save, navigate, read, validate,
-and maintain any one explicitly selected AI-maintained wiki. It follows the
-persistent knowledge operating pattern in
+GUIHO Buda is a CLI and agent skill collection to manage AI-maintained wiki. Buda help
+agents save, navigate, read, validate, and maintain any one explicitly selected
+AI-maintained wiki. Bult using public Go and Cobra. It follows the persistent knowledge operating pattern in
 [Karpathy's LLM Wiki](https://gist.github.com/karpathy/442a6bf555914893e9891c11519de94f)
 and stores portable knowledge according to Google's canonical
 [Open Knowledge Format specification](https://github.com/GoogleCloudPlatform/knowledge-catalog/blob/main/okf/SPEC.md).
