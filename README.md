@@ -1,22 +1,4 @@
----
-name: buda-readme
-purpose: Introduce Buda and document its repository-agnostic wiki workflow.
-description: Public overview, verified installation and upgrade instructions, explicit-wiki contract, OKF knowledge model, qmd boundary, commands, and agent resources.
-created: 2026-07-26
-owner: buda-package
-flags: []
-tags:
-  - readme
-  - cli
-  - knowledge
-keywords:
-  - Buda
-  - Open Knowledge Format
-  - qmd
-  - LLM Wiki
-  - install Buda
-  - buda/v0.0.2
----
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 # GUIHO Buda
 
