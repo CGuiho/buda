@@ -119,6 +119,40 @@ func TestCaptureReplaceRewritesWhenOnlyDigestDiffers(t *testing.T) {
 	}
 }
 
+func TestCaptureIdenticalRetryUnchangedWithoutBudaMetadata(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	selected, _ := repository.Open(wiki)
+	text := []byte("Legacy content captured before Buda metadata.")
+	legacy := []byte("---\ntype: Note\ntitle: Legacy\ndescription: Legacy concept.\nstatus: draft\ngenerated:\n  by: human:owner\n  at: 2026-07-26T00:00:00Z\nsources:\n  - id: capture-input\n    resource: buda:capture\n    title: Explicit user-directed capture input\n    author: human:owner\n---\n\n" + string(text) + "[^capture-input]\n\n[^capture-input]: Explicit user-directed capture input.\n")
+	path := filepath.Join(selected.Bundle, "concepts", "legacy.md")
+	if err := os.WriteFile(path, legacy, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	request := Request{
+		Target: "concepts/legacy.md", Title: "Legacy", Description: "Legacy concept.",
+		Type: "Note", Text: text, Actor: "human:owner",
+		Now: time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC),
+	}
+	result, err := Run(selected, request)
+	if err != nil || !result.Unchanged {
+		t.Fatalf("identical retry without buda metadata = %+v, %v; want Unchanged with no error", result, err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, legacy) {
+		t.Fatal("unchanged retry without buda metadata rewrote the concept file")
+	}
+	request.Text = []byte("Different content.")
+	if _, err := Run(selected, request); err == nil {
+		t.Fatal("different content without buda metadata accepted replacement without --replace")
+	}
+}
+
 func TestCaptureRetryRepairsIndexAndLog(t *testing.T) {
 	wiki := filepath.Join(t.TempDir(), "wiki")
 	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
