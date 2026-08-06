@@ -174,17 +174,30 @@ try {
   & $Destination agent skill update
   Write-Host "[OK] Installed both global Buda skill destinations transactionally from embedded resources."
 
+  $InstalledVersion = (& $Destination --version | Out-String).Trim()
+  if ($InstalledVersion -ne "buda v$ExpectedVersion") { throw "Installed version '$InstalledVersion' does not match requested tag '$Tag'." }
+  Write-Host $InstalledVersion
+  # The binary is verified and installed; mark the install successful before
+  # the optional skill-destination registrations below so an optional
+  # registration failure can never roll back a valid binary replacement.
+  $InstallSucceeded = $true
+
   # Register the embedded skill into optional destinations: BUDA_SKILL_DIRS
   # (semicolon-separated) and the Hermes skills directory when it exists. The
   # built-in ~/.agents/skills and ~/.claude/skills destinations are already
-  # handled by `buda agent skill update` above; these are additive.
+  # handled by `buda agent skill update` above; these are additive and
+  # non-fatal: a failure only warns and leaves the installation complete.
   function Register-SkillDir([string]$Target) {
     if ([string]::IsNullOrWhiteSpace($Target)) { return }
     $Dest = Join-Path $Target "guiho-s-0002-buda"
-    New-Item -ItemType Directory -Force -Path $Target | Out-Null
-    if (Test-Path -LiteralPath $Dest) { Remove-Item -Recurse -Force -LiteralPath $Dest }
-    Copy-Item -Recurse -LiteralPath $SourceSkill -Destination $Dest
-    Write-Host "[OK] Registered Buda skill: $Dest"
+    try {
+      New-Item -ItemType Directory -Force -Path $Target | Out-Null
+      if (Test-Path -LiteralPath $Dest) { Remove-Item -Recurse -Force -LiteralPath $Dest }
+      Copy-Item -Recurse -LiteralPath $SourceSkill -Destination $Dest
+      Write-Host "[OK] Registered Buda skill: $Dest"
+    } catch {
+      Write-Warning "Could not register Buda skill in '$Target' (skipped): $($_.Exception.Message)"
+    }
   }
 
   if (-not [string]::IsNullOrWhiteSpace($env:BUDA_SKILL_DIRS)) {
@@ -201,9 +214,6 @@ try {
     Register-SkillDir $HermesSkillsDir
   }
 
-  $InstalledVersion = (& $Destination --version | Out-String).Trim()
-  if ($InstalledVersion -ne "buda v$ExpectedVersion") { throw "Installed version '$InstalledVersion' does not match requested tag '$Tag'." }
-  Write-Host $InstalledVersion
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathEntries = @($UserPath -split ";" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   if ($PathEntries -notcontains $InstallDir) {
@@ -221,7 +231,6 @@ try {
   }
   Write-Host $QmdVersionOutput
   Write-Host "[OK] Buda installation complete. Repository instructions are installed only for an explicit --wiki path."
-  $InstallSucceeded = $true
 } catch {
   if ($BinaryReplaced -and -not $InstallSucceeded) {
     if ($Destination -and (Test-Path -LiteralPath $Destination)) { Remove-Item -Force -LiteralPath $Destination }
