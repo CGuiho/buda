@@ -6,9 +6,9 @@ children: []
 files:
   build-binaries.go: Eight-target CGO-disabled binary build and eleven-artifact assembly.
   build-binaries_test.go: Target matrix, naming, checksum, and archive contract tests.
-  install.ps1: PowerShell latest or exact canonical-tag binary installer with checksum verification, rollback, execution-policy-safe qmd.cmd compatibility checks, and embedded global-skill refresh.
-  install.sh: POSIX latest or exact canonical-tag binary installer with checksum verification, rollback, qmd compatibility checks, and embedded global-skill refresh.
-  installers_test.go: Installer canonical-tag extraction, qmd pinning, checksum, rollback, local-asset, and destination contract tests.
+  install.ps1: PowerShell latest or exact canonical-tag binary installer with checksum verification, rollback, execution-policy-safe qmd.cmd compatibility checks, off-PATH qmd probing, configurable skill destinations (BUDA_SKILL_DIRS), Hermes-aware skill registration (HERMES_SKILLS_DIR), non-fatal optional skill registration, session PATH verification warning, and embedded global-skill refresh.
+  install.sh: POSIX latest or exact canonical-tag binary installer with checksum verification, rollback, qmd compatibility checks, off-PATH qmd probing with a distinct npx-fallback message, configurable skill destinations (BUDA_SKILL_DIRS), Hermes-aware skill registration (HERMES_SKILLS_DIR), non-fatal optional skill registration, PATH verification warning, and embedded global-skill refresh.
+  installers_test.go: Installer canonical-tag extraction, qmd pinning, checksum, rollback, local-asset, destination contract, PATH-hint, qmd-probe, npx-fallback message, success-flag ordering, non-fatal optional registration, and env-var skill-dir tests.
   workflows_test.go: GitHub Actions syntax, canonical tag, exact asset, real qmd integration, and no package or production publication contract tests.
 documents: {}
 tags:

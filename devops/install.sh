@@ -1,4 +1,21 @@
 #!/usr/bin/env sh
+# Buda canonical-tag installer (POSIX sh).
+#
+# Environment variables:
+#   GUIHO_INSTALL_DIR      Binary install directory (default: ~/.local/bin).
+#   BUDA_RELEASE_ASSET_DIR Load release assets from a local directory instead of
+#                          GitHub; requires an exact canonical tag argument.
+#   BUDA_SKILL_DIRS        Space-separated list of extra skill destination
+#                          directories. Each is created if missing and the
+#                          embedded skill directory is copied into it (the skill
+#                          id subdirectory is appended automatically). Defaults
+#                          to empty; the built-in ~/.agents/skills and
+#                          ~/.claude/skills destinations are always installed by
+#                          `buda agent skill update`.
+#   HERMES_SKILLS_DIR      Hermes agent skills directory. When this directory
+#                          exists (default: ~/.hermes/skills) the embedded skill
+#                          is additionally registered there by the installer so
+#                          Hermes agents can use Buda without a manual copy.
 set -eu
 
 CLI_NAME="buda"
@@ -126,11 +143,44 @@ if [ ! -f "${SOURCE_SKILL}/SKILL.md" ]; then
   printf 'error: skill archive does not contain guiho-s-0002-buda/SKILL.md\n' >&2
   exit 1
 fi
-if ! command -v qmd >/dev/null 2>&1; then
-  printf '%s\n' 'error: qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>' >&2
-  exit 1
+# Resolve qmd even when it is installed off PATH (common in agent-managed
+# environments such as ~/.hermes/node/bin). Only hard-fail when truly absent.
+QMD_BIN=""
+QMD_NPX_FALLBACK=0
+if command -v qmd >/dev/null 2>&1; then
+  QMD_BIN="qmd"
+else
+  QMD_PROBE_DIRS=""
+  if command -v npm >/dev/null 2>&1; then
+    NPM_GLOBAL_BIN="$(npm root -g 2>/dev/null)/bin"
+    [ -n "$NPM_GLOBAL_BIN" ] && QMD_PROBE_DIRS="$QMD_PROBE_DIRS $NPM_GLOBAL_BIN"
+  fi
+  QMD_PROBE_DIRS="$QMD_PROBE_DIRS ${HOME}/.hermes/node/bin ${HOME}/.local/bin ${HOME}/.npm-global/bin"
+  for probe_dir in $QMD_PROBE_DIRS; do
+    if [ -n "$probe_dir" ] && [ -x "$probe_dir/qmd" ]; then
+      QMD_BIN="$probe_dir/qmd"
+      break
+    fi
+  done
+  if [ -z "$QMD_BIN" ] && command -v npx >/dev/null 2>&1; then
+    if npx --no-install qmd --version >/dev/null 2>&1; then
+      QMD_BIN="npx --no-install qmd"
+      QMD_NPX_FALLBACK=1
+    fi
+  fi
+  if [ -z "$QMD_BIN" ]; then
+    printf '%s\n' 'error: qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>' >&2
+    exit 1
+  fi
+  if [ "$QMD_NPX_FALLBACK" -eq 1 ]; then
+    # The npx fallback is not a filesystem path, so directory-to-PATH advice
+    # does not apply; suggest a global install instead.
+    printf '%s\n' 'info: qmd found via the npx fallback (npx --no-install qmd). For reliable operation install it globally: npm install -g @tobilu/qmd@2.5.3. Then run: buda doctor --wiki <path>' >&2
+  else
+    printf 'warning: qmd was not on PATH but was found at %s; add its directory to PATH (e.g. export PATH="%s:$PATH") for reliable operation.\n' "$QMD_BIN" "${QMD_BIN%/*}" >&2
+  fi
 fi
-QMD_VERSION_OUTPUT="$(qmd --version)"
+QMD_VERSION_OUTPUT="$($QMD_BIN --version)"
 QMD_VERSION="$(printf '%s\n' "$QMD_VERSION_OUTPUT" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^v?[0-9]+\.[0-9]+\.[0-9]+/) { sub(/^v/, "", $i); print $i; exit } }')"
 QMD_MAJOR="${QMD_VERSION%%.*}"
 QMD_REST="${QMD_VERSION#*.}"
@@ -161,5 +211,54 @@ if [ "$INSTALLED_VERSION" != "buda v${EXPECTED_VERSION}" ]; then
   exit 1
 fi
 printf '%s\n' "$INSTALLED_VERSION"
+# The binary is verified and installed; mark the install successful before the
+# optional skill-destination registrations below so an optional registration
+# failure can never roll back a valid binary replacement.
 INSTALL_SUCCEEDED=1
+
+# Register the embedded skill into optional destinations: BUDA_SKILL_DIRS
+# (space-separated) and the Hermes skills directory when it exists. The
+# built-in ~/.agents/skills and ~/.claude/skills destinations are already
+# handled by `buda agent skill update` above; these are additive and
+# non-fatal: a failure only warns and leaves the installation complete.
+register_skill_dir() {
+  rs_target="$1"
+  if [ -z "$rs_target" ]; then
+    return 0
+  fi
+  rs_dest="$rs_target/guiho-s-0002-buda"
+  if ! mkdir -p "$rs_target" 2>/dev/null; then
+    printf 'warning: could not create %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_target" >&2
+    return 0
+  fi
+  if ! rm -rf "$rs_dest" 2>/dev/null; then
+    printf 'warning: could not refresh %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_dest" >&2
+    return 0
+  fi
+  if ! cp -R "$SOURCE_SKILL" "$rs_dest" 2>/dev/null; then
+    printf 'warning: could not copy the Buda skill to %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_dest" >&2
+    return 0
+  fi
+  printf '[OK] Registered Buda skill: %s\n' "$rs_dest"
+}
+
+for skill_dir in ${BUDA_SKILL_DIRS:-}; do
+  register_skill_dir "$skill_dir"
+done
+
+HERMES_SKILLS_DIR_RESOLVED="${HERMES_SKILLS_DIR:-${HOME}/.hermes/skills}"
+if [ -d "$HERMES_SKILLS_DIR_RESOLVED" ]; then
+  register_skill_dir "$HERMES_SKILLS_DIR_RESOLVED"
+fi
+
+# Verify the binary is callable on PATH; warn (not fail) with an actionable
+# fix when the install directory is not on PATH for the current shell.
+if ! command -v "$CLI_NAME" >/dev/null 2>&1; then
+  printf 'warning: %s was installed to %s which is not on PATH for this shell.\n' "$CLI_NAME" "$INSTALL_DIR" >&2
+  printf '         Fix one of:\n' >&2
+  printf '           export PATH="%s:$PATH"\n' "$INSTALL_DIR" >&2
+  printf '           ln -s "%s/%s" /usr/local/bin/%s\n' "$INSTALL_DIR" "$CLI_NAME" "$CLI_NAME" >&2
+  printf '         Then run: buda doctor --wiki <path>\n' >&2
+fi
+
 printf '%s\n' '[OK] Buda installation complete. Repository instructions are installed only for an explicit --wiki path.'

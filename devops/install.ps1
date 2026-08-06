@@ -3,6 +3,23 @@ param(
   [string]$InstallDir = "$env:LOCALAPPDATA\GUIHO\bin"
 )
 
+# Buda canonical-tag installer (PowerShell 5.1 compatible).
+#
+# Environment variables:
+#   BUDA_RELEASE_ASSET_DIR  Load release assets from a local directory instead of
+#                           GitHub; requires an exact canonical tag argument.
+#   BUDA_SKILL_DIRS         Semicolon-separated list of extra skill destination
+#                           directories. Each is created if missing and the
+#                           embedded skill directory is copied into it (the skill
+#                           id subdirectory is appended automatically). Defaults
+#                           to empty; the built-in ~/.agents/skills and
+#                           ~/.claude/skills destinations are always installed by
+#                           `buda agent skill update`.
+#   HERMES_SKILLS_DIR       Hermes agent skills directory. When this directory
+#                           exists (default: ~/.hermes/skills) the embedded skill
+#                           is additionally registered there by the installer so
+#                           Hermes agents can use Buda without a manual copy.
+
 $ErrorActionPreference = "Stop"
 $Owner = "CGuiho"
 $Repository = "buda"
@@ -101,10 +118,40 @@ try {
   if (-not $Qmd) {
     $Qmd = Get-Command qmd -CommandType Application -ErrorAction SilentlyContinue
   }
+  # Probe common off-PATH locations (agent-managed environments) before failing.
+  if (-not $Qmd) {
+    $ProbeDirs = @()
+    $NpmRoot = $null
+    try { $NpmRoot = (npm root -g 2>$null) } catch { }
+    if ($NpmRoot) { $ProbeDirs += (Join-Path $NpmRoot "bin") }
+    $ProbeDirs += @(
+      (Join-Path $env:USERPROFILE ".hermes\node\bin"),
+      (Join-Path $env:USERPROFILE ".local\bin"),
+      (Join-Path $env:USERPROFILE ".npm-global\bin"),
+      (Join-Path $env:APPDATA "npm")
+    )
+    foreach ($ProbeDir in $ProbeDirs) {
+      if ([string]::IsNullOrWhiteSpace($ProbeDir)) { continue }
+      $ProbePath = Join-Path $ProbeDir "qmd.cmd"
+      if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
+        $Qmd = Get-Item -LiteralPath $ProbePath
+        Write-Warning "qmd was not on PATH but was found at $ProbePath; add '$ProbeDir' to PATH for reliable operation."
+        break
+      }
+      $ProbePath = Join-Path $ProbeDir "qmd"
+      if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
+        $Qmd = Get-Item -LiteralPath $ProbePath
+        Write-Warning "qmd was not on PATH but was found at $ProbePath; add '$ProbeDir' to PATH for reliable operation."
+        break
+      }
+    }
+  }
   if (-not $Qmd) {
     throw "qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>"
   }
-  $QmdVersionOutput = (& $Qmd.Source --version | Out-String).Trim()
+  $QmdSource = $Qmd.Source
+  if (-not $QmdSource) { $QmdSource = $Qmd.FullName }
+  $QmdVersionOutput = (& $QmdSource --version | Out-String).Trim()
   if ($QmdVersionOutput -notmatch '(?i)(?:qmd\s+)?v?(\d+)\.(\d+)\.(\d+)') {
     throw "Could not parse qmd version: $QmdVersionOutput"
   }
@@ -130,6 +177,43 @@ try {
   $InstalledVersion = (& $Destination --version | Out-String).Trim()
   if ($InstalledVersion -ne "buda v$ExpectedVersion") { throw "Installed version '$InstalledVersion' does not match requested tag '$Tag'." }
   Write-Host $InstalledVersion
+  # The binary is verified and installed; mark the install successful before
+  # the optional skill-destination registrations below so an optional
+  # registration failure can never roll back a valid binary replacement.
+  $InstallSucceeded = $true
+
+  # Register the embedded skill into optional destinations: BUDA_SKILL_DIRS
+  # (semicolon-separated) and the Hermes skills directory when it exists. The
+  # built-in ~/.agents/skills and ~/.claude/skills destinations are already
+  # handled by `buda agent skill update` above; these are additive and
+  # non-fatal: a failure only warns and leaves the installation complete.
+  function Register-SkillDir([string]$Target) {
+    if ([string]::IsNullOrWhiteSpace($Target)) { return }
+    $Dest = Join-Path $Target "guiho-s-0002-buda"
+    try {
+      New-Item -ItemType Directory -Force -Path $Target | Out-Null
+      if (Test-Path -LiteralPath $Dest) { Remove-Item -Recurse -Force -LiteralPath $Dest }
+      Copy-Item -Recurse -LiteralPath $SourceSkill -Destination $Dest
+      Write-Host "[OK] Registered Buda skill: $Dest"
+    } catch {
+      Write-Warning "Could not register Buda skill in '$Target' (skipped): $($_.Exception.Message)"
+    }
+  }
+
+  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_SKILL_DIRS)) {
+    foreach ($SkillDir in ($env:BUDA_SKILL_DIRS -split ";")) {
+      Register-SkillDir $SkillDir
+    }
+  }
+
+  $HermesSkillsDir = $env:HERMES_SKILLS_DIR
+  if ([string]::IsNullOrWhiteSpace($HermesSkillsDir)) {
+    $HermesSkillsDir = Join-Path $env:USERPROFILE ".hermes\skills"
+  }
+  if (Test-Path -LiteralPath $HermesSkillsDir -PathType Container) {
+    Register-SkillDir $HermesSkillsDir
+  }
+
   $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
   $PathEntries = @($UserPath -split ";" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
   if ($PathEntries -notcontains $InstallDir) {
@@ -140,9 +224,13 @@ try {
       Write-Warning "Buda is installed, but the user PATH could not be updated. Add '$InstallDir' to PATH manually."
     }
   }
+  # Verify the binary is callable in the current session; warn (not fail) when
+  # the install directory is not yet on the session PATH.
+  if (-not (Get-Command $CliName -ErrorAction SilentlyContinue)) {
+    Write-Warning "buda was installed to $InstallDir which is not on the session PATH. Open a new shell or run: `$env:Path = '$InstallDir;' + `$env:Path. Then run: buda doctor --wiki <path>"
+  }
   Write-Host $QmdVersionOutput
   Write-Host "[OK] Buda installation complete. Repository instructions are installed only for an explicit --wiki path."
-  $InstallSucceeded = $true
 } catch {
   if ($BinaryReplaced -and -not $InstallSucceeded) {
     if ($Destination -and (Test-Path -LiteralPath $Destination)) { Remove-Item -Force -LiteralPath $Destination }
