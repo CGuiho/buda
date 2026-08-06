@@ -1,6 +1,7 @@
 name: Publish Go Release
 
 on:
+  workflow_dispatch:
   push:
     tags:
       - 'buda/v*'
