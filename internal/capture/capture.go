@@ -91,12 +91,35 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 		return Result{}, err
 	}
 	relative := filepath.ToSlash(request.Target)
-	digestBytes := sha256.Sum256(request.Text)
-	digest := "sha256:" + hex.EncodeToString(digestBytes[:])
 	sourceID := "capture-input"
 	uid := source.StableUID("buda-concept:"+selected.Config.WikiID, relative)
+	// Compute the digest over the trimmed body-before-marker so it always
+	// matches the stored body: the health check re-hashes
+	// bytes.TrimSpace(body-before-marker), and the body written below is
+	// itself trimmed. Hashing the raw input instead would mismatch whenever
+	// the input ends with trailing whitespace (e.g. piping
+	// `cat file | buda capture`).
 	body := bytes.TrimSpace(request.Text)
-	body = append(append([]byte(nil), body...), []byte("[^"+sourceID+"]\n\n[^"+sourceID+"]: Explicit user-directed capture input.\n")...)
+	marker := []byte("[^" + sourceID + "]")
+	// Strip a trailing marker so the digest covers only the captured evidence
+	// (the body-before-marker), matching what the health check re-hashes.
+	digestBase := body
+	if bytes.HasSuffix(body, marker) {
+		digestBase = bytes.TrimSpace(bytes.TrimSuffix(body, marker))
+	}
+	digestBytes := sha256.Sum256(digestBase)
+	digest := "sha256:" + hex.EncodeToString(digestBytes[:])
+	// Append the footnote marker and definition. If the input already ends
+	// with the marker, do not append it a second time: only the footnote
+	// definition is added so the body is not mangled into a doubled marker
+	// and the digest still matches the trimmed body-before-marker.
+	definition := []byte("\n\n[^" + sourceID + "]: Explicit user-directed capture input.\n")
+	if bytes.HasSuffix(body, marker) {
+		body = append(append([]byte(nil), body...), definition...)
+	} else {
+		body = append(append([]byte(nil), body...), append(marker, '\n')...)
+		body = append(body, definition...)
+	}
 	metadata := frontmatter{
 		Type:        request.Type,
 		Title:       request.Title,
