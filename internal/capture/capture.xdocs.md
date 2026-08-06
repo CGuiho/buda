@@ -4,8 +4,8 @@ description: Deterministic capture staging and canonical concept and evidence wr
 parent: buda-internal
 children: []
 files:
-  capture.go: Capture input normalization (trim before digest; avoid duplicated footnote marker) and staged OKF artifact writes.
-  capture_test.go: Capture determinism, validation, and input-normalization regression tests.
+  capture.go: Capture input normalization (trim before digest; avoid duplicated footnote marker), present-aware digest comparison for unchanged detection, and staged OKF artifact writes.
+  capture_test.go: Capture determinism, digest-drift replacement, no-buda idempotent retry, input-normalization regression, and validation tests.
 documents: {}
 tags:
   - capture

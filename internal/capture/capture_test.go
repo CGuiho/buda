@@ -73,6 +73,112 @@ func TestCaptureRequiresExplicitTargetAndReplacement(t *testing.T) {
 	}
 }
 
+func TestCaptureReplaceRewritesWhenOnlyDigestDiffers(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	selected, _ := repository.Open(wiki)
+	plainText := []byte("Some content.")
+	now := time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC)
+	first, err := Run(selected, Request{
+		Target: "concepts/digest.md", Title: "Digest", Description: "Digest drift fix.",
+		Type: "Note", Text: plainText, Actor: "human:owner", Now: now,
+	})
+	if err != nil || !first.Created {
+		t.Fatalf("first Run = %+v, %v", first, err)
+	}
+	// Input normalization always records the digest over the trimmed
+	// body-before-marker, so a genuine digest drift can no longer be produced
+	// through Run itself. Simulate a stale recorded digest (an artifact
+	// captured before normalization) by corrupting the frontmatter digest, then
+	// prove --replace rewrites the concept to repair it.
+	path := filepath.Join(selected.Bundle, "concepts", "digest.md")
+	data, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	staleDigest := append([]byte("sha256:"), bytes.Repeat([]byte("0"), 64)...)
+	stale := bytes.Replace(data, []byte(first.Digest), staleDigest, 1)
+	if bytes.Equal(stale, data) {
+		t.Fatal("recorded digest not found in captured concept frontmatter")
+	}
+	if err := os.WriteFile(path, stale, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Identical content with a differing recorded digest must not be treated as
+	// unchanged without explicit replacement approval.
+	if _, err := Run(selected, Request{
+		Target: "concepts/digest.md", Title: "Digest", Description: "Digest drift fix.",
+		Type: "Note", Text: plainText, Actor: "human:owner", Now: now,
+	}); err == nil {
+		t.Fatal("digest-drift retry without --replace accepted as unchanged")
+	}
+	second, err := Run(selected, Request{
+		Target: "concepts/digest.md", Title: "Digest", Description: "Digest drift fix.",
+		Type: "Note", Text: plainText, Actor: "human:owner", Now: now, Replace: true,
+	})
+	if err != nil || !second.Updated {
+		t.Fatalf("second Run = %+v, %v", second, err)
+	}
+	secondBytes, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	sum := sha256.Sum256(bytes.TrimSpace(plainText))
+	expectedDigest := "sha256:" + hex.EncodeToString(sum[:])
+	if second.Digest != expectedDigest {
+		t.Fatalf("digest = %q, want %q", second.Digest, expectedDigest)
+	}
+	if !bytes.Contains(secondBytes, []byte(expectedDigest)) {
+		t.Fatalf("written frontmatter does not contain recorded digest %q", expectedDigest)
+	}
+	if bytes.Contains(secondBytes, staleDigest) {
+		t.Fatal("stale digest still present after --replace rewrite")
+	}
+	report, err := health.Scan(selected.Bundle, "wiki", now)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !report.Conformant {
+		t.Fatalf("rewritten concept not conformant: %+v", report.Findings)
+	}
+}
+
+func TestCaptureIdenticalRetryUnchangedWithoutBudaMetadata(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	selected, _ := repository.Open(wiki)
+	text := []byte("Legacy content captured before Buda metadata.")
+	legacy := []byte("---\ntype: Note\ntitle: Legacy\ndescription: Legacy concept.\nstatus: draft\ngenerated:\n  by: human:owner\n  at: 2026-07-26T00:00:00Z\nsources:\n  - id: capture-input\n    resource: buda:capture\n    title: Explicit user-directed capture input\n    author: human:owner\n---\n\n" + string(text) + "[^capture-input]\n\n[^capture-input]: Explicit user-directed capture input.\n")
+	path := filepath.Join(selected.Bundle, "concepts", "legacy.md")
+	if err := os.WriteFile(path, legacy, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	request := Request{
+		Target: "concepts/legacy.md", Title: "Legacy", Description: "Legacy concept.",
+		Type: "Note", Text: text, Actor: "human:owner",
+		Now: time.Date(2026, 7, 26, 0, 0, 0, 0, time.UTC),
+	}
+	result, err := Run(selected, request)
+	if err != nil || !result.Unchanged {
+		t.Fatalf("identical retry without buda metadata = %+v, %v; want Unchanged with no error", result, err)
+	}
+	after, err := os.ReadFile(path)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if !bytes.Equal(after, legacy) {
+		t.Fatal("unchanged retry without buda metadata rewrote the concept file")
+	}
+	request.Text = []byte("Different content.")
+	if _, err := Run(selected, request); err == nil {
+		t.Fatal("different content without buda metadata accepted replacement without --replace")
+	}
+}
+
 func TestCaptureRetryRepairsIndexAndLog(t *testing.T) {
 	wiki := filepath.Join(t.TempDir(), "wiki")
 	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
