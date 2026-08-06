@@ -9,7 +9,7 @@ tags:
   - changelog
   - releases
 keywords:
-  - Buda 0.1.0
+  - Buda 0.1.1
   - release notes
   - eleven artifacts
   - GitHub Releases
@@ -19,6 +19,17 @@ keywords:
 
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
+
+## [0.1.1] - 2026-08-07
+
+This release makes GitHub Release publication resilient to delayed events for a
+tag that has since been replaced with a newer target.
+
+### Fixed
+
+- The publish workflow now detects when its event commit does not match the
+  tag's current peeled target and exits successfully without attempting a
+  stale release build or reporting a false publication failure.
 
 ## [0.1.0] - 2026-08-06
 

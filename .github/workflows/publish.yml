@@ -10,8 +10,33 @@ permissions:
   contents: write
 
 jobs:
+  release-ref:
+    name: Verify current canonical tag target
+    runs-on: ubuntu-latest
+    outputs:
+      current: ${{ steps.target.outputs.current }}
+    steps:
+      - uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - id: target
+        name: Ignore a superseded tag event
+        shell: bash
+        run: |
+          set -euo pipefail
+          current="$(git ls-remote origin "refs/tags/${GITHUB_REF_NAME}^{}" | cut -f1)"
+          if [[ "$current" != "$GITHUB_SHA" ]]; then
+            echo "::notice::Ignoring stale ${GITHUB_REF_NAME} event for ${GITHUB_SHA}; current target is ${current:-missing}."
+            echo 'current=false' >> "$GITHUB_OUTPUT"
+            exit 0
+          fi
+          echo 'current=true' >> "$GITHUB_OUTPUT"
+
   windows-installer-preflight:
     name: Preflight Windows installer before publication
+    needs: release-ref
+    if: needs.release-ref.outputs.current == 'true'
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
@@ -49,7 +74,10 @@ jobs:
           if ($actual -ne "buda v$version") { throw "Unexpected installed version: $actual" }
 
   publish:
-    needs: windows-installer-preflight
+    needs:
+      - release-ref
+      - windows-installer-preflight
+    if: needs.release-ref.outputs.current == 'true'
     runs-on: ubuntu-latest
     outputs:
       version: ${{ steps.release.outputs.version }}
@@ -212,7 +240,10 @@ jobs:
 
   windows-installer:
     name: Verify tag-pinned public Windows installer
-    needs: publish
+    needs:
+      - release-ref
+      - publish
+    if: needs.release-ref.outputs.current == 'true'
     runs-on: windows-latest
     steps:
       - name: Install the exact tagged Buda release

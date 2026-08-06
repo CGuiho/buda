@@ -1,11 +1,11 @@
 ---
 subject: buda-github-workflows
-description: Go CI, native smoke coverage, canonical-tag or manual GitHub Release publication, exact-asset reconciliation, and public installer acceptance.
+description: Go CI, native smoke coverage, canonical-tag or manual GitHub Release publication, stale-tag event filtering, exact-asset reconciliation, and public installer acceptance.
 parent: buda-github
 children: []
 files:
   ci.yml: Go formatting, module, test, vet, exact eleven-artifact build, checksum, installer syntax, hosted native-platform smoke, and real qmd 2.5.3 project-local lexical integration validation.
-  publish.yml: Canonical buda/v* GitHub Release publication with manual recovery dispatch, exact-version notes, exactly eleven assets, checksum verification, pre-publication Linux and Windows upgrade-installer gates, real qmd lexical retrieval, and post-publication installer acceptance.
+  publish.yml: Canonical buda/v* GitHub Release publication with manual recovery dispatch, stale-tag event filtering, exact-version notes, exactly eleven assets, checksum verification, pre-publication Linux and Windows upgrade-installer gates, real qmd lexical retrieval, and post-publication installer acceptance.
 documents: {}
 tags:
   - github-actions
@@ -30,7 +30,8 @@ Linux, plus the npm `qmd.cmd` launcher path on Windows, without downloading
 models or adding a Buda package-manager publication.
 
 Publication runs for canonical `buda/v*` tags or a manual recovery dispatch
-against one. It reconciles one GitHub Release to the exact eleven checked
-artifacts and verifies the tag-pinned Bash and PowerShell installers before
-publication, then repeats public installer acceptance after publication,
-without publishing to a package manager or registry.
+against one. It ignores delayed events whose commit no longer matches the
+current tag target. For a current tag, it reconciles one GitHub Release to the
+exact eleven checked artifacts and verifies the tag-pinned Bash and PowerShell
+installers before publication, then repeats public installer acceptance after
+publication, without publishing to a package manager or registry.

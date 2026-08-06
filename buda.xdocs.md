@@ -31,7 +31,7 @@ keywords:
   - qmd
   - LLM Wiki
   - GitHub Releases
-  - buda/v0.1.0
+  - buda/v0.1.1
 flags: []
 status: draft
 ---
