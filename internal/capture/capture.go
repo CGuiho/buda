@@ -126,13 +126,13 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 			return Result{}, fmt.Errorf("refusing to replace invalid existing concept %q: %w", relative, parseErr)
 		}
 		existingBody := bytes.TrimSpace(bytes.Split(document.Body, []byte("[^"+sourceID+"]"))[0])
-		metadata, _, metadataErr := document.Buda()
+		metadata, present, metadataErr := document.Buda()
 		if metadataErr != nil {
 			return Result{}, fmt.Errorf("inspect capture target %q buda metadata: %w", relative, metadataErr)
 		}
 		recordedDigest := metadata.SourceDigests[sourceID]
 		unchangedByContent := document.String("type") == request.Type && document.String("title") == request.Title && document.String("description") == request.Description && bytes.Equal(existingBody, bytes.TrimSpace(request.Text))
-		if unchangedByContent && recordedDigest == digest {
+		if unchangedByContent && (!present || recordedDigest == digest) {
 			unchanged = true
 		} else if !request.Replace {
 			return Result{}, fmt.Errorf("concept %q already exists with different content; pass explicit replacement approval", relative)
