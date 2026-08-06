@@ -146,6 +146,7 @@ fi
 # Resolve qmd even when it is installed off PATH (common in agent-managed
 # environments such as ~/.hermes/node/bin). Only hard-fail when truly absent.
 QMD_BIN=""
+QMD_NPX_FALLBACK=0
 if command -v qmd >/dev/null 2>&1; then
   QMD_BIN="qmd"
 else
@@ -164,13 +165,20 @@ else
   if [ -z "$QMD_BIN" ] && command -v npx >/dev/null 2>&1; then
     if npx --no-install qmd --version >/dev/null 2>&1; then
       QMD_BIN="npx --no-install qmd"
+      QMD_NPX_FALLBACK=1
     fi
   fi
   if [ -z "$QMD_BIN" ]; then
     printf '%s\n' 'error: qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>' >&2
     exit 1
   fi
-  printf 'warning: qmd was not on PATH but was found at %s; add its directory to PATH (e.g. export PATH="%s:$PATH") for reliable operation.\n' "$QMD_BIN" "${QMD_BIN%/*}" >&2
+  if [ "$QMD_NPX_FALLBACK" -eq 1 ]; then
+    # The npx fallback is not a filesystem path, so directory-to-PATH advice
+    # does not apply; suggest a global install instead.
+    printf '%s\n' 'info: qmd found via the npx fallback (npx --no-install qmd). For reliable operation install it globally: npm install -g @tobilu/qmd@2.5.3. Then run: buda doctor --wiki <path>' >&2
+  else
+    printf 'warning: qmd was not on PATH but was found at %s; add its directory to PATH (e.g. export PATH="%s:$PATH") for reliable operation.\n' "$QMD_BIN" "${QMD_BIN%/*}" >&2
+  fi
 fi
 QMD_VERSION_OUTPUT="$($QMD_BIN --version)"
 QMD_VERSION="$(printf '%s\n' "$QMD_VERSION_OUTPUT" | awk '{ for (i = 1; i <= NF; i++) if ($i ~ /^v?[0-9]+\.[0-9]+\.[0-9]+/) { sub(/^v/, "", $i); print $i; exit } }')"
@@ -197,19 +205,40 @@ printf '[OK] Installed binary: %s\n' "$DESTINATION"
 "$DESTINATION" agent skill update
 printf '%s\n' '[OK] Installed both global Buda skill destinations transactionally from embedded resources.'
 
+INSTALLED_VERSION="$("$DESTINATION" --version)"
+if [ "$INSTALLED_VERSION" != "buda v${EXPECTED_VERSION}" ]; then
+  printf "error: installed version '%s' does not match requested tag '%s'\n" "$INSTALLED_VERSION" "$TAG" >&2
+  exit 1
+fi
+printf '%s\n' "$INSTALLED_VERSION"
+# The binary is verified and installed; mark the install successful before the
+# optional skill-destination registrations below so an optional registration
+# failure can never roll back a valid binary replacement.
+INSTALL_SUCCEEDED=1
+
 # Register the embedded skill into optional destinations: BUDA_SKILL_DIRS
 # (space-separated) and the Hermes skills directory when it exists. The
 # built-in ~/.agents/skills and ~/.claude/skills destinations are already
-# handled by `buda agent skill update` above; these are additive.
+# handled by `buda agent skill update` above; these are additive and
+# non-fatal: a failure only warns and leaves the installation complete.
 register_skill_dir() {
   rs_target="$1"
   if [ -z "$rs_target" ]; then
     return 0
   fi
   rs_dest="$rs_target/guiho-s-0002-buda"
-  mkdir -p "$rs_target"
-  rm -rf "$rs_dest"
-  cp -R "$SOURCE_SKILL" "$rs_dest"
+  if ! mkdir -p "$rs_target" 2>/dev/null; then
+    printf 'warning: could not create %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_target" >&2
+    return 0
+  fi
+  if ! rm -rf "$rs_dest" 2>/dev/null; then
+    printf 'warning: could not refresh %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_dest" >&2
+    return 0
+  fi
+  if ! cp -R "$SOURCE_SKILL" "$rs_dest" 2>/dev/null; then
+    printf 'warning: could not copy the Buda skill to %s; skipping optional Buda skill registration (install remains complete).\n' "$rs_dest" >&2
+    return 0
+  fi
   printf '[OK] Registered Buda skill: %s\n' "$rs_dest"
 }
 
@@ -221,14 +250,6 @@ HERMES_SKILLS_DIR_RESOLVED="${HERMES_SKILLS_DIR:-${HOME}/.hermes/skills}"
 if [ -d "$HERMES_SKILLS_DIR_RESOLVED" ]; then
   register_skill_dir "$HERMES_SKILLS_DIR_RESOLVED"
 fi
-
-INSTALLED_VERSION="$("$DESTINATION" --version)"
-if [ "$INSTALLED_VERSION" != "buda v${EXPECTED_VERSION}" ]; then
-  printf "error: installed version '%s' does not match requested tag '%s'\n" "$INSTALLED_VERSION" "$TAG" >&2
-  exit 1
-fi
-printf '%s\n' "$INSTALLED_VERSION"
-INSTALL_SUCCEEDED=1
 
 # Verify the binary is callable on PATH; warn (not fail) with an actionable
 # fix when the install directory is not on PATH for the current shell.
