@@ -9,7 +9,7 @@ tags:
   - changelog
   - releases
 keywords:
-  - Buda 0.0.2
+  - Buda 0.1.0
   - release notes
   - eleven artifacts
   - GitHub Releases
@@ -19,6 +19,24 @@ keywords:
 
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
+
+## [0.1.0] - 2026-08-06
+
+This release improves capture idempotency and makes the installers more
+reliable across shell and PowerShell environments.
+
+### Fixed
+
+- Capture normalizes the supplied text before calculating its digest and before
+  appending its generated source footnote, so equivalent input is stored and
+  compared consistently.
+- `capture --replace` rewrites a target when its recorded input digest differs
+  from the new input, including documents that have no prior Buda metadata.
+- Shell and PowerShell installers verify that the installed Buda binary is
+  reachable on `PATH`, probe supported qmd locations when qmd is not already on
+  `PATH`, and use configurable agent-skill destination directories.
+- Optional skill registration occurs only after a successful binary install and
+  cannot turn that successful install into a failure.
 
 ## [0.0.2] - 2026-07-27
 
