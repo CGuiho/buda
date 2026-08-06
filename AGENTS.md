@@ -77,11 +77,23 @@ version bump, open a pull request, or claim unimplemented automation without
 separate user authorization.
 
 <!-- BEGIN MIRROR — DO NOT EDIT THIS SECTION -->
-## Semantic Project Versioning -- GUIHO Mirror
+---
+name: guiho-i-mirror
+description: Mirror agent instruction block.
+purpose: Provide the canonical managed project instruction for Mirror versioning.
+created: 2026-07-18
+owner: mirror-embed-prompts
+flags: []
+tags: [mirror, instruction, agents]
+keywords: [version plan, version apply]
+---
 
-Invoke the guiho-s-mirror agent skill every time the user wants to bump, tag, release, plan, initialize, configure, or troubleshoot semantic project versioning with GUIHO Mirror.
+# GUIHO Mirror Instruction Block
 
-Before editing release docs or changelogs, inspect mirror.yaml. If agents.write_changelog is false, skip changelog edits. If it is missing or true, changelog edits are allowed when the project has a changelog.
+Run plain `mirror` once in a repository to verify the global Mirror skill and
+this bounded instruction block. Repeated runs are idempotent.
 
-Use [agents].changelog_path as the changelog file path. If it is missing, use CHANGELOG.md in the project root.
+Use `mirror version plan <target>` and `mirror version apply <target>` for semantic versioning.
+`mirror init` defaults to `v{version}` tags and enables release commits and
+pushes; explicit interactive or flag selections remain authoritative.
 <!-- END MIRROR -->
