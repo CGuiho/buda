@@ -51,8 +51,27 @@ implement search, embeddings, ranking, reranking, or a retrieval fallback.
 - Successful repository commands may schedule only the documented hidden
   local agent-resource reconciler. It performs no qmd, network, or cross-wiki
   work and never changes foreground output or exit status.
-- Release builds are pure Go with `CGO_ENABLED=0` and the standard eight-binary,
-  eleven-artifact contract.
+- Release builds are pure Go with `CGO_ENABLED=0` and the complete
+  manifest-derived payload, launcher, resource, schema, example, and checksum
+  contract defined by GUIHO CLI Convention 0001. ARMv6/ARMv7 cross-builds are
+  build-only unless executed on native hosts.
+
+## Convention 0001 authority
+
+GUIHO CLI Convention 0001 is the current public CLI authority. It supersedes
+older exact-eleven-asset and `update` guidance. Buda's confirmed resource
+names are CLI home `buda`, main skill `guiho-s-0002-buda`, setup prompt
+`guiho-p-buda`, and managed instruction `guiho-i-buda`; no agent definitions
+are shipped. The canonical repository is
+`https://github.com/CGuiho/buda` and issues are created at
+`https://github.com/CGuiho/buda/issues/new`.
+
+The active implementation plan is
+`docs/GUIHO_CLI_CONVENTION_0001_IMPLEMENTATION_PLAN.md`; the audit and
+acceptance matrix are its evidence sources. Lifecycle code must use the stable
+launcher, immutable version directories, `current.json`, `artifacts.json`,
+strict checksums, and manifest-driven ownership. Use `upgrade` in every agent
+resource command tree; `update` is not a supported alias.
 
 ## Documentation
 
@@ -97,3 +116,15 @@ Use `mirror version plan <target>` and `mirror version apply <target>` for seman
 `mirror init` defaults to `v{version}` tags and enables release commits and
 pushes; explicit interactive or flag selections remain authoritative.
 <!-- END MIRROR -->
+
+<!-- BEGIN RUNX — DO NOT EDIT THIS SECTION -->
+## RunX Command Catalog
+
+Load the `guiho-s-runx` skill whenever discovering commands, creating or
+updating catalog entries, validating `runx.yaml`, inspecting command details,
+or executing RunX commands.
+Start with `runx check --format json` and `runx list --format json`, select
+stable UIDs, use `runx describe <uid>`, and run
+`runx run --dry-run <uid>` before unfamiliar or side-effecting work.
+RunX options precede the selector; post-selector tokens belong to the child.
+<!-- END RUNX -->

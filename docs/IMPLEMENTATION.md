@@ -1,7 +1,7 @@
 ---
 name: buda-implementation-plan
-purpose: Record the approved vertical MVP implementation, validation, installation, and GitHub Release plan.
-description: File/module ownership, phase dependencies, acceptance criteria, validation commands, and GitHub Release boundaries through Buda 0.0.2.
+purpose: Preserve the historical approved vertical MVP implementation, validation, installation, and GitHub Release plan through Buda 0.0.2.
+description: Historical file/module ownership, phase dependencies, acceptance criteria, validation commands, and GitHub Release boundaries for Buda 0.0.2, superseded for current Convention 0001 work.
 created: 2026-07-26
 owner: buda-docs
 flags: []
@@ -16,7 +16,13 @@ keywords:
   - GitHub Release
 ---
 
-# Buda vertical MVP and 0.0.2 delivery
+# Historical Buda vertical MVP and 0.0.2 delivery
+
+> **Historical record.** This document describes the completed 0.0.2-era
+> implementation and exact eleven-artifact release contract. It is not the
+> active plan for GUIHO CLI Convention 0001. Current work is governed by the
+> [Convention 0001 implementation plan](GUIHO_CLI_CONVENTION_0001_IMPLEMENTATION_PLAN.md)
+> and its [acceptance matrix](GUIHO_CLI_CONVENTION_0001_ACCEPTANCE_MATRIX.md).
 
 This plan implements the approved GUIHO RFC 0002 revision and the authorized
 0.0.2 delivery. Buda is distributed only through its GitHub Releases. The

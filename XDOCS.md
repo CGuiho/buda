@@ -14,7 +14,9 @@
 - [devops/](devops/): Pure-Go cross-build and installation tooling.
 - [skills/](skills/): Embedded `guiho-s-0002-buda` agent skill family.
 - [prompts/](prompts/): Embedded Buda instruction and prompt resources.
-- [docs/](docs/): Architecture, governing references, and validation records.
+- [docs/](docs/): Architecture, governing references, Convention 0001 audit,
+  implementation plan, acceptance matrix, historical delivery record, and
+  validation records.
 
 All named module descriptors use the `buda-*` subject namespace and model
 containment rather than runtime dependencies.
