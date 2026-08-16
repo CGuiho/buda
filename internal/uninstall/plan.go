@@ -4,6 +4,7 @@ package uninstall
 import (
 	"errors"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"sort"
@@ -105,25 +106,223 @@ func BuildPlan(layout installlayout.Layout, wiki string, preserveConfig, preserv
 	return plan, nil
 }
 
-func Apply(plan Plan) error {
+type movedItem struct {
+	source     string
+	quarantine string
+}
+
+type fileSnapshot struct {
+	path    string
+	content []byte
+	existed bool
+}
+
+// Apply executes the plan transactionally. Every removable path is first
+// proven safe against symlink/reparse ancestors, then moved or copied into a
+// unique Buda-owned quarantine directory under stagingRoot (normally the
+// shared .guiho/.temp directory, so moves stay on one filesystem). Instruction
+// blocks are edited only after snapshots allow byte-exact restoration.
+//
+// On any failure the previous state is restored before returning. If a
+// restoration step itself fails, the quarantine directory is intentionally
+// retained and reported so no user data can be lost.
+func Apply(plan Plan, stagingRoot string) error {
 	for _, item := range plan.Items {
-		if item.Preserved {
-			continue
-		}
-		if strings.Contains(item.Owner, "instruction block") {
-			if err := removeManagedInstruction(item.Path); err != nil {
-				return err
-			}
-			continue
-		}
 		if strings.TrimSpace(item.Path) == "" || strings.TrimSpace(item.Root) == "" {
 			return errors.New("uninstall plan contains an empty path or ownership root")
 		}
-		if err := lifecycle.SafeRemove(item.Path, item.Root); err != nil && !os.IsNotExist(err) {
-			return fmt.Errorf("remove %s: %w", item.Path, err)
+		if err := lifecycle.VerifyNoLinkedAncestors(item.Path, item.Root); err != nil {
+			return err
 		}
 	}
+	if strings.TrimSpace(stagingRoot) == "" {
+		return errors.New("uninstall staging root is required")
+	}
+	if err := os.MkdirAll(stagingRoot, 0o755); err != nil {
+		return fmt.Errorf("create uninstall staging root: %w", err)
+	}
+	quarantineDir, err := os.MkdirTemp(stagingRoot, "buda-uninstall-")
+	if err != nil {
+		return fmt.Errorf("create uninstall quarantine directory: %w", err)
+	}
+	quarantineRetained := false
+	cleanupQuarantine := func() {
+		if !quarantineRetained {
+			_ = os.RemoveAll(quarantineDir)
+		}
+	}
+	defer cleanupQuarantine()
+
+	instructionSnapshots, err := snapshotInstructions(plan)
+	if err != nil {
+		return err
+	}
+
+	var moved []movedItem
+	restore := func() error {
+		var failures []error
+		for i := len(moved) - 1; i >= 0; i-- {
+			item := moved[i]
+			if restoreErr := restoreItem(item); restoreErr != nil {
+				failures = append(failures, restoreErr)
+			}
+		}
+		for _, snapshot := range instructionSnapshots {
+			if restoreErr := restoreFileSnapshot(snapshot); restoreErr != nil {
+				failures = append(failures, restoreErr)
+			}
+		}
+		if len(failures) > 0 {
+			quarantineRetained = true
+			return fmt.Errorf("uninstall rollback incomplete (quarantine retained at %s): %v", quarantineDir, failures)
+		}
+		return nil
+	}
+
+	// Managed instruction blocks are edited first because that step still
+	// reads the selected wiki configuration, which is quarantined afterwards.
+	for _, item := range plan.Items {
+		if item.Preserved || !strings.Contains(item.Owner, "instruction block") {
+			continue
+		}
+		if err := removeManagedInstruction(item.Path); err != nil {
+			_ = restore()
+			return err
+		}
+	}
+
+	for i, item := range plan.Items {
+		if item.Preserved || strings.Contains(item.Owner, "instruction block") {
+			continue
+		}
+		info, statErr := os.Lstat(item.Path)
+		if errors.Is(statErr, os.ErrNotExist) {
+			continue
+		}
+		if statErr != nil {
+			_ = restore()
+			return fmt.Errorf("inspect %s: %w", item.Path, statErr)
+		}
+		if lifecycle.IsLinked(info) {
+			_ = restore()
+			return fmt.Errorf("refuse removal of symlink or reparse point: %s", item.Path)
+		}
+		quarantineTarget := filepath.Join(quarantineDir, fmt.Sprintf("item-%d-%s", i, filepath.Base(item.Path)))
+		entry := movedItem{source: item.Path, quarantine: quarantineTarget}
+		if err := moveToQuarantine(item.Path, quarantineTarget); err != nil {
+			_ = restore()
+			return fmt.Errorf("quarantine %s: %w", item.Path, err)
+		}
+		moved = append(moved, entry)
+	}
 	return nil
+}
+
+// moveToQuarantine prefers a same-filesystem rename. When source and
+// quarantine live on different volumes it falls back to copy plus verified
+// removal so cross-device targets stay transactional.
+func moveToQuarantine(source, target string) error {
+	if err := os.Rename(source, target); err == nil {
+		return nil
+	}
+	info, statErr := os.Stat(source)
+	if statErr != nil {
+		return statErr
+	}
+	if info.IsDir() {
+		if err := copyTree(source, target); err != nil {
+			return err
+		}
+	} else {
+		if err := copyFileAtomic(source, target); err != nil {
+			return err
+		}
+	}
+	if err := os.RemoveAll(source); err != nil {
+		_ = os.RemoveAll(target)
+		return err
+	}
+	return nil
+}
+
+func restoreItem(item movedItem) error {
+	if err := os.MkdirAll(filepath.Dir(item.source), 0o755); err != nil {
+		return err
+	}
+	if err := os.Rename(item.quarantine, item.source); err == nil {
+		return nil
+	}
+	info, statErr := os.Stat(item.quarantine)
+	if statErr != nil {
+		return statErr
+	}
+	if info.IsDir() {
+		return copyTree(item.quarantine, item.source)
+	}
+	return copyFileAtomic(item.quarantine, item.source)
+}
+
+func snapshotInstructions(plan Plan) ([]fileSnapshot, error) {
+	var snapshots []fileSnapshot
+	for _, item := range plan.Items {
+		if item.Preserved || !strings.Contains(item.Owner, "instruction block") {
+			continue
+		}
+		data, err := os.ReadFile(item.Path)
+		if errors.Is(err, os.ErrNotExist) {
+			snapshots = append(snapshots, fileSnapshot{path: item.Path, existed: false})
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("snapshot managed instruction %s: %w", item.Path, err)
+		}
+		snapshots = append(snapshots, fileSnapshot{path: item.Path, content: data, existed: true})
+	}
+	return snapshots, nil
+}
+
+func restoreFileSnapshot(snapshot fileSnapshot) error {
+	if !snapshot.existed {
+		return nil
+	}
+	return lifecycle.AtomicWrite(snapshot.path, snapshot.content, 0o644)
+}
+
+func copyTree(source, destination string) error {
+	return filepath.Walk(source, func(path string, info os.FileInfo, walkErr error) error {
+		if walkErr != nil {
+			return walkErr
+		}
+		relative, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		target := filepath.Join(destination, relative)
+		if info.IsDir() {
+			return os.MkdirAll(target, 0o755)
+		}
+		return copyFileAtomic(path, target)
+	})
+}
+
+func copyFileAtomic(source, destination string) error {
+	if err := os.MkdirAll(filepath.Dir(destination), 0o755); err != nil {
+		return err
+	}
+	input, err := os.Open(source)
+	if err != nil {
+		return err
+	}
+	defer input.Close()
+	output, err := os.Create(destination)
+	if err != nil {
+		return err
+	}
+	if _, err := io.Copy(output, input); err != nil {
+		output.Close()
+		return err
+	}
+	return output.Close()
 }
 
 func removeManagedInstruction(path string) error {

@@ -6,12 +6,14 @@ import (
 	"errors"
 	"fmt"
 	"io"
+	"io/fs"
 	"net/http"
 	"os"
 	"path/filepath"
 	"strings"
 	"time"
 
+	"github.com/CGuiho/buda/examples"
 	"github.com/CGuiho/buda/internal/agent"
 	clihelp "github.com/CGuiho/buda/internal/help"
 	"github.com/CGuiho/buda/internal/installlayout"
@@ -22,6 +24,9 @@ import (
 	"github.com/CGuiho/buda/internal/selfmanage"
 	"github.com/CGuiho/buda/internal/source"
 	"github.com/CGuiho/buda/internal/upgrade"
+	"github.com/CGuiho/buda/prompts"
+	"github.com/CGuiho/buda/schemas"
+	"github.com/CGuiho/buda/skills"
 	"github.com/spf13/cobra"
 )
 
@@ -62,7 +67,6 @@ type Dependencies struct {
 	HTTPClient          source.Doer
 	RemoveExecutable    func(string) (bool, error)
 	RollbackExecutable  func(string) (bool, error)
-	UpgradeBinary       func(context.Context, selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error)
 	UpgradeRelease      func(context.Context, upgrade.Options) (upgrade.Result, error)
 	ReconcileInstalled  func(string, string) error
 }
@@ -133,22 +137,33 @@ func DefaultDependencies() Dependencies {
 		HTTPClient:          &http.Client{Timeout: 30 * time.Second},
 		RemoveExecutable:    selfmanage.RemoveExecutable,
 		RollbackExecutable:  selfmanage.Rollback,
-		UpgradeBinary:       selfmanage.Upgrade,
 		UpgradeRelease:      upgrade.Execute,
 		ReconcileInstalled:  reconcileInstalledResources,
 	}
 }
 
-func Execute(info BuildInfo) error {
-	cleanup, err := registerCurrentInstance(info)
-	if err != nil {
-		return MutationError("register Buda payload instance", err)
+func isProbeInvocation(args []string) bool {
+	if len(args) == 0 {
+		return false
 	}
-	defer cleanup()
+	if len(args) == 1 && (args[0] == "--version" || args[0] == "-v") {
+		return true
+	}
+	return args[0] == "__self-test"
+}
+
+func Execute(info BuildInfo) error {
+	if !isProbeInvocation(os.Args[1:]) {
+		cleanup, err := registerCurrentInstance(info)
+		if err != nil {
+			return MutationError("register Buda payload instance", err)
+		}
+		defer cleanup()
+	}
 	deps := DefaultDependencies()
 	deps.Version = info.Version
 	root := NewRootCommand(deps, info, NewApplicationCommands(deps)...)
-	err = root.Execute()
+	err := root.Execute()
 	if errors.Is(err, errHelpRendered) {
 		return nil
 	}
@@ -299,7 +314,7 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	root.AddCommand(newUpgradeCommand(deps, info))
 	root.AddCommand(newUninstallCommand(deps))
 	root.AddCommand(newMaintenanceCommand(deps))
-	root.AddCommand(newSelfTestCommand())
+	root.AddCommand(newSelfTestCommand(info))
 	wrapDeveloperHelpArgs(root)
 	return root
 }
@@ -307,12 +322,36 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 // newSelfTestCommand is intentionally hidden from the public command tree.
 // Installers and lifecycle transactions use it to prove the candidate can
 // construct its command surface and read embedded resources before activation.
-func newSelfTestCommand() *cobra.Command {
+func newSelfTestCommand(info BuildInfo) *cobra.Command {
 	return &cobra.Command{
 		Use:    "__self-test",
 		Hidden: true,
 		Args:   NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
+			if info.Version != "dev" && !releasecatalog.IsSemver(info.Version) {
+				return fmt.Errorf("invalid build version %q", info.Version)
+			}
+			if _, err := fs.ReadFile(skills.FS, "guiho-s-0002-buda/SKILL.md"); err != nil {
+				return fmt.Errorf("read embedded skill: %w", err)
+			}
+			if _, err := fs.ReadFile(prompts.FS, "guiho-i-buda.md"); err != nil {
+				return fmt.Errorf("read embedded instruction: %w", err)
+			}
+			if _, err := fs.ReadFile(prompts.FS, "guiho-p-buda.md"); err != nil {
+				return fmt.Errorf("read embedded prompt: %w", err)
+			}
+			if _, err := fs.ReadFile(schemas.FS, "buda.schema.json"); err != nil {
+				return fmt.Errorf("read embedded project schema: %w", err)
+			}
+			if _, err := fs.ReadFile(schemas.FS, "buda.global.schema.json"); err != nil {
+				return fmt.Errorf("read embedded global schema: %w", err)
+			}
+			if _, err := fs.ReadFile(examples.FS, "buda.example.yaml"); err != nil {
+				return fmt.Errorf("read embedded project example: %w", err)
+			}
+			if _, err := fs.ReadFile(examples.FS, "buda.global.example.yaml"); err != nil {
+				return fmt.Errorf("read embedded global example: %w", err)
+			}
 			fmt.Fprintln(command.OutOrStdout(), "ok")
 			return nil
 		},
@@ -389,9 +428,6 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	}
 	if deps.RollbackExecutable == nil {
 		deps.RollbackExecutable = selfmanage.Rollback
-	}
-	if deps.UpgradeBinary == nil {
-		deps.UpgradeBinary = selfmanage.Upgrade
 	}
 	if deps.UpgradeRelease == nil {
 		deps.UpgradeRelease = upgrade.Execute

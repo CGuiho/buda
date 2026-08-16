@@ -249,10 +249,19 @@ func validateRepositoryRelative(name, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s must not be empty", name)
 	}
-	if strings.ContainsRune(value, '\x00') || strings.ContainsRune(value, ':') || filepath.IsAbs(value) || filepath.VolumeName(value) != "" {
+	if strings.ContainsAny(value, "\r\n\x00") {
+		return fmt.Errorf("%s contains an invalid control character", name)
+	}
+	normalized := strings.ReplaceAll(value, "\\", "/")
+	if strings.ContainsRune(value, ':') || filepath.IsAbs(value) || filepath.VolumeName(value) != "" || strings.HasPrefix(normalized, "/") {
 		return fmt.Errorf("%s must be a repository-relative path", name)
 	}
-	clean := filepath.Clean(value)
+	for _, component := range strings.Split(normalized, "/") {
+		if component == ".." {
+			return fmt.Errorf("%s must resolve within the selected wiki", name)
+		}
+	}
+	clean := filepath.Clean(filepath.FromSlash(normalized))
 	if clean == "." || clean == ".." || strings.HasPrefix(clean, ".."+string(filepath.Separator)) {
 		return fmt.Errorf("%s must resolve within the selected wiki", name)
 	}

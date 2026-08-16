@@ -2,6 +2,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -74,100 +75,66 @@ func newUpgradeCommand(deps Dependencies, info BuildInfo) *cobra.Command {
 				}
 				return nil
 			}
-			if layout, layoutErr := deps.InstallLayout(); layoutErr == nil && fileExists(layout.Current) && deps.UpgradeRelease != nil {
-				transaction, txErr := deps.UpgradeRelease(command.Context(), upgrade.Options{Layout: layout, Selection: selection, Client: deps.HTTPClient, CurrentVersion: info.Version, Target: info.Target, OS: runtime.GOOS, Arch: runtime.GOARCH, CurrentPID: os.Getpid()})
-				if txErr != nil {
-					printRecovery(command, release.Version, "", wiki)
-					return MutationError("upgrade Buda synchronously", txErr)
-				}
-				initErr := error(nil)
-				if deps.ReconcileInstalled != nil {
-					initErr = deps.ReconcileInstalled(transaction.PayloadPath, wiki)
-				}
-				if JSONRequested(deps) {
-					outcome := "succeeded"
-					if initErr != nil {
-						outcome = "succeeded-init-failed"
-					}
-					if writeErr := WriteJSON(command, map[string]any{"command": "buda upgrade", "outcome": outcome, "result": transaction, "init_error": errorMessage(initErr), "recovery": recoveryCommand(transaction.InstalledVersion, "", wiki)}); writeErr != nil {
-						return writeErr
-					}
-					if initErr != nil {
-						return MutationError("Buda upgraded but explicit-wiki init failed", initErr)
-					}
-					return nil
-				}
-				fmt.Fprintf(command.OutOrStdout(), "Buda upgraded from %s to %s.\nLauncher: %s\nPayload: %s\n", info.Version, transaction.InstalledVersion, transaction.LauncherPath, transaction.PayloadPath)
-				if initErr != nil {
-					fmt.Fprintf(command.OutOrStdout(), "Post-upgrade explicit-wiki init failed; the verified release remains active: %v\n", initErr)
-					printRecovery(command, transaction.InstalledVersion, "", wiki)
-					return MutationError("Buda upgraded but explicit-wiki init failed", initErr)
-				}
-				fmt.Fprintln(command.OutOrStdout(), "Post-upgrade explicit-wiki init: verified")
-				printRecovery(command, transaction.InstalledVersion, "", wiki)
-				return nil
-			}
-			if !JSONRequested(deps) {
-				fmt.Fprintf(command.OutOrStdout(), "Target: %s\nAsset: %s\nURL: %s\nChecksums: %s\n", release.Version, asset.Name, asset.DownloadURL, manifest.DownloadURL)
-			}
-			checksum, err := selfmanage.FetchChecksum(command.Context(), deps.HTTPClient, manifest.DownloadURL, asset.Name)
-			if err != nil {
+			layout, layoutErr := deps.InstallLayout()
+			if layoutErr != nil {
 				if !JSONRequested(deps) {
 					printRecovery(command, release.Version, "", wiki)
 				}
-				return externalError("verify Buda release manifest", err)
+				return MutationError("resolve Buda installation layout", layoutErr)
 			}
-			executable, err := deps.Executable()
-			if err != nil {
+			if deps.UpgradeRelease == nil {
 				if !JSONRequested(deps) {
 					printRecovery(command, release.Version, "", wiki)
 				}
-				return MutationError("determine Buda executable", err)
+				return MutationError("upgrade Buda synchronously", errors.New("no upgrade release transaction handler configured"))
 			}
-			if !JSONRequested(deps) {
-				fmt.Fprintf(command.OutOrStdout(), "Checksum verified: sha256:%s\nInstallation path: %s\n", checksum, executable)
-			}
-			var progress func(selfmanage.DownloadProgress)
-			if !JSONRequested(deps) {
-				progress = func(event selfmanage.DownloadProgress) {
-					if event.Total > 0 {
-						fmt.Fprintf(command.OutOrStdout(), "Download progress: %.1f%% (%d/%d bytes)\n", event.Percent, event.Bytes, event.Total)
-					} else {
-						fmt.Fprintf(command.OutOrStdout(), "Download progress: %d bytes\n", event.Bytes)
-					}
-				}
-			}
-			result, err := deps.UpgradeBinary(command.Context(), selfmanage.UpgradeOptions{
-				Executable: executable, TargetVersion: release.Version, DownloadURL: asset.DownloadURL,
-				ExpectedChecksum: checksum, Client: deps.HTTPClient, Wiki: wiki, Progress: progress,
+			transaction, txErr := deps.UpgradeRelease(command.Context(), upgrade.Options{
+				Layout:         layout,
+				Selection:      selection,
+				Client:         deps.HTTPClient,
+				CurrentVersion: info.Version,
+				Target:         info.Target,
+				OS:             runtime.GOOS,
+				Arch:           runtime.GOARCH,
+				CurrentPID:     os.Getpid(),
 			})
-			result.CurrentVersion = info.Version
-			result.Asset = asset.Name
-			if err != nil {
+			if txErr != nil {
 				if !JSONRequested(deps) {
 					printRecovery(command, release.Version, "", wiki)
 				}
-				return MutationError("upgrade Buda", err)
+				return MutationError("upgrade Buda synchronously", txErr)
 			}
-			if err := deps.ReconcileInstalled(result.Executable, wiki); err != nil {
-				rollbackComplete, rollbackErr := deps.RollbackExecutable(result.Executable)
-				if !JSONRequested(deps) {
-					printRecovery(command, release.Version, "", wiki)
-				}
-				if rollbackErr != nil || rollbackComplete {
-					return MutationError("agent-resource reconciliation failed and automatic binary rollback did not complete synchronously", fmt.Errorf("reconcile: %w; rollback: %v", err, rollbackErr))
-				}
-				return MutationError("agent-resource reconciliation failed; binary automatically rolled back", err)
-			}
-			if !JSONRequested(deps) {
-				fmt.Fprintln(command.OutOrStdout(), "Agent resources: reconciled")
-				fmt.Fprintf(command.OutOrStdout(), "Final version verified: %s\n", release.Version)
+			initErr := error(nil)
+			if deps.ReconcileInstalled != nil {
+				initErr = deps.ReconcileInstalled(transaction.PayloadPath, wiki)
 			}
 			if JSONRequested(deps) {
-				return WriteJSON(command, map[string]any{"command": "buda upgrade", "outcome": "succeeded", "result": result, "recovery": recoveryCommand(release.Version, "", wiki)})
+				outcome := "succeeded"
+				if initErr != nil {
+					outcome = "succeeded-init-failed"
+				}
+				if writeErr := WriteJSON(command, map[string]any{
+					"command":    "buda upgrade",
+					"outcome":    outcome,
+					"result":     transaction,
+					"init_error": errorMessage(initErr),
+					"recovery":   recoveryCommand(transaction.InstalledVersion, "", wiki),
+				}); writeErr != nil {
+					return writeErr
+				}
+				if initErr != nil {
+					return MutationError("Buda upgraded but explicit-wiki init failed", initErr)
+				}
+				return nil
 			}
-			fmt.Fprintf(command.OutOrStdout(), "Buda upgraded from %s to %s.\nBackup: %s\n", info.Version, release.Version, result.Backup)
-			printRecovery(command, release.Version, "", wiki)
+			fmt.Fprintf(command.OutOrStdout(), "Buda upgraded from %s to %s.\nLauncher: %s\nPayload: %s\n", info.Version, transaction.InstalledVersion, transaction.LauncherPath, transaction.PayloadPath)
+			if initErr != nil {
+				fmt.Fprintf(command.OutOrStdout(), "Post-upgrade explicit-wiki init failed; the verified release remains active: %v\n", initErr)
+				printRecovery(command, transaction.InstalledVersion, "", wiki)
+				return MutationError("Buda upgraded but explicit-wiki init failed", initErr)
+			}
+			fmt.Fprintln(command.OutOrStdout(), "Post-upgrade explicit-wiki init: verified")
+			printRecovery(command, transaction.InstalledVersion, "", wiki)
 			return nil
 		},
 	}

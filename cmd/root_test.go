@@ -281,3 +281,38 @@ func TestAgentHumanOutputIsDistinctFromJSON(t *testing.T) {
 		t.Fatalf("JSON output = %q", jsonOutput)
 	}
 }
+
+func TestVersionAndSelfTestDoNotMutateFileSystem(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOME", home)
+
+	for _, args := range [][]string{{"--version"}, {"__self-test"}} {
+		var output bytes.Buffer
+		deps := Dependencies{
+			In:  strings.NewReader(""),
+			Out: &output,
+			Err: &bytes.Buffer{},
+			HomeDir: func() (string, error) {
+				return home, nil
+			},
+			Options: &Options{},
+		}
+		root := NewRootCommand(deps, BuildInfo{Version: "0.2.0", Target: "buda-linux-amd64"})
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("Execute(%v) = %v", args, err)
+		}
+		if args[0] == "__self-test" && strings.TrimSpace(output.String()) != "ok" {
+			t.Fatalf("__self-test output = %q, want ok", output.String())
+		}
+		// Assert zero files were created under home directory
+		entries, err := filepath.Glob(filepath.Join(home, "*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) > 0 {
+			t.Fatalf("invocation %v mutated filesystem in disposable home: %v", args, entries)
+		}
+	}
+}

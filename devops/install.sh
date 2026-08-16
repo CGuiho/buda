@@ -58,6 +58,8 @@ case "$VERSION" in v*) VERSION=${VERSION#v} ;; esac
 case "$(uname -s):$(uname -m)" in
   Linux:x86_64|Linux:amd64) OS=linux; ARCH=amd64; BINARY=buda-linux-amd64; LAUNCHER=buda-launcher-linux-amd64 ;;
   Linux:aarch64|Linux:arm64) OS=linux; ARCH=arm64; BINARY=buda-linux-arm64; LAUNCHER=buda-launcher-linux-arm64 ;;
+  Linux:armv7l|Linux:armv7|Linux:armhf) OS=linux; ARCH=armv7; BINARY=buda-linux-armv7; LAUNCHER=buda-launcher-linux-armv7 ;;
+  Linux:armv6l|Linux:armv6) OS=linux; ARCH=armv6; BINARY=buda-linux-armv6; LAUNCHER=buda-launcher-linux-armv6 ;;
   Darwin:x86_64|Darwin:amd64) OS=darwin; ARCH=amd64; BINARY=buda-darwin-amd64; LAUNCHER=buda-launcher-darwin-amd64 ;;
   Darwin:arm64) OS=darwin; ARCH=arm64; BINARY=buda-darwin-arm64; LAUNCHER=buda-launcher-darwin-arm64 ;;
   *) printf 'unsupported platform: %s:%s\n' "$(uname -s)" "$(uname -m)" >&2; exit 2 ;;
@@ -84,7 +86,7 @@ else
     while :; do
       releases=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPOSITORY/releases?per_page=100&page=$page")
       count=$(printf '%s' "$releases" | jq 'length')
-    candidates=$(printf '%s' "$releases" | jq -r --arg wanted "$wanted" --arg binary "$BINARY" --arg launcher "$LAUNCHER" '.[] | select(.draft|not) | select(.tag_name|test("^buda/v")) | ((.assets // [] | map(.name) | unique) as $assets | select(([$binary,$launcher,"checksums.txt","artifacts.json","guiho-s-0002-buda.zip","guiho-i-buda.md","guiho-p-buda.md","buda.schema.json","buda.global.schema.json","buda.example.yaml","buda.global.example.yaml"] - $assets | length) == 0)) | (.tag_name|sub("^buda/v";"")) as $v | select($v|test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$")) | select((if ($v|contains("-")) then ($v|split("-")[1]|split(".")[0]) else "stable" end)==$wanted) | $v')
+    candidates=$(printf '%s' "$releases" | jq -r --arg wanted "$wanted" --arg binary "$BINARY" --arg launcher "$LAUNCHER" '.[] | select(.draft|not) | select(.tag_name|test("^buda/v")) | ((.assets // []) as $raw | select(((([$binary,$launcher,"checksums.txt","artifacts.json","guiho-s-0002-buda.zip","guiho-i-buda.md","guiho-p-buda.md","buda.schema.json","buda.global.schema.json","buda.example.yaml","buda.global.example.yaml","buda-linux-amd64","buda-linux-arm64","buda-linux-armv7","buda-linux-armv6","buda-darwin-amd64","buda-darwin-arm64","buda-windows-amd64.exe","buda-windows-arm64.exe","buda-launcher-linux-amd64","buda-launcher-linux-arm64","buda-launcher-linux-armv7","buda-launcher-linux-armv6","buda-launcher-darwin-amd64","buda-launcher-darwin-arm64","buda-launcher-windows-amd64.exe","buda-launcher-windows-arm64.exe"] - ($raw | map(.name) | unique)) | length) == 0) and (($raw | map(.name) | length) == ($raw | map(.name) | unique | length)))) | (.tag_name|sub("^buda/v";"")) as $v | select($v|test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$")) | select((if ($v|contains("-")) then ($v|split("-")[1]|split(".")[0]) else "stable" end)==$wanted) | $v')
       for candidate in $candidates; do
         if [ -z "$selected_version" ] || [ "$(semver_gt "$candidate" "$selected_version")" = 1 ]; then selected_version=$candidate; fi
       done
@@ -143,6 +145,7 @@ for name in "$BINARY" "$LAUNCHER" guiho-s-0002-buda.zip guiho-i-buda.md guiho-p-
   manifest_has "$name" || { printf 'manifest does not declare required asset: %s\n' "$name" >&2; exit 1; }
 done
 for name in $(manifest_paths); do verify_checksum "$name"; done
+chmod 755 "$STAGE/$BINARY" "$STAGE/$LAUNCHER"
 while read -r digest name extra; do
   [ -n "${name:-}" ] || continue
   [ -z "${extra:-}" ] || { printf 'malformed checksum entry: %s\n' "$name" >&2; exit 1; }
@@ -157,7 +160,12 @@ self_test=$($STAGE/$BINARY __self-test 2>/dev/null || true)
 VERSION_DIR=$CLI_HOME/versions/$VERSION
 BACKUP_DIR=$STAGE/backup
 mkdir -p "$BACKUP_DIR" "$CLI_HOME/versions" "$BIN_DIR"
-LEGACY_PATH=$CLI_HOME/buda
+# The historical 0.1.x direct-binary installation wrote the payload to
+# ~/.local/bin/buda by default (or $GUIHO_INSTALL_DIR/buda when overridden).
+# Migration removes it only from that exact historical path, only after the
+# new launcher transaction has been verified, and never in place.
+LEGACY_PATH=$HOME_DIR/.local/bin/buda
+if [ -n "${GUIHO_INSTALL_DIR:-}" ]; then LEGACY_PATH=$GUIHO_INSTALL_DIR/buda; fi
 had_legacy=0
 if [ -f "$LEGACY_PATH" ]; then
   legacy_version=$($LEGACY_PATH --version 2>/dev/null || true)

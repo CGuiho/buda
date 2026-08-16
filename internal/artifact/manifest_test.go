@@ -28,6 +28,7 @@ func TestManifestRejectsUnsafeAndInconsistentOwnership(t *testing.T) {
 		{"version drift", func(value *Manifest) { value.Artifacts[0].Version = "0.1.1" }},
 		{"ownership flags", func(value *Manifest) { value.Artifacts[0].Persistent = true }},
 		{"duplicate release path", func(value *Manifest) { value.Artifacts = append(value.Artifacts, validManifest().Artifacts[0]) }},
+		{"all-zero digest on regular artifact", func(value *Manifest) { value.Artifacts[0].SHA256 = strings.Repeat("0", 64) }},
 	}
 	for _, test := range cases {
 		t.Run(test.name, func(t *testing.T) {
@@ -55,5 +56,26 @@ func TestManifestRoundTripUsesStrictJSON(t *testing.T) {
 	}
 	if _, err := Decode(strings.NewReader(`{"schema":1,"cli":"buda","version":"0.2.0","artifacts":[],"unknown":true}`)); err == nil {
 		t.Fatal("unknown manifest field was accepted")
+	}
+}
+
+func TestManifestAllowsAllZeroForArtifactsJSON(t *testing.T) {
+	manifest := Manifest{
+		Schema: 1, CLI: "buda", Version: "0.2.0",
+		Artifacts: []Artifact{
+			{
+				ID: "payload", Version: "0.2.0", Path: "buda-linux-amd64",
+				InstalledPath: "versions/0.2.0/buda", SHA256: strings.Repeat("a", 64),
+				Ownership: OwnershipReplaceable, Replaceable: true,
+			},
+			{
+				ID: "artifacts-json", Version: "0.2.0", Path: "artifacts.json",
+				InstalledPath: "versions/0.2.0/artifacts/artifacts.json", SHA256: strings.Repeat("0", 64),
+				Ownership: OwnershipReplaceable, Replaceable: true,
+			},
+		},
+	}
+	if err := manifest.Validate(); err != nil {
+		t.Fatalf("Validate() failed for manifest with all-zero artifacts.json: %v", err)
 	}
 }

@@ -5,7 +5,6 @@ import (
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
-	"errors"
 	"io"
 	"net/http"
 	"path/filepath"
@@ -14,7 +13,7 @@ import (
 
 	"github.com/CGuiho/buda/internal/installlayout"
 	"github.com/CGuiho/buda/internal/repository"
-	"github.com/CGuiho/buda/internal/selfmanage"
+	"github.com/CGuiho/buda/internal/upgrade"
 )
 
 type releaseTransport func(*http.Request) (*http.Response, error)
@@ -23,24 +22,43 @@ func (transport releaseTransport) RoundTrip(request *http.Request) (*http.Respon
 	return transport(request)
 }
 
+func completeReleaseAssetsJSON() string {
+	assets := []string{
+		`{"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda-linux-amd64"}`,
+		`{"name":"buda-linux-arm64","browser_download_url":"https://downloads.example/buda-linux-arm64"}`,
+		`{"name":"buda-linux-armv7","browser_download_url":"https://downloads.example/buda-linux-armv7"}`,
+		`{"name":"buda-linux-armv6","browser_download_url":"https://downloads.example/buda-linux-armv6"}`,
+		`{"name":"buda-darwin-amd64","browser_download_url":"https://downloads.example/buda-darwin-amd64"}`,
+		`{"name":"buda-darwin-arm64","browser_download_url":"https://downloads.example/buda-darwin-arm64"}`,
+		`{"name":"buda-windows-amd64.exe","browser_download_url":"https://downloads.example/buda-windows-amd64.exe"}`,
+		`{"name":"buda-windows-arm64.exe","browser_download_url":"https://downloads.example/buda-windows-arm64.exe"}`,
+		`{"name":"buda-launcher-linux-amd64","browser_download_url":"https://downloads.example/buda-launcher-linux-amd64"}`,
+		`{"name":"buda-launcher-linux-arm64","browser_download_url":"https://downloads.example/buda-launcher-linux-arm64"}`,
+		`{"name":"buda-launcher-linux-armv7","browser_download_url":"https://downloads.example/buda-launcher-linux-armv7"}`,
+		`{"name":"buda-launcher-linux-armv6","browser_download_url":"https://downloads.example/buda-launcher-linux-armv6"}`,
+		`{"name":"buda-launcher-darwin-amd64","browser_download_url":"https://downloads.example/buda-launcher-darwin-amd64"}`,
+		`{"name":"buda-launcher-darwin-arm64","browser_download_url":"https://downloads.example/buda-launcher-darwin-arm64"}`,
+		`{"name":"buda-launcher-windows-amd64.exe","browser_download_url":"https://downloads.example/buda-launcher-windows-amd64.exe"}`,
+		`{"name":"buda-launcher-windows-arm64.exe","browser_download_url":"https://downloads.example/buda-launcher-windows-arm64.exe"}`,
+		`{"name":"buda.schema.json","browser_download_url":"https://downloads.example/buda.schema.json"}`,
+		`{"name":"buda.global.schema.json","browser_download_url":"https://downloads.example/buda.global.schema.json"}`,
+		`{"name":"buda.example.yaml","browser_download_url":"https://downloads.example/buda.example.yaml"}`,
+		`{"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"}`,
+		`{"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"}`,
+		`{"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"}`,
+		`{"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}`,
+		`{"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"}`,
+		`{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"}`,
+	}
+	return strings.Join(assets, ",\n")
+}
+
 func catalogClient() *http.Client {
 	return &http.Client{Transport: releaseTransport(func(request *http.Request) (*http.Response, error) {
 		body := `[{
  "tag_name":"buda/v0.0.2","name":"Buda 0.0.2","published_at":"2026-07-27T20:00:00Z",
  "html_url":"https://github.com/CGuiho/buda/releases/tag/buda/v0.0.2",
- "assets":[
-  {"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda-linux-amd64"},
-  {"name":"buda-launcher-linux-amd64","browser_download_url":"https://downloads.example/buda-launcher-linux-amd64"},
-  {"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"},
-  {"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"},
-  {"name":"buda.schema.json","browser_download_url":"https://downloads.example/buda.schema.json"},
-  {"name":"buda.global.schema.json","browser_download_url":"https://downloads.example/buda.global.schema.json"},
-  {"name":"buda.example.yaml","browser_download_url":"https://downloads.example/buda.example.yaml"},
-  {"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"},
-  {"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"},
-  {"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"},
-  {"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}
- ]
+ "assets":[` + completeReleaseAssetsJSON() + `]
 }]`
 		return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 	})}
@@ -70,19 +88,7 @@ func upgradeClient(binary []byte) *http.Client {
 		body := ""
 		switch request.URL.Host {
 		case "api.github.com":
-			body = `[{"tag_name":"buda/v0.0.2","html_url":"https://github.com/CGuiho/buda/releases/tag/buda/v0.0.2","assets":[
-{"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda"},
-{"name":"buda-launcher-linux-amd64","browser_download_url":"https://downloads.example/buda-launcher-linux-amd64"},
-{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"},
-{"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"},
-{"name":"buda.schema.json","browser_download_url":"https://downloads.example/buda.schema.json"},
-{"name":"buda.global.schema.json","browser_download_url":"https://downloads.example/buda.global.schema.json"},
-{"name":"buda.example.yaml","browser_download_url":"https://downloads.example/buda.example.yaml"},
-{"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"},
-{"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"},
-{"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"},
-{"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}
-]}]`
+			body = `[{"tag_name":"buda/v0.0.2","html_url":"https://github.com/CGuiho/buda/releases/tag/buda/v0.0.2","assets":[` + completeReleaseAssetsJSON() + `]}]`
 		case "downloads.example":
 			if strings.HasSuffix(request.URL.Path, "checksums.txt") {
 				body = hex.EncodeToString(digest[:]) + "  buda-linux-amd64\n"
@@ -125,8 +131,9 @@ func TestUpgradeCheckAndListEmitOneJSONDocument(t *testing.T) {
 	}
 }
 
-func TestUninstallDryRunNeedsNoWikiAndDoesNotDelete(t *testing.T) {
+func TestUninstallDryRunNeedsExplicitWikiAndDoesNotDelete(t *testing.T) {
 	var output bytes.Buffer
+	wiki := testWiki(t)
 	removed := false
 	layout, err := installlayout.ForHome(t.TempDir())
 	if err != nil {
@@ -139,20 +146,18 @@ func TestUninstallDryRunNeedsNoWikiAndDoesNotDelete(t *testing.T) {
 		InstallLayout:    func() (installlayout.Layout, error) { return layout, nil },
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1"})
-	root.SetArgs([]string{"uninstall", "--dry-run"})
+	root.SetArgs([]string{"uninstall", "--dry-run", "--wiki", wiki})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if removed || !strings.Contains(output.String(), "REMOVE ") || !strings.Contains(output.String(), "buda CLI home") {
+	if removed || !strings.Contains(output.String(), "REMOVE:") || !strings.Contains(output.String(), "PRESERVE:") || !strings.Contains(output.String(), "buda CLI home") {
 		t.Fatalf("uninstall preview = %q, removed=%t", output.String(), removed)
 	}
 }
 
 func TestUpgradeAndUninstallNeverScheduleResourceMaintenance(t *testing.T) {
 	for _, arguments := range [][]string{{"upgrade", "--dry-run"}, {"uninstall", "--dry-run"}} {
-		if arguments[0] == "upgrade" {
-			arguments = append(arguments, "--wiki", testWiki(t))
-		}
+		arguments = append(arguments, "--wiki", testWiki(t))
 		scheduled := 0
 		deps := Dependencies{
 			Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
@@ -185,9 +190,9 @@ func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
 		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
-		UpgradeBinary: func(context.Context, selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
+		UpgradeRelease: func(context.Context, upgrade.Options) (upgrade.Result, error) {
 			called = true
-			return selfmanage.UpgradeResult{}, nil
+			return upgrade.Result{}, nil
 		},
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.2", Target: "buda-linux-amd64"})
@@ -200,17 +205,22 @@ func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 	}
 }
 
-func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
+func TestUpgradeExecutesManifestTransaction(t *testing.T) {
 	var output bytes.Buffer
 	wiki := testWiki(t)
 	layout := testInstallLayout(t)
+	called := false
 	deps := Dependencies{
-		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
+		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
 		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
-		Executable:    func() (string, error) { return "C:/tools/buda.exe", nil },
-		UpgradeBinary: func(_ context.Context, options selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
-			options.Progress(selfmanage.DownloadProgress{Bytes: 6, Total: 6, Percent: 100})
-			return selfmanage.UpgradeResult{Executable: options.Executable, Backup: options.Executable + ".old", TargetVersion: options.TargetVersion}, nil
+		UpgradeRelease: func(_ context.Context, options upgrade.Options) (upgrade.Result, error) {
+			called = true
+			return upgrade.Result{
+				PreviousVersion:  "0.0.1",
+				InstalledVersion: "0.0.2",
+				LauncherPath:     layout.Launcher,
+				PayloadPath:      filepath.Join(layout.Versions, "0.0.2", "buda"),
+			}, nil
 		},
 		ReconcileInstalled: func(string, string) error { return nil },
 	}
@@ -219,32 +229,13 @@ func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Target: 0.0.2", "URL: https://downloads.example/buda", "Checksum verified: sha256:", "Installation path: C:/tools/buda.exe", "Download progress: 100.0%", "Agent resources: reconciled", "Final version verified: 0.0.2"} {
+	if !called {
+		t.Fatal("UpgradeRelease was not called")
+	}
+	for _, expected := range []string{"Buda upgraded from 0.0.1 to 0.0.2", "Launcher:", "Payload:", "Post-upgrade explicit-wiki init: verified"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("upgrade text missing %q:\n%s", expected, output.String())
 		}
-	}
-}
-
-func TestReconciliationFailureAutomaticallyRollsBack(t *testing.T) {
-	rolledBack := false
-	wiki := testWiki(t)
-	layout := testInstallLayout(t)
-	deps := Dependencies{
-		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
-		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
-		Executable:    func() (string, error) { return "C:/tools/buda.exe", nil },
-		UpgradeBinary: func(_ context.Context, options selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
-			return selfmanage.UpgradeResult{Executable: options.Executable, Backup: options.Executable + ".old"}, nil
-		},
-		ReconcileInstalled: func(string, string) error { return errors.New("skill write failed") },
-		RollbackExecutable: func(string) (bool, error) { rolledBack = true; return false, nil },
-	}
-	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1", Target: "buda-linux-amd64"})
-	root.SetArgs([]string{"upgrade", "--wiki", wiki})
-	err := root.Execute()
-	if !rolledBack || err == nil || !strings.Contains(err.Error(), "automatically rolled back") {
-		t.Fatalf("reconcile failure=%v rolledBack=%t", err, rolledBack)
 	}
 }
 

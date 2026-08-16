@@ -111,6 +111,34 @@ func TestCaptureCommandRefreshesQMDAndEmitsOneJSONDocument(t *testing.T) {
 	}
 }
 
+func TestInitFailsBeforeAnyWriteWhenPoliciesAreUnansweredWithoutTerminal(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	home := t.TempDir()
+	client := &domainFakeQMD{}
+	deps := domainDeps(&bytes.Buffer{}, home)
+	deps.Interactive = func() bool { return false }
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
+	root.SetArgs([]string{"--wiki", wiki, "init", "--wiki-id", "wiki-test"})
+	err := root.Execute()
+	if ExitCode(err) != 2 || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("error = %v, code = %d", err, ExitCode(err))
+	}
+	if client.ensure != 0 {
+		t.Fatalf("qmd project was initialized before policy answers: %d", client.ensure)
+	}
+	for _, path := range []string{
+		config.GlobalPath(home),
+		filepath.Join(wiki, "buda.yaml"),
+		filepath.Join(wiki, "AGENTS.md"),
+		filepath.Join(wiki, "knowledge"),
+		filepath.Join(home, ".agents", "skills", agent.SkillID),
+	} {
+		if _, statErr := os.Stat(path); statErr == nil {
+			t.Fatalf("init wrote %s before every policy answer existed", path)
+		}
+	}
+}
+
 func TestStatusKeepsCanonicalAndQMDResultsSeparate(t *testing.T) {
 	wiki := initializedWiki(t)
 	output := &bytes.Buffer{}

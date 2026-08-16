@@ -4,6 +4,8 @@ description: Version-pinned JSON Schemas for project and global Buda configurati
 parent: buda-package
 children: []
 files:
+  embed.go: Embedded filesystem exporting the version-pinned JSON Schemas.
+  embed_test.go: Validation tests for embedded JSON schemas and runtime configuration parity.
   buda.schema.json: Offline and editor-discoverable schema for explicit-wiki project configuration.
   buda.global.schema.json: Offline and editor-discoverable schema for user-wide Buda configuration.
 documents: {}

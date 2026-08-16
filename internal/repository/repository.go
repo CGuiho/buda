@@ -52,9 +52,28 @@ func ResolveTarget(wiki string) (string, error) {
 	return filepath.Join(parent, filepath.Base(absolute)), nil
 }
 
+func effectiveHome() (string, error) {
+	if h := os.Getenv("USERPROFILE"); h != "" {
+		return h, nil
+	}
+	if h := os.Getenv("HOME"); h != "" {
+		return h, nil
+	}
+	return os.UserHomeDir()
+}
+
 // Open resolves exactly the selected root and its root buda.yaml. It does not
 // search upward if the selected path is a child of a wiki.
 func Open(wiki string) (Repository, error) {
+	home, err := effectiveHome()
+	if err != nil {
+		return Repository{}, fmt.Errorf("resolve user home for global Buda configuration: %w", err)
+	}
+	return OpenWithHome(wiki, home)
+}
+
+// OpenWithHome resolves exactly the selected root using the provided user home directory.
+func OpenWithHome(wiki, home string) (Repository, error) {
 	root, err := ResolveTarget(wiki)
 	if err != nil {
 		return Repository{}, err
@@ -67,10 +86,6 @@ func Open(wiki string) (Repository, error) {
 		return Repository{}, fmt.Errorf("wiki path %q is not a directory", root)
 	}
 	configPath := filepath.Join(root, config.FileName)
-	home, err := os.UserHomeDir()
-	if err != nil {
-		return Repository{}, fmt.Errorf("resolve user home for global Buda configuration: %w", err)
-	}
 	configuration, err := config.LoadEffective(configPath, home)
 	if err != nil {
 		return Repository{}, fmt.Errorf("selected wiki must contain exactly one root %s: %w", config.FileName, err)

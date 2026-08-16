@@ -102,9 +102,6 @@ func DecodeGlobal(reader io.Reader) (GlobalConfig, error) {
 	if err := decodeStrict(reader, &value); err != nil {
 		return GlobalConfig{}, err
 	}
-	if value.Schema == 0 {
-		value.Schema = CurrentSchema
-	}
 	if value.Schema != CurrentSchema {
 		return GlobalConfig{}, fmt.Errorf("global schema must be %d", CurrentSchema)
 	}
@@ -118,9 +115,6 @@ func DecodeProject(reader io.Reader) (ProjectConfig, error) {
 	var value ProjectConfig
 	if err := decodeStrict(reader, &value); err != nil {
 		return ProjectConfig{}, err
-	}
-	if value.Schema == 0 {
-		value.Schema = CurrentSchema
 	}
 	if value.Schema != CurrentSchema {
 		return ProjectConfig{}, fmt.Errorf("project schema must be %d", CurrentSchema)

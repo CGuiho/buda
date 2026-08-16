@@ -112,10 +112,51 @@ func TestBuildPlanNeverRecursivelyRemovesCLIHomeContainer(t *testing.T) {
 			t.Fatalf("CLI home container is destructive: %#v", item)
 		}
 	}
-	if err := Apply(plan); err != nil {
+	if err := Apply(plan, layout.Temp); err != nil {
 		t.Fatal(err)
 	}
 	if _, err := os.Stat(sentinel); err != nil {
 		t.Fatalf("unmanaged CLI-home content was removed: %v", err)
+	}
+}
+
+func TestApplyQuarantineRollbackOnFailure(t *testing.T) {
+	home := t.TempDir()
+	layout, err := installlayout.ForHome(home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(layout.CLIHome, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	manifest := `{"schema":1,"cli":"buda","version":"0.2.0","artifacts":[{"id":"example","version":"0.2.0","path":"buda.example.yaml","installed_path":"versions/0.2.0/artifacts/buda.example.yaml","sha256":"` + strings.Repeat("a", 64) + `","ownership":"replaceable","replaceable":true,"persistent":false,"disposable":false}]}`
+	if err := os.WriteFile(layout.InstalledManifest, []byte(manifest), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	target1 := filepath.Join(layout.CLIHome, "versions", "0.2.0", "artifacts", "buda.example.yaml")
+	if err := os.MkdirAll(filepath.Dir(target1), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(target1, []byte("content1"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	// Add an unremovable/failing item to simulate failure
+	plan, err := BuildPlan(layout, "", false, false)
+	if err != nil {
+		t.Fatal(err)
+	}
+	// Inject an item with an invalid path that cannot be accessed or moved
+	plan.Items = append(plan.Items, Item{
+		Path:   filepath.Join(layout.CLIHome, "nonexistent-dir", "invalid\x00file"),
+		Root:   layout.CLIHome,
+		Action: "REMOVE",
+		Owner:  "test-fail",
+	})
+	if err := Apply(plan, layout.Temp); err == nil {
+		t.Fatal("Apply unexpectedly succeeded with invalid item")
+	}
+	// Verify target1 was restored by rollback
+	if content, err := os.ReadFile(target1); err != nil || string(content) != "content1" {
+		t.Fatalf("target1 was not restored after rollback: %q, %v", content, err)
 	}
 }

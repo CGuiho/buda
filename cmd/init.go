@@ -41,7 +41,7 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 					return UsageError("--wiki-id is required for a new wiki; an existing valid project configuration was not found")
 				}
 			}
-			globalPath, globalCreated, globalErr := ensureGlobalConfiguration(deps.HomeDir, version)
+			globalPath, global, globalPending, migrated, globalErr := resolveGlobalConfig(deps.HomeDir, version)
 			if globalErr != nil {
 				return MutationError("prepare global Buda configuration", globalErr)
 			}
@@ -54,18 +54,9 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 			} else if !os.IsNotExist(statErr) {
 				return RepositoryError("inspect existing project configuration", statErr)
 			}
-			global, err := config.LoadGlobal(globalPath)
-			if err != nil {
-				return MutationError("load global Buda configuration", err)
-			}
-			policyPrompted, err := reconcileAgentPolicies(command.OutOrStdout(), input, deps.Interactive() && !JSONRequested(deps), &global, globalCreated)
+			policyPrompted, err := reconcileAgentPolicies(command.OutOrStdout(), input, deps.Interactive() && !JSONRequested(deps), &global, globalPending && !migrated)
 			if err != nil {
 				return err
-			}
-			if policyPrompted {
-				if err := persistGlobalConfiguration(globalPath, global, version); err != nil {
-					return MutationError("persist agent-evolution policy", err)
-				}
 			}
 			configuration, err := config.Merge(global, project)
 			if err != nil {
@@ -80,6 +71,11 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 			}
 			if _, err := client.CheckCompatibility(command.Context()); err != nil {
 				return externalError("validate qmd compatibility before initialization", err)
+			}
+			if globalPending || policyPrompted {
+				if err := persistGlobalConfiguration(globalPath, global, version); err != nil {
+					return MutationError("persist global Buda configuration", err)
+				}
 			}
 			result, err := repository.Initialize(root, repository.InitOptions{WikiID: wikiID, Configuration: configuration, Version: version, Now: dependencyNow(deps),
 				BeforeCommit: func(candidate repository.Repository) error {
@@ -112,7 +108,7 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 			output := map[string]any{"command": "init", "wiki": result.Repository.Root, "bundle": result.Repository.Bundle,
 				"qmd_project_directory": result.Repository.QMDProject, "collection": result.Repository.Collection, "wiki_id": result.Repository.Config.WikiID,
 				"created": result.Created, "unchanged": result.Unchanged, "skills": skills, "instructions": instructions,
-				"project_config": projectConfigPath, "global_config": globalPath, "global_config_created": globalCreated,
+				"project_config": projectConfigPath, "global_config": globalPath, "global_config_created": globalPending,
 				"policy_prompted":           policyPrompted,
 				"effective_agent_evolution": result.Repository.Config.EffectiveAgent()}
 			if JSONRequested(deps) {
@@ -134,56 +130,54 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	return command
 }
 
-func ensureGlobalConfiguration(homeDir func() (string, error), version string) (string, bool, error) {
+func resolveGlobalConfig(homeDir func() (string, error), version string) (string, config.GlobalConfig, bool, bool, error) {
 	if homeDir == nil {
 		homeDir = os.UserHomeDir
 	}
 	home, err := homeDir()
 	if err != nil {
-		return "", false, err
+		return "", config.GlobalConfig{}, false, false, err
 	}
 	path := config.GlobalPath(home)
 	if _, err := os.Stat(path); err == nil {
-		if _, err := config.LoadGlobal(path); err != nil {
-			return path, false, err
+		global, err := config.LoadGlobal(path)
+		if err != nil {
+			return path, config.GlobalConfig{}, false, false, err
 		}
-		return path, false, nil
+		return path, global, false, false, nil
 	} else if !os.IsNotExist(err) {
-		return path, false, err
+		return path, config.GlobalConfig{}, false, false, err
 	}
-	if _, migrated, err := config.MigrateLegacyGlobal(home, version); err != nil {
-		return path, false, err
-	} else if migrated {
-		return path, true, nil
+	// One-time read-only discovery of the 0.1.x global buda.yaml. Strictly
+	// validated before mapping; the legacy file is left untouched and the new
+	// global file is only persisted after every interactive answer exists.
+	legacyPath := filepath.Join(home, ".guiho", "buda", "buda.yaml")
+	if _, err := os.Stat(legacyPath); err == nil {
+		legacyConfig, loadErr := config.Load(legacyPath)
+		if loadErr != nil {
+			return path, config.GlobalConfig{}, false, false, fmt.Errorf("validate legacy global configuration: %w", loadErr)
+		}
+		global := config.GlobalConfig{
+			Schema:  config.CurrentSchema,
+			Bundle:  &legacyConfig.Bundle,
+			Derived: &legacyConfig.Derived,
+			QMD: &config.QMDConfig{
+				Executable:       legacyConfig.QMD.Executable,
+				Collection:       legacyConfig.QMD.Collection,
+				ProjectDirectory: legacyConfig.QMD.ProjectDirectory,
+			},
+			Agent: &config.AgentConfig{
+				Evolution: legacyConfig.EffectiveAgent().Evolution,
+			},
+		}
+		if err := global.Validate(); err != nil {
+			return path, config.GlobalConfig{}, false, false, err
+		}
+		return path, global, true, true, nil
+	} else if !os.IsNotExist(err) {
+		return path, config.GlobalConfig{}, false, false, err
 	}
-	data, err := config.MarshalGlobal(config.DefaultGlobal(), version)
-	if err != nil {
-		return path, false, err
-	}
-	if err := os.MkdirAll(filepath.Dir(path), 0o755); err != nil {
-		return path, false, err
-	}
-	temp, err := os.CreateTemp(filepath.Dir(path), ".buda-init-*")
-	if err != nil {
-		return path, false, err
-	}
-	tempPath := temp.Name()
-	defer os.Remove(tempPath)
-	if _, err := temp.Write(data); err != nil {
-		temp.Close()
-		return path, false, err
-	}
-	if err := temp.Sync(); err != nil {
-		temp.Close()
-		return path, false, err
-	}
-	if err := temp.Close(); err != nil {
-		return path, false, err
-	}
-	if err := os.Rename(tempPath, path); err != nil {
-		return path, false, err
-	}
-	return path, true, nil
+	return path, config.DefaultGlobal(), true, false, nil
 }
 
 func readPromptLine(reader *bufio.Reader) (string, error) {

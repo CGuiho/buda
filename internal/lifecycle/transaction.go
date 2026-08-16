@@ -199,9 +199,41 @@ func AtomicWrite(path string, content []byte, mode os.FileMode) error {
 	return os.Rename(tmpPath, path)
 }
 
-func SafeRemove(path, root string) error {
+// IsLinked reports whether the entry is a symbolic link or, on Windows, any
+// reparse point such as a junction.
+func IsLinked(info os.FileInfo) bool { return isLinked(info) }
+
+func VerifyNoLinkedAncestors(path, root string) error {
 	if strings.TrimSpace(path) == "" || strings.TrimSpace(root) == "" {
-		return errors.New("remove path and root are required")
+		return errors.New("path and root are required")
+	}
+	cleanPath := filepath.Clean(path)
+	cleanRoot := filepath.Clean(root)
+	rel, err := filepath.Rel(cleanRoot, cleanPath)
+	if err != nil || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) {
+		return fmt.Errorf("path %s is outside root %s", cleanPath, cleanRoot)
+	}
+	curr := cleanPath
+	for {
+		info, err := os.Lstat(curr)
+		if err == nil {
+			if isLinked(info) {
+				return fmt.Errorf("path or ancestor is a symlink or reparse point: %s", curr)
+			}
+		} else if !errors.Is(err, os.ErrNotExist) {
+			return err
+		}
+		if curr == cleanRoot || curr == filepath.Dir(curr) {
+			break
+		}
+		curr = filepath.Dir(curr)
+	}
+	return nil
+}
+
+func SafeRemove(path, root string) error {
+	if err := VerifyNoLinkedAncestors(path, root); err != nil {
+		return err
 	}
 	rel, err := filepath.Rel(root, path)
 	if err != nil || rel == "." || rel == ".." || strings.HasPrefix(rel, ".."+string(filepath.Separator)) || filepath.IsAbs(rel) {
@@ -214,8 +246,8 @@ func SafeRemove(path, root string) error {
 	if err != nil {
 		return err
 	}
-	if info.Mode()&os.ModeSymlink != 0 {
-		return errors.New("refuse removal of symlink")
+	if isLinked(info) {
+		return errors.New("refuse removal of symlink or reparse point")
 	}
 	return os.RemoveAll(path)
 }

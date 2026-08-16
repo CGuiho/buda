@@ -46,9 +46,34 @@ func main() {
 	version := flag.String("version", "", "Semantic version embedded in every binary")
 	commit := flag.String("commit", "unknown", "Source commit embedded in every binary")
 	buildDate := flag.String("build-date", "", "Stable RFC3339 build timestamp")
+	targetFilter := flag.String("target", "", "Build only a specific target binary")
 	flag.Parse()
 	if *version == "" {
 		fatalf("--version is required")
+	}
+	if *targetFilter != "" {
+		var selected *target
+		for i, t := range targets {
+			if t.name == *targetFilter || strings.TrimSuffix(t.name, ".exe") == strings.TrimSuffix(*targetFilter, ".exe") {
+				selected = &targets[i]
+				break
+			}
+		}
+		if selected == nil {
+			fatalf("unknown target %q", *targetFilter)
+		}
+		if *buildDate == "" {
+			*buildDate = time.Now().UTC().Format(time.RFC3339)
+		}
+		if err := os.MkdirAll(outputDirectory, 0o755); err != nil {
+			fatalf("create %s: %v", outputDirectory, err)
+		}
+		path := filepath.Join(outputDirectory, selected.name)
+		if err := build(path, ".", *selected, *version, *commit, *buildDate); err != nil {
+			fatalf("build %s: %v", selected.name, err)
+		}
+		fmt.Printf("built target %s\n", selected.name)
+		return
 	}
 	if *buildDate == "" {
 		fatalf("--build-date is required for a reproducible release archive")
@@ -144,8 +169,16 @@ func build(path, packagePath string, buildTarget target, version, commit, date s
 
 func buildManifest(version string, assets []string) artifact.Manifest {
 	manifest := artifact.Manifest{Schema: artifact.CurrentSchema, CLI: cliName, Version: version, Artifacts: []artifact.Artifact{}}
+	seen := map[string]bool{}
 	for _, path := range assets {
 		name := filepath.Base(path)
+		if name == manifestAssetName {
+			continue
+		}
+		if seen[name] {
+			fatalf("duplicate release asset %q; the release unit must not publish two assets with one name", name)
+		}
+		seen[name] = true
 		digest, err := digestFile(path)
 		if err != nil {
 			fatalf("digest %s: %v", name, err)
@@ -153,9 +186,6 @@ func buildManifest(version string, assets []string) artifact.Manifest {
 		installed := filepath.ToSlash(filepath.Join("versions", version, "artifacts", name))
 		id := strings.TrimSuffix(name, filepath.Ext(name))
 		id = strings.ReplaceAll(id, ".", "-")
-		if name == "artifacts.json" {
-			digest = strings.Repeat("0", 64)
-		}
 		entry := artifact.Artifact{ID: id, Version: version, Path: name, InstalledPath: installed, SHA256: digest, Ownership: artifact.OwnershipReplaceable, Replaceable: true}
 		setTargetMetadata(&entry, name)
 		if name == skillAssetName {
@@ -174,10 +204,20 @@ func buildManifest(version string, assets []string) artifact.Manifest {
 
 func setTargetMetadata(entry *artifact.Artifact, name string) {
 	target := strings.TrimSuffix(name, ".exe")
-	parts := strings.Split(target, "-")
-	if len(parts) >= 3 && (strings.HasPrefix(target, "buda-") || strings.HasPrefix(target, "buda-launcher-")) {
-		entry.OS = parts[1]
-		entry.Arch = strings.Join(parts[2:], "-")
+	if strings.HasPrefix(target, "buda-launcher-") {
+		trimmed := strings.TrimPrefix(target, "buda-launcher-")
+		parts := strings.Split(trimmed, "-")
+		if len(parts) >= 2 {
+			entry.OS = parts[0]
+			entry.Arch = strings.Join(parts[1:], "-")
+		}
+	} else if strings.HasPrefix(target, "buda-") {
+		trimmed := strings.TrimPrefix(target, "buda-")
+		parts := strings.Split(trimmed, "-")
+		if len(parts) >= 2 {
+			entry.OS = parts[0]
+			entry.Arch = strings.Join(parts[1:], "-")
+		}
 	}
 }
 

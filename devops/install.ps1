@@ -24,8 +24,12 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
   } while ($batch.Count -eq 100)
   $matches = @($all | Where-Object { -not $_.draft -and $_.tag_name -match '^buda/v' } | ForEach-Object {
     $candidate = $_.tag_name.Substring(6); $candidateChannel = if ($candidate.Contains('-')) { $candidate.Split('-')[1].Split('.')[0] } else { 'stable' }
-    $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-0002-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml')
+    $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-0002-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml',
+      'buda-linux-amd64', 'buda-linux-arm64', 'buda-linux-armv7', 'buda-linux-armv6', 'buda-darwin-amd64', 'buda-darwin-arm64', 'buda-windows-amd64.exe', 'buda-windows-arm64.exe',
+      'buda-launcher-linux-amd64', 'buda-launcher-linux-arm64', 'buda-launcher-linux-armv7', 'buda-launcher-linux-armv6', 'buda-launcher-darwin-amd64', 'buda-launcher-darwin-arm64', 'buda-launcher-windows-amd64.exe', 'buda-launcher-windows-arm64.exe')
     $assetNames = @($_.assets | ForEach-Object { [string]$_.name })
+    $uniqueAssetNames = @($assetNames | Select-Object -Unique)
+    if ($assetNames.Count -ne $uniqueAssetNames.Count) { return }
     if ($candidateChannel -eq $wanted -and $candidate -match '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' -and @($requiredNames | Where-Object { $assetNames -notcontains $_ }).Count -eq 0) { [pscustomobject]@{ Release=$_; Version=$candidate } }
   } | Sort-Object Version -Descending)
   if ($matches.Count -eq 0) { throw "No release found for channel $wanted." }
@@ -52,7 +56,7 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
 if (-not $Version) { throw 'Version selection did not resolve a stable release.' }
 $tag = "buda/v$Version"
 $assetDir = $env:BUDA_RELEASE_ASSET_DIR
-$userHome = [Environment]::GetFolderPath('UserProfile')
+$userHome = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { [Environment]::GetFolderPath('UserProfile') }
 $guihoHome = Join-Path $userHome '.guiho'
 $cliHome = Join-Path $guihoHome 'buda'
 $globalConfigName = 'buda.global.yaml'
@@ -67,7 +71,11 @@ $hadCurrent = $false; $hadManifest = $false; $hadLauncher = $false; $hadVersion 
 $hadLegacy = $false
 $versionDir = Join-Path $cliHome (Join-Path 'versions' $Version)
 $backupDir = Join-Path $stage 'backup'
-$legacyPath = Join-Path $cliHome 'buda'
+# The historical 0.1.x direct-binary installation wrote the payload to
+# %LOCALAPPDATA%\GUIHO\bin\buda.exe. Migration removes it only from that exact
+# historical path, only after the new launcher transaction has been verified,
+# and never in place.
+$legacyPath = if ($env:LOCALAPPDATA) { Join-Path (Join-Path $env:LOCALAPPDATA 'GUIHO\bin') 'buda.exe' } else { '' }
 
 function Get-Asset([string]$name) {
   $destination = Join-Path $stage $name
@@ -77,14 +85,23 @@ function Get-Asset([string]$name) {
 }
 function Write-Atomic([string]$path, [string]$content) {
   $temporary = "$path.new"
-  Set-Content -NoNewline -Encoding UTF8 -LiteralPath $temporary -Value $content
+  $encoding = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($temporary, $content, $encoding)
   Move-Item -Force -LiteralPath $temporary -Destination $path
+}
+function Get-Sha256([string]$path) {
+  $stream = [System.IO.File]::OpenRead($path)
+  try {
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($hash.ComputeHash($stream)) -replace '-', '').ToUpperInvariant() }
+    finally { $hash.Dispose() }
+  } finally { $stream.Dispose() }
 }
 function Verify-Checksum([string]$name, $checksumLines) {
   $matches = @($checksumLines | Where-Object { $_ -match "^\s*([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($name))\s*$" })
   if ($matches.Count -ne 1) { throw "Missing or duplicate checksum for $name." }
   $expected = $matches[0].Substring(0,64).ToUpperInvariant()
-  $actual = (Get-FileHash -Algorithm SHA256 -LiteralPath (Join-Path $stage $name)).Hash.ToUpperInvariant()
+  $actual = Get-Sha256 (Join-Path $stage $name)
   if ($expected -ne $actual) { throw "Checksum mismatch for $name." }
 }
 function Restore-Previous {
@@ -128,7 +145,7 @@ try {
   if (Test-Path -LiteralPath $currentPath) { Copy-Item -Force -LiteralPath $currentPath -Destination (Join-Path $backupDir 'current.json'); $hadCurrent = $true }
   if (Test-Path -LiteralPath $manifestPath) { Copy-Item -Force -LiteralPath $manifestPath -Destination (Join-Path $backupDir 'installed-artifacts.json'); $hadManifest = $true }
   if (Test-Path -LiteralPath $launcherPath) { Copy-Item -Force -LiteralPath $launcherPath -Destination (Join-Path $backupDir 'buda.exe'); $hadLauncher = $true }
-  if (Test-Path -LiteralPath $legacyPath -PathType Leaf) {
+  if ($legacyPath -and (Test-Path -LiteralPath $legacyPath -PathType Leaf)) {
     $legacyObserved = (& $legacyPath --version | Out-String).Trim()
     if ($legacyObserved -match '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') {
       Copy-Item -Force -LiteralPath $legacyPath -Destination (Join-Path $backupDir 'legacy-buda.exe'); $hadLegacy = $true

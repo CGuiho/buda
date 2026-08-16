@@ -70,11 +70,15 @@ type Result struct {
 	Channel  string
 }
 
-var required = map[string]bool{
-	"checksums.txt": true, "artifacts.json": true, "buda.schema.json": true,
-	"buda.global.schema.json": true, "guiho-i-buda.md": true, "guiho-p-buda.md": true,
-	"buda.example.yaml": true, "buda.global.example.yaml": true,
-	"guiho-s-0002-buda.zip": true,
+var requiredReleaseAssets = []string{
+	"buda-linux-amd64", "buda-linux-arm64", "buda-linux-armv7", "buda-linux-armv6",
+	"buda-darwin-amd64", "buda-darwin-arm64", "buda-windows-amd64.exe", "buda-windows-arm64.exe",
+	"buda-launcher-linux-amd64", "buda-launcher-linux-arm64", "buda-launcher-linux-armv7", "buda-launcher-linux-armv6",
+	"buda-launcher-darwin-amd64", "buda-launcher-darwin-arm64", "buda-launcher-windows-amd64.exe", "buda-launcher-windows-arm64.exe",
+	"buda.schema.json", "buda.global.schema.json",
+	"buda.example.yaml", "buda.global.example.yaml",
+	"guiho-s-0002-buda.zip", "guiho-i-buda.md", "guiho-p-buda.md",
+	"artifacts.json", "checksums.txt",
 }
 
 func Select(ctx context.Context, catalog selfmanage.Catalog, selector Selector, buildTarget string) (Result, error) {
@@ -110,9 +114,14 @@ func Select(ctx context.Context, catalog selfmanage.Catalog, selector Selector, 
 		}
 		var binary, launcher, manifest selfmanage.Asset
 		present := map[string]bool{}
+		hasDuplicates := false
 		for _, asset := range release.Assets {
-			if strings.TrimSpace(asset.Name) == "" || strings.TrimSpace(asset.DownloadURL) == "" || present[asset.Name] {
+			if strings.TrimSpace(asset.Name) == "" || strings.TrimSpace(asset.DownloadURL) == "" {
 				continue
+			}
+			if present[asset.Name] {
+				hasDuplicates = true
+				break
 			}
 			present[asset.Name] = true
 			if asset.Name == assetName {
@@ -124,6 +133,12 @@ func Select(ctx context.Context, catalog selfmanage.Catalog, selector Selector, 
 			if asset.Name == "checksums.txt" {
 				manifest = asset
 			}
+		}
+		if hasDuplicates {
+			if requested != "" {
+				return Result{}, fmt.Errorf("release %s contains duplicate asset names", release.Version)
+			}
+			continue
 		}
 		if binary.Name == "" || launcher.Name == "" || manifest.Name == "" {
 			if requested != "" {
@@ -138,7 +153,7 @@ func Select(ctx context.Context, catalog selfmanage.Catalog, selector Selector, 
 			continue
 		}
 		complete := true
-		for name := range required {
+		for _, name := range requiredReleaseAssets {
 			if !present[name] {
 				complete = false
 				break
@@ -146,7 +161,7 @@ func Select(ctx context.Context, catalog selfmanage.Catalog, selector Selector, 
 		}
 		if !complete {
 			if requested != "" {
-				return Result{}, fmt.Errorf("release %s is incomplete: required manifest and agent artifacts are missing", release.Version)
+				return Result{}, fmt.Errorf("release %s is incomplete: required manifest, payload, launcher, schema, example, or agent artifacts are missing", release.Version)
 			}
 			continue
 		}

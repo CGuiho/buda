@@ -4,6 +4,7 @@ package upgrade
 
 import (
 	"archive/zip"
+	"bytes"
 	"context"
 	"crypto/sha256"
 	"encoding/hex"
@@ -115,6 +116,7 @@ func Execute(ctx context.Context, options Options) (result Result, err error) {
 
 	var versionDir string
 	var versionBackup string
+	var projectionSnapshots []projectionSnapshot
 	versionChanged := false
 	launcherChanged := false
 	mutated := false
@@ -124,6 +126,11 @@ func Execute(ctx context.Context, options Options) (result Result, err error) {
 		}
 		_ = lifecycle.SaveJournal(journalPath, lifecycle.Journal{Operation: "upgrade", Phase: lifecycle.PhaseRollingBack, Token: lock.Token, Version: selection.Release.Version, PreviousVersion: previous.ActiveVersion})
 		var failures []error
+		if len(projectionSnapshots) > 0 {
+			if projErr := rollbackProjections(projectionSnapshots); projErr != nil {
+				failures = append(failures, projErr)
+			}
+		}
 		if (versionChanged || versionBackup != "") && versionDir != "" {
 			if versionChanged {
 				if removeErr := lifecycle.SafeRemove(versionDir, options.Layout.Versions); removeErr != nil && !os.IsNotExist(removeErr) {
@@ -179,6 +186,9 @@ func Execute(ctx context.Context, options Options) (result Result, err error) {
 	}
 
 	payload := filepath.Join(op, selection.Binary.Name)
+	if err = ensureExecutable(payload); err != nil {
+		return Result{}, err
+	}
 	if observed, versionErr := versionOf(payload); versionErr != nil {
 		return Result{}, versionErr
 	} else if observed != selection.Release.Version {
@@ -219,8 +229,22 @@ func Execute(ctx context.Context, options Options) (result Result, err error) {
 	}
 	versionChanged = true
 	mutated = true
+
+	var previousManifest artifact.Manifest
+	if installedExists && len(installedBytes) > 0 {
+		previousManifest, _ = artifact.Decode(bytes.NewReader(installedBytes))
+	}
+
+	projectionSnapshots, err = snapshotProjections(op, options.Layout.Home, manifest, previousManifest)
+	if err != nil {
+		return Result{}, fmt.Errorf("snapshot projections: %w", err)
+	}
 	if err = lifecycle.SaveJournal(journalPath, lifecycle.Journal{Operation: "upgrade", Phase: lifecycle.PhaseProjectionsSnapshotted, Token: lock.Token, Version: selection.Release.Version, PreviousVersion: previous.ActiveVersion}); err != nil {
 		return Result{}, err
+	}
+
+	if err = applyProjections(op, options.Layout.Home, versionDir, manifest, previousManifest); err != nil {
+		return Result{}, fmt.Errorf("apply manifest projections: %w", err)
 	}
 	if err = lifecycle.SaveJournal(journalPath, lifecycle.Journal{Operation: "upgrade", Phase: lifecycle.PhaseArtifactsReplaced, Token: lock.Token, Version: selection.Release.Version, PreviousVersion: previous.ActiveVersion}); err != nil {
 		return Result{}, err
@@ -573,6 +597,18 @@ func versionOf(path string) (string, error) {
 	return strings.TrimSpace(string(output)), nil
 }
 
+// ensureExecutable makes a staged candidate runnable on POSIX before the
+// transaction executes it. Windows relies on the executable extension instead.
+func ensureExecutable(path string) error {
+	if runtime.GOOS == "windows" {
+		return nil
+	}
+	if err := os.Chmod(path, 0o755); err != nil {
+		return fmt.Errorf("make candidate executable: %w", err)
+	}
+	return nil
+}
+
 func selfTest(path string) error {
 	command := exec.Command(path, "__self-test")
 	output, err := command.Output()
@@ -656,4 +692,225 @@ func mustEncodeManifest(manifest artifact.Manifest) []byte {
 		panic(err)
 	}
 	return append(data, '\n')
+}
+
+func copyDirectory(source, destination string) error {
+	return filepath.Walk(source, func(path string, info os.FileInfo, err error) error {
+		if err != nil {
+			return err
+		}
+		rel, err := filepath.Rel(source, path)
+		if err != nil {
+			return err
+		}
+		destPath := filepath.Join(destination, rel)
+		if info.IsDir() {
+			return os.MkdirAll(destPath, 0o755)
+		}
+		return copyFile(path, destPath, info.Mode().Perm())
+	})
+}
+
+func unzipArchive(archivePath, targetDir string) error {
+	reader, err := zip.OpenReader(archivePath)
+	if err != nil {
+		return err
+	}
+	defer reader.Close()
+	for _, file := range reader.File {
+		cleanName := filepath.Clean(filepath.FromSlash(file.Name))
+		if cleanName == "." || cleanName == ".." || strings.HasPrefix(cleanName, ".."+string(filepath.Separator)) {
+			return errors.New("unsafe archive member path")
+		}
+		destPath := filepath.Join(targetDir, cleanName)
+		if file.FileInfo().IsDir() {
+			if err := os.MkdirAll(destPath, 0o755); err != nil {
+				return err
+			}
+			continue
+		}
+		if err := os.MkdirAll(filepath.Dir(destPath), 0o755); err != nil {
+			return err
+		}
+		rc, err := file.Open()
+		if err != nil {
+			return err
+		}
+		out, err := os.OpenFile(destPath, os.O_WRONLY|os.O_CREATE|os.O_TRUNC, 0o644)
+		if err != nil {
+			rc.Close()
+			return err
+		}
+		_, copyErr := io.Copy(out, rc)
+		closeErr := out.Close()
+		rc.Close()
+		if copyErr != nil {
+			return copyErr
+		}
+		if closeErr != nil {
+			return closeErr
+		}
+	}
+	return nil
+}
+
+type projectionSnapshot struct {
+	relPath    string
+	targetPath string
+	backupPath string
+	existed    bool
+	isDir      bool
+}
+
+func snapshotProjections(op, home string, manifest, previousManifest artifact.Manifest) ([]projectionSnapshot, error) {
+	seen := make(map[string]bool)
+	var relPaths []string
+	for _, a := range manifest.Artifacts {
+		for _, p := range a.ProjectionPaths {
+			if !seen[p] {
+				seen[p] = true
+				relPaths = append(relPaths, p)
+			}
+		}
+	}
+	for _, a := range previousManifest.Artifacts {
+		for _, p := range a.ProjectionPaths {
+			if !seen[p] {
+				seen[p] = true
+				relPaths = append(relPaths, p)
+			}
+		}
+	}
+
+	backupBase := filepath.Join(op, "projection-backups")
+	var snapshots []projectionSnapshot
+	for i, rel := range relPaths {
+		targetPath := filepath.Join(home, filepath.FromSlash(rel))
+		if err := lifecycle.VerifyNoLinkedAncestors(targetPath, home); err != nil {
+			return nil, fmt.Errorf("verify projection target %s: %w", targetPath, err)
+		}
+		info, err := os.Lstat(targetPath)
+		if errors.Is(err, os.ErrNotExist) {
+			snapshots = append(snapshots, projectionSnapshot{
+				relPath:    rel,
+				targetPath: targetPath,
+				existed:    false,
+			})
+			continue
+		}
+		if err != nil {
+			return nil, fmt.Errorf("stat projection target %s: %w", targetPath, err)
+		}
+		backupPath := filepath.Join(backupBase, fmt.Sprintf("proj-%d", i))
+		if info.IsDir() {
+			if err := copyDirectory(targetPath, backupPath); err != nil {
+				return nil, fmt.Errorf("snapshot projection dir %s: %w", targetPath, err)
+			}
+			snapshots = append(snapshots, projectionSnapshot{
+				relPath:    rel,
+				targetPath: targetPath,
+				backupPath: backupPath,
+				existed:    true,
+				isDir:      true,
+			})
+		} else {
+			if err := copyFile(targetPath, backupPath, info.Mode().Perm()); err != nil {
+				return nil, fmt.Errorf("snapshot projection file %s: %w", targetPath, err)
+			}
+			snapshots = append(snapshots, projectionSnapshot{
+				relPath:    rel,
+				targetPath: targetPath,
+				backupPath: backupPath,
+				existed:    true,
+				isDir:      false,
+			})
+		}
+	}
+	return snapshots, nil
+}
+
+func applyProjections(op, home, versionDir string, manifest, previousManifest artifact.Manifest) error {
+	for _, a := range manifest.Artifacts {
+		if len(a.ProjectionPaths) == 0 {
+			continue
+		}
+		if strings.HasSuffix(a.Path, ".zip") {
+			zipPath := filepath.Join(versionDir, "artifacts", filepath.Base(a.Path))
+			unpackedDir := filepath.Join(op, "unpacked-"+a.ID)
+			if err := unzipArchive(zipPath, unpackedDir); err != nil {
+				return fmt.Errorf("unpack projection archive %s: %w", a.Path, err)
+			}
+			sourceDir := unpackedDir
+			entries, _ := os.ReadDir(unpackedDir)
+			if len(entries) == 1 && entries[0].IsDir() {
+				sourceDir = filepath.Join(unpackedDir, entries[0].Name())
+			}
+			for _, proj := range a.ProjectionPaths {
+				target := filepath.Join(home, filepath.FromSlash(proj))
+				_ = os.RemoveAll(target)
+				if err := os.MkdirAll(filepath.Dir(target), 0o755); err != nil {
+					return err
+				}
+				if err := copyDirectory(sourceDir, target); err != nil {
+					return fmt.Errorf("apply projection to %s: %w", target, err)
+				}
+			}
+		} else {
+			filePath := filepath.Join(versionDir, "artifacts", filepath.Base(a.Path))
+			content, err := os.ReadFile(filePath)
+			if err != nil {
+				return fmt.Errorf("read artifact %s: %w", a.Path, err)
+			}
+			for _, proj := range a.ProjectionPaths {
+				target := filepath.Join(home, filepath.FromSlash(proj))
+				if err := lifecycle.AtomicWrite(target, content, 0o644); err != nil {
+					return fmt.Errorf("apply projection to %s: %w", target, err)
+				}
+			}
+		}
+	}
+
+	newProjections := make(map[string]bool)
+	for _, a := range manifest.Artifacts {
+		for _, p := range a.ProjectionPaths {
+			newProjections[p] = true
+		}
+	}
+	for _, a := range previousManifest.Artifacts {
+		for _, p := range a.ProjectionPaths {
+			if !newProjections[p] {
+				target := filepath.Join(home, filepath.FromSlash(p))
+				_ = os.RemoveAll(target)
+			}
+		}
+	}
+	return nil
+}
+
+func rollbackProjections(snapshots []projectionSnapshot) error {
+	var failures []error
+	for _, s := range snapshots {
+		if !s.existed {
+			if err := os.RemoveAll(s.targetPath); err != nil && !os.IsNotExist(err) {
+				failures = append(failures, err)
+			}
+		} else {
+			_ = os.RemoveAll(s.targetPath)
+			if s.isDir {
+				if err := copyDirectory(s.backupPath, s.targetPath); err != nil {
+					failures = append(failures, err)
+				}
+			} else {
+				if info, statErr := os.Stat(s.backupPath); statErr == nil {
+					if err := copyFile(s.backupPath, s.targetPath, info.Mode().Perm()); err != nil {
+						failures = append(failures, err)
+					}
+				}
+			}
+		}
+	}
+	if len(failures) > 0 {
+		return fmt.Errorf("rollback projections: %v", failures)
+	}
+	return nil
 }

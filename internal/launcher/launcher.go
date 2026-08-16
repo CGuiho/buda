@@ -37,11 +37,22 @@ func ReadPointer(path string) (Pointer, error) {
 	if err := decoder.Decode(&pointer); err != nil {
 		return Pointer{}, fmt.Errorf("decode active Buda pointer: %w", err)
 	}
+	var trailing any
+	if err := decoder.Decode(&trailing); err != io.EOF {
+		if err == nil {
+			return Pointer{}, errors.New("pointer must contain exactly one JSON document")
+		}
+		return Pointer{}, fmt.Errorf("decode active Buda pointer: expected exactly one JSON document: %w", err)
+	}
 	if pointer.Schema != 1 {
 		return Pointer{}, errors.New("unsupported active Buda pointer schema")
 	}
 	if err := validateRelative(pointer.Active); err != nil {
 		return Pointer{}, fmt.Errorf("active payload: %w", err)
+	}
+	baseActive := filepath.Base(filepath.FromSlash(pointer.Active))
+	if baseActive != "buda" && baseActive != "buda.exe" {
+		return Pointer{}, fmt.Errorf("active payload filename %q is not a canonical Buda payload name", baseActive)
 	}
 	if !validVersion(pointer.ActiveVersion) || pointerVersion(pointer.Active) != pointer.ActiveVersion {
 		return Pointer{}, errors.New("active payload version does not match active_version")
@@ -52,6 +63,10 @@ func ReadPointer(path string) (Pointer, error) {
 	if pointer.Previous != "" {
 		if err := validateRelative(pointer.Previous); err != nil {
 			return Pointer{}, fmt.Errorf("previous payload: %w", err)
+		}
+		basePrev := filepath.Base(filepath.FromSlash(pointer.Previous))
+		if basePrev != "buda" && basePrev != "buda.exe" {
+			return Pointer{}, fmt.Errorf("previous payload filename %q is not a canonical Buda payload name", basePrev)
 		}
 		if !validVersion(pointer.PreviousVersion) || pointerVersion(pointer.Previous) != pointer.PreviousVersion {
 			return Pointer{}, errors.New("previous payload version does not match previous_version")

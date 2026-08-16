@@ -59,4 +59,25 @@ func TestLifecycleScriptsRejectObsoleteMutableReleaseAssumptions(t *testing.T) {
 			}
 		}
 	}
+	installSh, _ := os.ReadFile("install.sh")
+	if !strings.Contains(string(installSh), "armv6") || !strings.Contains(string(installSh), "armv7") {
+		t.Fatal("install.sh lacks ARMv6 or ARMv7 platform support")
+	}
+	if !strings.Contains(string(installSh), `chmod 755 "$STAGE/$BINARY"`) {
+		t.Fatal("install.sh does not chmod candidate binary before invocation")
+	}
+	uninstallSh, _ := os.ReadFile("uninstall.sh")
+	if !strings.Contains(string(uninstallSh), "mv -f") {
+		t.Fatal("uninstall.sh does not use atomic move for instruction edits")
+	}
+	if !strings.Contains(string(uninstallSh), "Buda Uninstall Plan:") || !strings.Contains(string(uninstallSh), "REMOVE:") || !strings.Contains(string(uninstallSh), "PRESERVE:") {
+		t.Fatal("uninstall.sh lacks grouped plan output")
+	}
+	uninstallPs1, _ := os.ReadFile("uninstall.ps1")
+	if !strings.Contains(string(uninstallPs1), "Move-Item") {
+		t.Fatal("uninstall.ps1 does not use atomic move for instruction edits")
+	}
+	if !strings.Contains(string(uninstallPs1), "Buda Uninstall Plan:") || !strings.Contains(string(uninstallPs1), "REMOVE:") || !strings.Contains(string(uninstallPs1), "PRESERVE:") {
+		t.Fatal("uninstall.ps1 lacks grouped plan output")
+	}
 }

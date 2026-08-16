@@ -93,6 +93,9 @@ func (m Manifest) Validate() error {
 		if _, err := hex.DecodeString(strings.ToLower(a.SHA256)); err != nil {
 			return fmt.Errorf("artifact %s SHA-256 is invalid: %w", a.ID, err)
 		}
+		if strings.Trim(a.SHA256, "0") == "" && a.Path != "artifacts.json" {
+			return fmt.Errorf("artifact %s has an all-zero SHA-256 digest; all-zero is permitted only for artifacts.json", a.ID)
+		}
 		if a.Ownership != OwnershipReplaceable && a.Ownership != OwnershipPersistent && a.Ownership != OwnershipDisposable {
 			return fmt.Errorf("artifact %s ownership is invalid", a.ID)
 		}
