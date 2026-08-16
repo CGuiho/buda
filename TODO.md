@@ -83,6 +83,39 @@ the exact PR head receives independent review. Native installer/migration and
 crash-recovery execution remain review-gated because this Windows checkout was
 not allowed to mutate an existing personal installation.
 
+## Kimi review fix pass
+
+A review fix pass on `codex/cli-convention-0001` closed the release blockers
+that remained after the first review round. Every fix below is evidenced by
+source, tests, workflows, or the disposable-home native Windows smoke.
+
+| Blocker | Closure |
+|---|---|
+| POSIX chmod before candidate execution | `devops/install.sh` chmods staged payload/launcher before `--version`; `internal/upgrade/transaction.go` runs `ensureExecutable` before the staged candidate executes. |
+| Capture replacement preserves unknown OKF metadata | `internal/capture/capture.go` edits known fields through `okf.Document` setters instead of rebuilding frontmatter; `TestCaptureReplacePreservesUnknownOKFMetadata` byte-proves custom keys, tags, and nested maps survive. |
+| Manifest projection apply/snapshot/retire/rollback and crash recovery | `internal/upgrade/transaction.go` snapshots, applies, retires, and rolls back manifest projections; `recoverInterrupted` states are tested exhaustively in `TestRecoverInterruptedJournalStates`. |
+| Symlink/reparse-safe quarantined transactional uninstall | `internal/lifecycle` detects Windows reparse points via `FILE_ATTRIBUTE_REPARSE_POINT` (`linkcheck_windows.go`); `internal/uninstall/plan.go` quarantines under `.guiho/.temp`, restores on any failure, retains the quarantine instead of losing data, and edits instruction blocks before the wiki config is quarantined. |
+| Init discovers all unanswered policies before any write | `cmd/init.go` resolves/migrates the global config without writing, prompts every missing policy, and persists only afterwards; `TestInitFailsBeforeAnyWriteWhenPoliciesAreUnansweredWithoutTerminal` proves zero writes. |
+| Full release matrix, duplicate rejection, typed launcher metadata, ARMv6/v7 | Go catalog, `install.sh` jq filter, and `install.ps1` all require the complete 24-binary matrix and reject duplicate asset names; `setTargetMetadata` types payload and launcher entries; ARMv6/ARMv7 appear in every selector and the release manifest. |
+| Meaningful zero-mutation self-test and probe instance bypass | `__self-test` verifies the build version and reads every embedded skill/prompt/schema/example; only exact `--version`/`-v`/`__self-test` invocations bypass instance registration; `TestVersionAndSelfTestDoNotMutateFileSystem` proves zero mutation. |
+| Historical install migration exclusively through the launcher transaction | Installers remove the verified legacy binary only after launcher activation, from the exact historical paths (`~/.local/bin/buda`, `%LOCALAPPDATA%\GUIHO\bin\buda.exe`); no in-place mutable route remains. |
+| Explicit wiki and grouped plan before uninstall confirmation | All three uninstall interfaces require the explicit wiki and print grouped `REMOVE`/`PRESERVE` plans before any confirmation or mutation. |
+| Injected disposable home and real-profile sentinels | Lifecycle tests and the native smoke inject `USERPROFILE`/`HOME` into disposable directories and assert sentinel survival; the real user profile is never touched. |
+| Embedded strict schema/runtime/example parity | `schemas/embed.go` plus `TestEmbeddedSchemasPresentAndValid`, `TestEmbeddedExamplesValidateAgainstRuntimeConfig`, and `TestDecodingRejectsMissingSchema` pin offline parity. |
+| CI/native lifecycle/migration/interruption, RunX cross targets, XDocs, README | `ci.yml` adds POSIX and Windows native lifecycle jobs (install, repair, migration, synchronous uninstall) with disposable homes and qmd stubs; cross targets use the target-aware release builder; XDocs descriptors and the README describe the implemented truth. |
+| Pointer EOF, canonical payload names, strict digest rules | `ReadPointer` rejects trailing documents and noncanonical payload filenames; manifests reject all-zero digests except `artifacts.json`; checksum readers reject duplicates, extras, and malformed entries. |
+
+Evidence recorded during the fix pass:
+
+- disposable-home native Windows lifecycle smoke: install, same-version
+  repair, legacy 0.1.1 direct-binary migration, and synchronous uninstall all
+  passed with sentinel preservation (real profile never inspected);
+- `TestRecoverInterruptedJournalStates`, `TestManifestDrivenProjectionsApplyAndRollback`,
+  `TestApplyQuarantineRollbackOnFailure`, and the lifecycle acceptance test run
+  are cataloged in `runx.yaml` and CI;
+- `actionlint` passes for both workflows; POSIX and PowerShell installer
+  syntax checks pass.
+
 ## Release boundary
 
 - [ ] Apply the separately authorized Mirror minor plan,

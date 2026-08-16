@@ -184,5 +184,11 @@ For each unit, retain in the PR or validation report:
 - explicit confirmation that no production action or unauthorized release
   action occurred.
 
+The review fix pass on the integration branch closed every release blocker
+that survived the first review round. Its blocker-to-evidence record, the
+disposable-home native Windows lifecycle smoke, interruption/rollback
+acceptance, workflow coverage, and the Mirror 0.2.0 plan preview are recorded
+in [`TODO.md`](../TODO.md) under “Kimi review fix pass”.
+
 This matrix is complete only when all audit rows, product invariants, and
 aggregate gates are satisfied on the same aggregate commit.

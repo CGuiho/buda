@@ -54,6 +54,16 @@ and immutable payloads and manifest-owned resources live under
 `$HOME/.guiho/buda/versions/<version>/`. Foreign ARMv6/ARMv7 targets are
 cross-build-only unless run on their native platform.
 
+### Migrating a 0.1.x direct-binary installation
+
+A verified 0.1.x direct binary is migrated only through the new launcher
+transaction: the installer activates and verifies the new launcher and
+immutable payload first, then removes the old binary from its exact historical
+path (`~/.local/bin/buda` on Unix, `%LOCALAPPDATA%\GUIHO\bin\buda.exe` on
+Windows). The legacy global `buda.yaml` is strictly validated, mapped into
+`buda.global.yaml`, and left in place. Canonical OKF knowledge and
+configuration are never deleted by installation.
+
 ## Upgrade
 
 ```text
@@ -108,7 +118,10 @@ go vet ./...
 `devops/build-binaries.go` produces the eight pure-Go payloads, eight stable
 launchers, typed resources, schemas, examples, `artifacts.json`, and
 `checksums.txt`. Release completeness is derived from the manifest rather than
-from a fixed asset count.
+from a fixed asset count. CI additionally runs native POSIX and Windows
+lifecycle jobs that install, repair, migrate a synthetic 0.1.1 layout, and
+uninstall in disposable homes, plus interruption, rollback, and locked-file
+acceptance in the Go suite.
 
 ## Uninstall
 

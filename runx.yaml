@@ -35,6 +35,11 @@ commands:
     summary: Run Go vet.
     command: go vet ./...
     description: Run Go vet across every package.
+  - uid: budalifecycleacceptance
+    id: lifecycleacceptance
+    summary: Run lifecycle transaction and interruption acceptance tests.
+    command: go test -count=1 -run 'Lock|Rollback|Recover|Interrupt|Quarantine|Snapshot|Projection|Pointer|Checksum' ./internal/lifecycle/... ./internal/upgrade/... ./internal/uninstall/... ./internal/launcher/...
+    description: Exercise lock ownership, journal recovery, rollback, quarantine, projection snapshots, pointer security, and strict checksum acceptance.
   - uid: budabuild
     id: build
     summary: Build native Go packages.
@@ -108,40 +113,40 @@ commands:
   - uid: budacrosslinuxamd64
     id: crosslinuxamd64
     summary: Build Linux AMD64 payload.
-    command: go build -trimpath -o dist/buda-linux-amd64 .
-    description: Build the Linux AMD64 payload (foreign build-only when not native).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-amd64
+    description: Build the Linux AMD64 payload with target-specific environment.
   - uid: budacrosslinuxarm64
     id: crosslinuxarm64
     summary: Build Linux ARM64 payload.
-    command: go build -trimpath -o dist/buda-linux-arm64 .
-    description: Build the Linux ARM64 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-arm64
+    description: Build the Linux ARM64 payload with target-specific environment.
   - uid: budacrosslinuxarmv7
     id: crosslinuxarmv7
     summary: Build Linux ARMv7 payload.
-    command: go build -trimpath -o dist/buda-linux-armv7 .
-    description: Build the Linux ARMv7 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-armv7
+    description: Build the Linux ARMv7 payload with target-specific environment.
   - uid: budacrosslinuxarmv6
     id: crosslinuxarmv6
     summary: Build Linux ARMv6 payload.
-    command: go build -trimpath -o dist/buda-linux-armv6 .
-    description: Build the Linux ARMv6 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-armv6
+    description: Build the Linux ARMv6 payload with target-specific environment.
   - uid: budacrossdarwinamd64
     id: crossdarwinamd64
     summary: Build Darwin AMD64 payload.
-    command: go build -trimpath -o dist/buda-darwin-amd64 .
-    description: Build the Darwin AMD64 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-darwin-amd64
+    description: Build the Darwin AMD64 payload with target-specific environment.
   - uid: budacrossdarwinarm64
     id: crossdarwinarm64
     summary: Build Darwin ARM64 payload.
-    command: go build -trimpath -o dist/buda-darwin-arm64 .
-    description: Build the Darwin ARM64 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-darwin-arm64
+    description: Build the Darwin ARM64 payload with target-specific environment.
   - uid: budacrosswindowsamd64
     id: crosswindowsamd64
     summary: Build Windows AMD64 payload.
-    command: go build -trimpath -o dist/buda-windows-amd64.exe .
-    description: Build the Windows AMD64 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-windows-amd64.exe
+    description: Build the Windows AMD64 payload with target-specific environment.
   - uid: budacrosswindowsarm64
     id: crosswindowsarm64
     summary: Build Windows ARM64 payload.
-    command: go build -trimpath -o dist/buda-windows-arm64.exe .
-    description: Build the Windows ARM64 payload (foreign build-only).
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-windows-arm64.exe
+    description: Build the Windows ARM64 payload with target-specific environment.
