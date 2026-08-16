@@ -15,9 +15,10 @@ import (
 
 const (
 	SkillID          = "guiho-s-0002-buda"
+	InstructionID    = "guiho-i-buda"
 	InstructionBegin = "<!-- BEGIN BUDA INSTRUCTIONS -->"
 	InstructionEnd   = "<!-- END BUDA INSTRUCTIONS -->"
-	PromptID         = "buda"
+	PromptID         = "guiho-p-buda"
 )
 
 type Error struct {
@@ -118,13 +119,13 @@ func (s *Service) Skill() (SkillRecord, error) {
 }
 
 func (s *Service) Prompt() (Prompt, error) {
-	content, err := fs.ReadFile(s.resources.Prompt, "guiho-i-buda.md")
+	content, err := fs.ReadFile(s.resources.Prompt, "guiho-p-buda.md")
 	if err != nil {
-		return Prompt{}, mutation("read embedded Buda prompt", err)
+		return Prompt{}, mutation("read embedded Buda setup prompt", err)
 	}
 	frontmatter, body, ok := splitFrontmatter(string(content))
 	if !ok {
-		return Prompt{}, mutation("embedded Buda prompt is missing YAML frontmatter", nil)
+		return Prompt{}, mutation("embedded Buda setup prompt is missing YAML frontmatter", nil)
 	}
 	var metadata struct {
 		Name        string `yaml:"name"`
@@ -132,12 +133,38 @@ func (s *Service) Prompt() (Prompt, error) {
 		Version     string `yaml:"version"`
 	}
 	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
-		return Prompt{}, mutation("decode embedded Buda prompt metadata", err)
+		return Prompt{}, mutation("decode embedded Buda setup prompt metadata", err)
 	}
 	if metadata.Name != PromptID || metadata.Description == "" || metadata.Version == "" {
-		return Prompt{}, mutation("embedded Buda prompt metadata is invalid", nil)
+		return Prompt{}, mutation("embedded Buda setup prompt metadata is invalid", nil)
 	}
 	return Prompt{ID: PromptID, Version: metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
+}
+
+// Instruction returns the separately typed managed project instruction. It is
+// deliberately not exposed as an agent prompt: the convention requires the
+// instruction and setup prompt to have distinct resource identities.
+func (s *Service) Instruction() (Prompt, error) {
+	content, err := fs.ReadFile(s.resources.Prompt, "guiho-i-buda.md")
+	if err != nil {
+		return Prompt{}, mutation("read embedded Buda instruction", err)
+	}
+	frontmatter, body, ok := splitFrontmatter(string(content))
+	if !ok {
+		return Prompt{}, mutation("embedded Buda instruction is missing YAML frontmatter", nil)
+	}
+	var metadata struct {
+		Name        string `yaml:"name"`
+		Description string `yaml:"description"`
+		Version     string `yaml:"version"`
+	}
+	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+		return Prompt{}, mutation("decode embedded Buda instruction metadata", err)
+	}
+	if metadata.Name != InstructionID || metadata.Description == "" || metadata.Version == "" {
+		return Prompt{}, mutation("embedded Buda instruction metadata is invalid", nil)
+	}
+	return Prompt{ID: InstructionID, Version: metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
 }
 
 func treeDigest(source fs.FS) (string, error) {

@@ -1,6 +1,6 @@
 ---
 subject: buda-prompts
-description: Embedded repository instruction template used for bounded Buda agent-instruction management.
+description: Embedded Buda repository instruction and lifecycle setup prompt resources.
 parent: buda-package
 children: []
 files:
@@ -8,6 +8,7 @@ files:
   embed_test.go: Contract test for explicit-wiki and Buda-only instruction routing.
 documents:
   guiho-i-buda.md: Parameterized repository instruction block for one selected Buda wiki.
+  guiho-p-buda.md: Main setup prompt for installing, verifying, initializing, upgrading, and uninstalling Buda.
 tags:
   - prompts
   - instructions

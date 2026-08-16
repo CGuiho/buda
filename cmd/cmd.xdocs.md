@@ -2,7 +2,8 @@
 subject: buda-cmd
 description: Cobra command construction, application assembly, stable output, exit mapping, and command-level integration tests for Buda.
 parent: buda-package
-children: []
+children:
+  - buda-cmd-launcher
 files:
   agent.go: Agent skill, instruction, and prompt command tree.
   application.go: Assembly of the public repository command set.
@@ -12,7 +13,9 @@ files:
   get.go: qmd-backed concept and raw-file retrieval command.
   index.go: qmd project initialization and indexing command.
   ingest.go: Source registration and qmd-backed ingest work-item command.
-  init.go: OKF-aware wiki initialization command.
+  instance.go: Installed-payload instance registration for lifecycle process safety.
+  init.go: OKF-aware wiki initialization command with global-config discovery, legacy 0.1.x migration, wiki-id identity carryover, and atomic persistence.
+  init_policy_test.go: Interactive agent-evolution policy setup and fail-closed tests.
   lint.go: Base OKF conformance and Buda health command.
   pack.go: Deterministic portable-bundle packaging command.
   pack_test.go: Packaging command integration tests.
@@ -22,8 +25,8 @@ files:
   root_test.go: Root command, help, JSON-error, and bootstrap-scheduling tests.
   status.go: Repository, health, and qmd readiness status command.
   selfmanage_test.go: Upgrade catalog, no-op, operational progress, automatic rollback, deterministic JSON, uninstall preview, and reconciliation-exclusion command tests.
-  uninstall.go: Root native-binary and agent-resource uninstall command with hidden Windows completion route.
-  upgrade.go: GitHub Release discovery, checksum-gated native upgrade, check/list/rollback commands, and hidden Windows replacement routes.
+  uninstall.go: Manifest-driven ownership-safe uninstall command with preservation and confirmation flags.
+  upgrade.go: Complete release selection, recovery output, checksum-gated upgrade, check/list, and hidden Windows compatibility routes.
 documents: {}
 tags:
   - cobra

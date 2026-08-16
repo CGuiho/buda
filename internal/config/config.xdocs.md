@@ -1,11 +1,13 @@
 ---
 subject: buda-internal-config
-description: Strict typed buda.yaml decoding, deterministic resolution, defaults, and semantic validation.
+description: Strict typed global/project YAML decoding, deterministic merge, defaults, and semantic validation.
 parent: buda-internal
 children: []
 files:
-  config.go: Known-fields YAML decoding, precedence, defaults, and semantic checks.
-  config_test.go: Strict decoding, precedence, and invalid-configuration tests.
+  config.go: Effective configuration model, strict YAML decoding, defaults, and semantic checks.
+  config_test.go: Strict decoding, precedence, global baseline, and invalid-configuration tests.
+  dual.go: Distinct global/project contracts, inheritance, schema URLs, and atomic legacy migration.
+  dual_test.go: Global/project merge, policy inheritance, and strict-field tests.
 documents: {}
 tags:
   - configuration

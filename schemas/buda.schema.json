@@ -1,0 +1,51 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CGuiho/buda/releases/download/buda/v0.2.0/buda.schema.json",
+  "title": "Buda project configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema", "wiki_id"],
+  "properties": {
+    "schema": { "const": 1 },
+    "wiki_id": { "type": "string", "minLength": 1 },
+    "bundle": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" },
+    "derived": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" },
+    "qmd": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executable": { "type": "string", "minLength": 1 },
+        "collection": { "type": "string", "minLength": 1 },
+        "project_directory": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" }
+      }
+    },
+    "agent": {
+      "$ref": "#/$defs/agent"
+    }
+  },
+  "$defs": {
+    "policy": { "enum": ["disabled", "always-ask", "always-proceed"] },
+    "agent": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "evolution": {
+          "type": "object",
+          "additionalProperties": false,
+          "properties": {
+            "upgrade": { "$ref": "#/$defs/policy" },
+            "issues": {
+              "type": "object",
+              "additionalProperties": false,
+              "properties": {
+                "bugs": { "$ref": "#/$defs/policy" },
+                "improvements": { "$ref": "#/$defs/policy" },
+                "reviews": { "$ref": "#/$defs/policy" }
+              }
+            }
+          }
+        }
+      }
+    }
+  }
+}

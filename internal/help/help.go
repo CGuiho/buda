@@ -4,6 +4,7 @@ import (
 	"bytes"
 	"fmt"
 	"sort"
+	"strconv"
 	"strings"
 
 	"github.com/spf13/cobra"
@@ -19,19 +20,41 @@ type treeItem struct {
 }
 
 // Tree renders the live public subtree rooted at command.
-func Tree(command *cobra.Command, depth int) string {
+// ParseDepth validates the public help-tree-depth grammar. The convention
+// intentionally exposes the word max rather than leaking the renderer's
+// internal zero value to users.
+func ParseDepth(value string) (int, error) {
+	value = strings.TrimSpace(strings.ToLower(value))
+	if value == "max" {
+		return 0, nil
+	}
+	depth, err := strconv.Atoi(value)
+	if err != nil || depth <= 1 {
+		return 0, fmt.Errorf("help-tree-depth must be max or an integer greater than 1")
+	}
+	return depth, nil
+}
+
+// Tree renders the live public subtree rooted at command. Global persistent
+// flags are shown once at the root of the rendered scope unless repeatGlobals
+// is true, in which case they are included at every applicable descendant.
+func Tree(command *cobra.Command, depth string, repeatGlobals bool) (string, error) {
+	maximum, err := ParseDepth(depth)
+	if err != nil {
+		return "", err
+	}
 	var output strings.Builder
 	output.WriteString("COMMAND TREE\n\n")
 	fmt.Fprintf(&output, "%s  %s\n", commandUsage(command), command.Short)
-	renderChildren(&output, command, "", 1, depth)
-	return output.String()
+	renderChildren(&output, command, "", 1, maximum, true, repeatGlobals)
+	return output.String(), nil
 }
 
-func renderChildren(output *strings.Builder, command *cobra.Command, prefix string, level, maximum int) {
+func renderChildren(output *strings.Builder, command *cobra.Command, prefix string, level, maximum int, initial, repeatGlobals bool) {
 	if maximum > 0 && level > maximum {
 		return
 	}
-	items := commandTreeItems(command)
+	items := commandTreeItems(command, initial || repeatGlobals)
 	for index, item := range items {
 		last := index == len(items)-1
 		branch, next := "├── ", prefix+"│   "
@@ -40,12 +63,12 @@ func renderChildren(output *strings.Builder, command *cobra.Command, prefix stri
 		}
 		fmt.Fprintf(output, "%s%s%s  %s\n", prefix, branch, item.name, item.description)
 		if item.command != nil {
-			renderChildren(output, item.command, next, level+1, maximum)
+			renderChildren(output, item.command, next, level+1, maximum, false, repeatGlobals)
 		}
 	}
 }
 
-func commandTreeItems(command *cobra.Command) []treeItem {
+func commandTreeItems(command *cobra.Command, includeInherited bool) []treeItem {
 	command.InitDefaultHelpFlag()
 	var items []treeItem
 	for _, child := range command.Commands() {
@@ -71,7 +94,9 @@ func commandTreeItems(command *cobra.Command) []treeItem {
 		})
 	}
 	add(command.NonInheritedFlags())
-	add(command.InheritedFlags())
+	if includeInherited {
+		add(command.InheritedFlags())
+	}
 	sort.SliceStable(items, func(i, j int) bool {
 		if items[i].flag != items[j].flag {
 			return !items[i].flag
@@ -89,36 +114,14 @@ func commandUsage(command *cobra.Command) string {
 	return command.CommandPath() + " " + suffix
 }
 
-// Markdown renders deterministic documentation for the live public subtree.
-func Markdown(command *cobra.Command, depth int) (string, error) {
-	var output bytes.Buffer
-	var visit func(*cobra.Command, int) error
-	visit = func(current *cobra.Command, level int) error {
-		if depth > 0 && level > depth {
-			return nil
-		}
-		current.DisableAutoGenTag = true
-		var page bytes.Buffer
-		if err := doc.GenMarkdown(current, &page); err != nil {
-			return fmt.Errorf("generate Markdown help for %s: %w", current.CommandPath(), err)
-		}
-		if output.Len() > 0 {
-			output.WriteString("\n---\n\n")
-		}
-		output.Write(page.Bytes())
-		children := append([]*cobra.Command(nil), current.Commands()...)
-		sort.Slice(children, func(i, j int) bool { return children[i].Name() < children[j].Name() })
-		for _, child := range children {
-			if !child.Hidden {
-				if err := visit(child, level+1); err != nil {
-					return err
-				}
-			}
-		}
-		return nil
+// Markdown renders deterministic documentation for only the invoked command.
+// Cobra's generated page already includes that command's flags and examples;
+// recursively concatenating descendants made --help-docs ambiguous.
+func Markdown(command *cobra.Command) (string, error) {
+	command.DisableAutoGenTag = true
+	var page bytes.Buffer
+	if err := doc.GenMarkdown(command, &page); err != nil {
+		return "", fmt.Errorf("generate Markdown help for %s: %w", command.CommandPath(), err)
 	}
-	if err := visit(command, 0); err != nil {
-		return "", err
-	}
-	return output.String(), nil
+	return page.String(), nil
 }

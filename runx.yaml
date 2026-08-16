@@ -1,0 +1,152 @@
+namespace: buda
+version: 2.0.0
+
+scripts:
+  directory: ".scripts"
+
+commands:
+  - uid: budaformatcheck
+    id: formatcheck
+    summary: Check Go formatting.
+    command: gofmt -l .
+    description: Verify Go formatting without changing files.
+  - uid: budaformat
+    id: format
+    summary: Format Go source.
+    command: gofmt -w .
+    description: Format all Go source files.
+  - uid: budatidycheck
+    id: tidycheck
+    summary: Check module graph tidiness.
+    command: go mod tidy -diff
+    description: Verify the module graph is tidy.
+  - uid: budatidy
+    id: tidy
+    summary: Tidy the Go module graph.
+    command: go mod tidy
+    description: Tidy the Go module graph.
+  - uid: budatest
+    id: test
+    summary: Run all Go tests.
+    command: go test -count=1 ./...
+    description: Run the complete Go test suite.
+  - uid: budavet
+    id: vet
+    summary: Run Go vet.
+    command: go vet ./...
+    description: Run Go vet across every package.
+  - uid: budalifecycleacceptance
+    id: lifecycleacceptance
+    summary: Run lifecycle transaction and interruption acceptance tests.
+    command: go test -count=1 -run 'Lock|Rollback|Recover|Interrupt|Quarantine|Snapshot|Projection|Pointer|Checksum' ./internal/lifecycle/... ./internal/upgrade/... ./internal/uninstall/... ./internal/launcher/...
+    description: Exercise lock ownership, journal recovery, rollback, quarantine, projection snapshots, pointer security, and strict checksum acceptance.
+  - uid: budabuild
+    id: build
+    summary: Build native Go packages.
+    command: go build ./...
+    description: Build all native Go packages.
+  - uid: budabuildrelease
+    id: buildrelease
+    summary: Build the release unit.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --build-date 2026-08-16T00:00:00Z
+    description: Build the manifest-derived release unit for all targets.
+  - uid: budaxdocsmeta
+    id: xdocsmeta
+    summary: Validate XDocs metadata.
+    command: xdocs meta . --documents --strict
+    description: Validate strict XDocs metadata.
+  - uid: budaxdocstree
+    id: xdocstree
+    summary: Render the XDocs tree.
+    command: xdocs tree
+    description: Render the complete XDocs directory tree.
+  - uid: budaxdocsdoctor
+    id: xdocsdoctor
+    summary: Check XDocs ownership.
+    command: xdocs doctor .
+    description: Check XDocs links and ownership.
+  - uid: budarunxcheck
+    id: runxcheck
+    summary: Validate the RunX catalog.
+    command: runx check --format json
+    description: Validate this RunX catalog.
+  - uid: budarunxlist
+    id: runxlist
+    summary: List RunX commands.
+    command: runx list --format json
+    description: List the supported RunX command catalog.
+  - uid: budamirrorcheck
+    id: mirrorcheck
+    summary: Validate Mirror configuration.
+    command: mirror config check
+    description: Validate Mirror versioning configuration.
+  - uid: budamirrorcurrent
+    id: mirrorcurrent
+    summary: Show the current Mirror version.
+    command: mirror version current
+    description: Show the current Mirror version.
+  - uid: budamirrorplan
+    id: mirrorplan
+    summary: Preview the next minor version.
+    command: mirror version plan minor
+    description: Preview the next minor version mutations.
+  - uid: budainstallshsyntax
+    id: installshsyntax
+    summary: Check POSIX installer syntax.
+    command: sh -n devops/install.sh
+    description: Validate the POSIX installer syntax.
+  - uid: budauninstallshsyntax
+    id: uninstallshsyntax
+    summary: Check POSIX uninstaller syntax.
+    command: sh -n devops/uninstall.sh
+    description: Validate the POSIX uninstaller syntax.
+  - uid: budainstallps1syntax
+    id: installps1syntax
+    summary: Check PowerShell installer syntax.
+    command: powershell.exe -NoProfile -Command "$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'devops/install.ps1'), [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count) { exit 1 }"
+    description: Validate the PowerShell installer syntax.
+  - uid: budauninstallps1syntax
+    id: uninstallps1syntax
+    summary: Check PowerShell uninstaller syntax.
+    command: powershell.exe -NoProfile -Command "$tokens=$null; $errors=$null; [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'devops/uninstall.ps1'), [ref]$tokens, [ref]$errors) | Out-Null; if ($errors.Count) { exit 1 }"
+    description: Validate the PowerShell uninstaller syntax.
+  - uid: budacrosslinuxamd64
+    id: crosslinuxamd64
+    summary: Build Linux AMD64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-amd64
+    description: Build the Linux AMD64 payload with target-specific environment.
+  - uid: budacrosslinuxarm64
+    id: crosslinuxarm64
+    summary: Build Linux ARM64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-arm64
+    description: Build the Linux ARM64 payload with target-specific environment.
+  - uid: budacrosslinuxarmv7
+    id: crosslinuxarmv7
+    summary: Build Linux ARMv7 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-armv7
+    description: Build the Linux ARMv7 payload with target-specific environment.
+  - uid: budacrosslinuxarmv6
+    id: crosslinuxarmv6
+    summary: Build Linux ARMv6 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-linux-armv6
+    description: Build the Linux ARMv6 payload with target-specific environment.
+  - uid: budacrossdarwinamd64
+    id: crossdarwinamd64
+    summary: Build Darwin AMD64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-darwin-amd64
+    description: Build the Darwin AMD64 payload with target-specific environment.
+  - uid: budacrossdarwinarm64
+    id: crossdarwinarm64
+    summary: Build Darwin ARM64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-darwin-arm64
+    description: Build the Darwin ARM64 payload with target-specific environment.
+  - uid: budacrosswindowsamd64
+    id: crosswindowsamd64
+    summary: Build Windows AMD64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-windows-amd64.exe
+    description: Build the Windows AMD64 payload with target-specific environment.
+  - uid: budacrosswindowsarm64
+    id: crosswindowsarm64
+    summary: Build Windows ARM64 payload.
+    command: go run ./devops/build-binaries.go --version 0.2.0 --commit local --target buda-windows-arm64.exe
+    description: Build the Windows ARM64 payload with target-specific environment.

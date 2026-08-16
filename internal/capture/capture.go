@@ -120,28 +120,7 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 		body = append(append([]byte(nil), body...), append(marker, '\n')...)
 		body = append(body, definition...)
 	}
-	metadata := frontmatter{
-		Type:        request.Type,
-		Title:       request.Title,
-		Description: request.Description,
-		Status:      "draft",
-		Generated:   generated{By: request.Actor, At: request.Now.UTC().Format(time.RFC3339)},
-		Sources: []okf.Source{{
-			ID: sourceID, Resource: "buda:capture", Title: "Explicit user-directed capture input", Author: request.Actor,
-		}},
-		Buda: okf.BudaMetadata{
-			SchemaVersion: "1", UID: uid, WikiID: selected.Config.WikiID,
-			SourceDigests: map[string]string{sourceID: digest},
-		},
-	}
-	front, err := yaml.Marshal(metadata)
-	if err != nil {
-		return Result{}, fmt.Errorf("encode captured concept frontmatter: %w", err)
-	}
-	data := append([]byte("---\n"), front...)
-	data = append(data, []byte("---\n\n")...)
-	data = append(data, body...)
-
+	var data []byte
 	created, updated, unchanged := false, false, false
 	if existing, err := os.ReadFile(absolute); err == nil {
 		document, parseErr := okf.ParseConcept(relative, existing)
@@ -161,9 +140,88 @@ func Run(selected repository.Repository, request Request) (Result, error) {
 			return Result{}, fmt.Errorf("concept %q already exists with different content; pass explicit replacement approval", relative)
 		} else {
 			updated = true
+			if err := document.Set("type", request.Type); err != nil {
+				return Result{}, err
+			}
+			if err := document.Set("title", request.Title); err != nil {
+				return Result{}, err
+			}
+			if err := document.Set("description", request.Description); err != nil {
+				return Result{}, err
+			}
+			if document.String("status") == "" {
+				if err := document.Set("status", "draft"); err != nil {
+					return Result{}, err
+				}
+			}
+			if err := document.Set("generated", generated{By: request.Actor, At: request.Now.UTC().Format(time.RFC3339)}); err != nil {
+				return Result{}, err
+			}
+			sources, _ := document.Sources()
+			sourceUpdated := false
+			newSource := okf.Source{
+				ID: sourceID, Resource: "buda:capture", Title: "Explicit user-directed capture input", Author: request.Actor,
+			}
+			for i, s := range sources {
+				if s.ID == sourceID {
+					sources[i] = newSource
+					sourceUpdated = true
+					break
+				}
+			}
+			if !sourceUpdated {
+				sources = append(sources, newSource)
+			}
+			if err := document.Set("sources", sources); err != nil {
+				return Result{}, err
+			}
+			budaMeta, _, _ := document.Buda()
+			if budaMeta.SchemaVersion == "" {
+				budaMeta.SchemaVersion = "1"
+			}
+			if budaMeta.UID == "" {
+				budaMeta.UID = uid
+			}
+			if budaMeta.WikiID == "" {
+				budaMeta.WikiID = selected.Config.WikiID
+			}
+			if budaMeta.SourceDigests == nil {
+				budaMeta.SourceDigests = make(map[string]string)
+			}
+			budaMeta.SourceDigests[sourceID] = digest
+			if err := document.Set("buda", budaMeta); err != nil {
+				return Result{}, err
+			}
+			document.SetBody(body)
+			marshaled, err := document.Marshal()
+			if err != nil {
+				return Result{}, fmt.Errorf("marshal updated concept %q: %w", relative, err)
+			}
+			data = marshaled
 		}
 	} else if errors.Is(err, os.ErrNotExist) {
 		created = true
+		metadata := frontmatter{
+			Type:        request.Type,
+			Title:       request.Title,
+			Description: request.Description,
+			Status:      "draft",
+			Generated:   generated{By: request.Actor, At: request.Now.UTC().Format(time.RFC3339)},
+			Sources: []okf.Source{{
+				ID: sourceID, Resource: "buda:capture", Title: "Explicit user-directed capture input", Author: request.Actor,
+			}},
+			Buda: okf.BudaMetadata{
+				SchemaVersion: "1", UID: uid, WikiID: selected.Config.WikiID,
+				SourceDigests: map[string]string{sourceID: digest},
+			},
+		}
+		front, err := yaml.Marshal(metadata)
+		if err != nil {
+			return Result{}, fmt.Errorf("encode captured concept frontmatter: %w", err)
+		}
+		data = append([]byte("---\n"), front...)
+		data = append(data, []byte("---\n\n")...)
+		data = append(data, body...)
 	} else {
 		return Result{}, fmt.Errorf("inspect capture target %q: %w", relative, err)
 	}

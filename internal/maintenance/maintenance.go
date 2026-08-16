@@ -23,6 +23,9 @@ func ShouldSchedule(command *cobra.Command) bool {
 	if command == nil || command.Hidden {
 		return false
 	}
+	if os.Getenv("BUDA_DISABLE_MAINTENANCE") == "1" {
+		return false
+	}
 	for current := command; current != nil; current = current.Parent() {
 		if current.Hidden || current.Name() == "uninstall" || current.Name() == "upgrade" {
 			return false

@@ -1,9 +1,9 @@
 package main
 
 import (
+	"os"
 	"path/filepath"
 	"reflect"
-	"sort"
 	"strings"
 	"testing"
 )
@@ -29,13 +29,8 @@ func TestReleaseContractNamesAndTuning(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("targets = %#v, want %#v", got, want)
 	}
-	assets := append(append([]string(nil), got...), skillAssetName, promptAssetName, "checksums.txt")
-	sort.Strings(assets)
-	if len(assets) != 11 {
-		t.Fatalf("artifact count = %d", len(assets))
-	}
-	if skillAssetName != "guiho-s-0002-buda.zip" || promptAssetName != "guiho-i-buda.md" {
-		t.Fatalf("supporting assets = %s, %s", skillAssetName, promptAssetName)
+	if skillAssetName != "guiho-s-0002-buda.zip" || instructionAssetName != "guiho-i-buda.md" || promptAssetName != "guiho-p-buda.md" {
+		t.Fatalf("supporting assets = %s, %s, %s", skillAssetName, instructionAssetName, promptAssetName)
 	}
 }
 
@@ -49,5 +44,24 @@ func TestBuildEnvironmentIsPureGoAndTargetSpecific(t *testing.T) {
 	}
 	if filepath.Ext(targets[2].name) == ".exe" {
 		t.Fatal("Linux target has Windows suffix")
+	}
+}
+
+func TestVersionedResourcesUseTheExactReleaseVersion(t *testing.T) {
+	root := t.TempDir()
+	source := filepath.Join(root, "source.md")
+	destination := filepath.Join(root, "destination.md")
+	if err := os.WriteFile(source, []byte("version: \"0.2.0\"\nurl: /v0.2.0/example\n"), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := copyVersionedFile(source, destination, "1.2.3-rc.1"); err != nil {
+		t.Fatal(err)
+	}
+	data, err := os.ReadFile(destination)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if got := string(data); got != "version: \"1.2.3-rc.1\"\nurl: /v1.2.3-rc.1/example\n" {
+		t.Fatalf("versioned resource = %q", got)
 	}
 }

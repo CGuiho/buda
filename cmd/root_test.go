@@ -50,15 +50,15 @@ func TestJSONErrorDocumentIncludesQMDContext(t *testing.T) {
 
 func TestRootWelcomeVersionAndJSON(t *testing.T) {
 	output, _, err := executeTest(t)
-	if err != nil || output != "Hello Windows - buda v1.2.3\n" {
+	if err != nil || output != "Hello Windows - buda 1.2.3\n" {
 		t.Fatalf("welcome = %q, err = %v", output, err)
 	}
 	output, _, err = executeTest(t, "--version")
-	if err != nil || output != "buda v1.2.3\n" {
+	if err != nil || output != "1.2.3\n" {
 		t.Fatalf("version = %q, err = %v", output, err)
 	}
 	output, _, err = executeTest(t, "--json")
-	if err != nil || !strings.Contains(output, `"message": "Hello Windows - buda v1.2.3"`) || !strings.Contains(output, `"wiki_selected": false`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
+	if err != nil || !strings.Contains(output, `"message": "Hello Windows - buda 1.2.3"`) || !strings.Contains(output, `"wiki_selected": false`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
 		t.Fatalf("json = %q, err = %v", output, err)
 	}
 }
@@ -75,25 +75,25 @@ func TestRepositoryCommandsRequireAndResolveExplicitWiki(t *testing.T) {
 }
 
 func TestDeveloperHelpUsesInvokedSubtreeAndPositiveDepth(t *testing.T) {
-	output, _, err := executeTest(t, "agent", "--help-tree-depth", "1")
+	output, _, err := executeTest(t, "agent", "--help-tree-depth", "2")
 	if err != nil {
 		t.Fatal(err)
 	}
 	if !strings.HasPrefix(output, "COMMAND TREE\n\nbuda agent") || !strings.Contains(output, "├── instruction") || strings.Contains(output, "status") {
 		t.Fatalf("scoped tree:\n%s", output)
 	}
-	if !strings.Contains(output, "--help-docs") || strings.Contains(output, "install  Install") {
+	if !strings.Contains(output, "--help-docs") || !strings.Contains(output, "skill") {
 		t.Fatalf("depth was not respected:\n%s", output)
 	}
 	_, _, err = executeTest(t, "agent", "--help-tree-depth", "0")
 	if ExitCode(err) != 2 {
 		t.Fatalf("depth error = %v, code = %d", err, ExitCode(err))
 	}
-	output, _, err = executeTest(t, "agent", "skill", "--help-docs", "--help-tree-depth", "1")
+	output, _, err = executeTest(t, "agent", "skill", "--help-docs", "--help-tree-depth", "2")
 	if err != nil || !strings.HasPrefix(output, "## buda agent skill") || strings.Contains(output, "buda status") {
 		t.Fatalf("scoped docs = %q, err = %v", output, err)
 	}
-	output, _, err = executeTest(t, "agent", "prompt", "show", "--help-tree-depth", "1")
+	output, _, err = executeTest(t, "agent", "prompt", "show", "--help-tree-depth", "2")
 	if err != nil || !strings.HasPrefix(output, "COMMAND TREE\n\nbuda agent prompt show") {
 		t.Fatalf("required-positional developer help = %q, err = %v", output, err)
 	}
@@ -159,7 +159,7 @@ func TestComposedHelpTreeIncludesPositionalsAndNestedHelp(t *testing.T) {
 	var output bytes.Buffer
 	deps := Dependencies{In: strings.NewReader(""), Out: &output, Err: &bytes.Buffer{}, Options: &Options{}}
 	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewApplicationCommands(deps)...)
-	root.SetArgs([]string{"get", "--help-tree-depth", "1"})
+	root.SetArgs([]string{"get", "--help-tree-depth", "2"})
 	if err := root.Execute(); !errors.Is(err, errHelpRendered) {
 		t.Fatalf("help tree error = %v", err)
 	}
@@ -270,14 +270,49 @@ func TestAgentHumanOutputIsDistinctFromJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.HasPrefix(strings.TrimSpace(human), "[") || !strings.Contains(human, "description:") || !strings.Contains(human, "id: buda") {
+	if strings.HasPrefix(strings.TrimSpace(human), "[") || !strings.Contains(human, "description:") || !strings.Contains(human, "id: guiho-p-buda") {
 		t.Fatalf("human output = %q", human)
 	}
 	jsonOutput, _, err := executeTest(t, "agent", "prompt", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(strings.TrimSpace(jsonOutput), "[") || !strings.Contains(jsonOutput, `"id": "buda"`) {
+	if !strings.HasPrefix(strings.TrimSpace(jsonOutput), "[") || !strings.Contains(jsonOutput, `"id": "guiho-p-buda"`) {
 		t.Fatalf("JSON output = %q", jsonOutput)
+	}
+}
+
+func TestVersionAndSelfTestDoNotMutateFileSystem(t *testing.T) {
+	home := t.TempDir()
+	t.Setenv("USERPROFILE", home)
+	t.Setenv("HOME", home)
+
+	for _, args := range [][]string{{"--version"}, {"__self-test"}} {
+		var output bytes.Buffer
+		deps := Dependencies{
+			In:  strings.NewReader(""),
+			Out: &output,
+			Err: &bytes.Buffer{},
+			HomeDir: func() (string, error) {
+				return home, nil
+			},
+			Options: &Options{},
+		}
+		root := NewRootCommand(deps, BuildInfo{Version: "0.2.0", Target: "buda-linux-amd64"})
+		root.SetArgs(args)
+		if err := root.Execute(); err != nil {
+			t.Fatalf("Execute(%v) = %v", args, err)
+		}
+		if args[0] == "__self-test" && strings.TrimSpace(output.String()) != "ok" {
+			t.Fatalf("__self-test output = %q, want ok", output.String())
+		}
+		// Assert zero files were created under home directory
+		entries, err := filepath.Glob(filepath.Join(home, "*"))
+		if err != nil {
+			t.Fatal(err)
+		}
+		if len(entries) > 0 {
+			t.Fatalf("invocation %v mutated filesystem in disposable home: %v", args, entries)
+		}
 	}
 }

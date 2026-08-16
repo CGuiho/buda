@@ -1,0 +1,15 @@
+# yaml-language-server: $schema=https://github.com/CGuiho/buda/releases/download/buda/v0.2.0/buda.global.schema.json
+schema: 1
+bundle: knowledge
+derived: .buda
+qmd:
+  executable: qmd
+  collection: buda-wiki
+  project_directory: .qmd
+agent:
+  evolution:
+    upgrade: always-ask
+    issues:
+      bugs: always-ask
+      improvements: always-ask
+      reviews: always-ask

@@ -7,7 +7,7 @@ files:
   catalog.go: Bounded canonical buda/v semantic-release catalog parsing, filtering, and ordering.
   catalog_test.go: Catalog, semantic version, target selection, checksum, progress, backup rotation, rollback, and injected replacement tests.
   replace_unix.go: Same-filesystem Unix executable replacement, verification rollback, explicit rollback, and direct removal.
-  replace_windows.go: Detached Windows replacement, rollback, and removal helpers with parent waiting, checksum revalidation, resource reconciliation rollback, and deferred helper cleanup.
+  replace_windows.go: Fail-closed Windows direct-replacement boundaries; canonical lifecycle operations use the stable launcher and immutable payload transaction.
   upgrade.go: Release target selection, bounded progress-reporting downloads, SHA-256 validation, safe backup rotation, candidate staging, rollback primitives, and executable verification.
 documents: {}
 tags:

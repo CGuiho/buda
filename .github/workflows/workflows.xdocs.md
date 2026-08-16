@@ -1,11 +1,11 @@
 ---
 subject: buda-github-workflows
-description: Go CI, native smoke coverage, canonical-tag or manual GitHub Release publication, stale-tag event filtering, exact-asset reconciliation, and public installer acceptance.
+description: Go quality, native launcher and payload smoke, complete manifest-derived GitHub Release publication, and public lifecycle acceptance.
 parent: buda-github
 children: []
 files:
-  ci.yml: Go formatting, module, test, vet, exact eleven-artifact build, checksum, installer syntax, hosted native-platform smoke, and real qmd 2.5.3 project-local lexical integration validation.
-  publish.yml: Canonical buda/v* GitHub Release publication with manual recovery dispatch, stale-tag event filtering, exact-version notes, exactly eleven assets, checksum verification, pre-publication Linux and Windows upgrade-installer gates, real qmd lexical retrieval, and post-publication installer acceptance.
+  ci.yml: Go formatting, module, test, vet, RunX, Mirror, strict XDocs, manifest build, checksums, installer syntax, hosted native launcher/payload smoke, POSIX and Windows lifecycle acceptance, legacy 0.1.1 migration, and foreign build-only targets.
+  publish.yml: Canonical buda/v* GitHub Release publication with manifest-derived assets and public checksum reconciliation.
 documents: {}
 tags:
   - github-actions
@@ -13,7 +13,7 @@ tags:
   - release
 keywords:
   - buda/vX.Y.Z
-  - eleven artifacts
+  - artifacts.json
   - public installers
   - GitHub Release
   - no package publication
@@ -21,17 +21,23 @@ flags: []
 status: stable
 ---
 
-CI builds all eight pure-Go release targets and executes compatible artifacts
-on hosted Linux, macOS, and Windows AMD64 and ARM64 runners. ARMv6 and ARMv7
-remain cross-build-only because GitHub does not provide matching hosted runners.
-It also installs the separate tested qmd 2.5.3 runtime and exercises Buda init,
-capture, project-local indexing, lexical query, get, status, and doctor on
-Linux, plus the npm `qmd.cmd` launcher path on Windows, without downloading
-models or adding a Buda package-manager publication.
+CI builds the manifest-derived complete release unit and validates checksums.
+Hosted Linux, macOS, and Windows AMD64 and ARM64 runners execute native
+payload smokes and launcher smokes through a disposable pointer fixture.
+ARMv6 and ARMv7 remain cross-build-only because GitHub does not provide
+matching hosted runners. RunX, Mirror, strict XDocs, Go quality, lifecycle
+transaction and interruption acceptance, and both installer-language syntax
+checks are required.
 
-Publication runs for canonical `buda/v*` tags or a manual recovery dispatch
-against one. It ignores delayed events whose commit no longer matches the
-current tag target. For a current tag, it reconciles one GitHub Release to the
-exact eleven checked artifacts and verifies the tag-pinned Bash and PowerShell
-installers before publication, then repeats public installer acceptance after
-publication, without publishing to a package manager or registry.
+Native lifecycle jobs on Linux and Windows install the release from a local
+asset directory into a disposable home with a qmd process stub, verify the
+stable launcher, prove same-version reinstall repair, migrate a synthetic
+0.1.1 direct-binary layout through the launcher transaction (carrying the
+legacy wiki_id into the newly selected wiki), and run a synchronous default
+uninstall while asserting that canonical OKF content and shared GUIHO
+sentinels survive.
+
+Publication runs for canonical `buda/v*` tags or a manual recovery dispatch.
+It reconciles one GitHub Release to every manifest-declared asset, verifies
+the public asset names against the generated release directory, and never
+publishes to a package manager or registry.

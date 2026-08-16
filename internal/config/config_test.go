@@ -48,7 +48,7 @@ func TestResolvePrecedence(t *testing.T) {
 	if err := os.MkdirAll(cwd, 0o755); err != nil {
 		t.Fatal(err)
 	}
-	global := filepath.Join(home, ".guiho", "buda", FileName)
+	global := filepath.Join(home, ".guiho", "buda", GlobalFileName)
 	if err := os.WriteFile(global, []byte("global"), 0o644); err != nil {
 		t.Fatal(err)
 	}
@@ -65,3 +65,44 @@ func TestResolvePrecedence(t *testing.T) {
 		t.Fatalf("Resolve project = %q, %v", resolved, err)
 	}
 }
+
+func TestLoadEffectiveUsesGlobalBaselineAndProjectOverrides(t *testing.T) {
+	home := t.TempDir()
+	projectRoot := filepath.Join(t.TempDir(), "wiki")
+	if err := os.MkdirAll(filepath.Dir(GlobalPath(home)), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	global, err := MarshalGlobal(GlobalConfig{
+		Schema:  CurrentSchema,
+		Bundle:  stringPtr("shared"),
+		Derived: stringPtr(".derived"),
+		QMD:     &QMDConfig{Executable: "qmd", Collection: "global", ProjectDirectory: ".qmd"},
+		Agent:   &AgentConfig{Evolution: EvolutionConfig{Upgrade: PolicyAlwaysProceed}},
+	}, "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(GlobalPath(home), global, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.MkdirAll(projectRoot, 0o755); err != nil {
+		t.Fatal(err)
+	}
+	project, err := MarshalProject(ProjectConfig{Schema: CurrentSchema, WikiID: "selected", QMD: &QMDConfig{Collection: "project"}}, "0.2.0")
+	if err != nil {
+		t.Fatal(err)
+	}
+	projectPath := filepath.Join(projectRoot, FileName)
+	if err := os.WriteFile(projectPath, project, 0o644); err != nil {
+		t.Fatal(err)
+	}
+	effective, err := LoadEffective(projectPath, home)
+	if err != nil {
+		t.Fatal(err)
+	}
+	if effective.Bundle != "shared" || effective.QMD.Collection != "project" || effective.WikiID != "selected" || effective.EffectiveAgent().Evolution.Upgrade != PolicyAlwaysProceed {
+		t.Fatalf("effective config = %#v", effective)
+	}
+}
+
+func stringPtr(value string) *string { return &value }

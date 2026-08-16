@@ -1,243 +1,187 @@
+[CmdletBinding()]
 param(
-  [string]$Version = "latest",
-  [string]$InstallDir = "$env:LOCALAPPDATA\GUIHO\bin"
+  [string]$Version,
+  [string]$Channel,
+  [Parameter(Mandatory=$true)][string]$Wiki,
+  [string]$WikiId
 )
-
-# Buda canonical-tag installer (PowerShell 5.1 compatible).
-#
-# Environment variables:
-#   BUDA_RELEASE_ASSET_DIR  Load release assets from a local directory instead of
-#                           GitHub; requires an exact canonical tag argument.
-#   BUDA_SKILL_DIRS         Semicolon-separated list of extra skill destination
-#                           directories. Each is created if missing and the
-#                           embedded skill directory is copied into it (the skill
-#                           id subdirectory is appended automatically). Defaults
-#                           to empty; the built-in ~/.agents/skills and
-#                           ~/.claude/skills destinations are always installed by
-#                           `buda agent skill update`.
-#   HERMES_SKILLS_DIR       Hermes agent skills directory. When this directory
-#                           exists (default: ~/.hermes/skills) the embedded skill
-#                           is additionally registered there by the installer so
-#                           Hermes agents can use Buda without a manual copy.
-
-$ErrorActionPreference = "Stop"
-$Owner = "CGuiho"
-$Repository = "buda"
-$CliName = "buda"
-
-switch ($env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()) {
-  "AMD64" { $Asset = "buda-windows-amd64.exe" }
-  "ARM64" { $Asset = "buda-windows-arm64.exe" }
-  default { throw "Unsupported Windows architecture: $env:PROCESSOR_ARCHITECTURE" }
-}
-
-if ($Version -eq "latest") {
-  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
-    throw "BUDA_RELEASE_ASSET_DIR requires an exact canonical tag such as buda/v0.0.2."
-  }
-  $Release = Invoke-RestMethod -Uri "https://api.github.com/repos/$Owner/$Repository/releases/latest"
-  $Tag = $Release.tag_name
-  if ([string]::IsNullOrWhiteSpace($Tag)) { throw "Could not resolve the latest Buda release tag." }
-} else {
-  # Non-latest values are exact full release tags; Buda owns no implicit prefix.
-  $Tag = $Version
-}
-
-if ($Tag -notmatch '^buda/v(?<Version>(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)\.(?:0|[1-9][0-9]*)(?:-[0-9A-Za-z.-]+)?(?:\+[0-9A-Za-z.-]+)?)$') {
-  throw "Invalid Buda release tag '$Tag'; expected buda/v<semver>."
-}
-$ExpectedVersion = $Matches.Version
-
-$BaseUrl = "https://github.com/$Owner/$Repository/releases/download/$Tag"
-$SkillAsset = "guiho-s-0002-buda.zip"
-$TempDir = Join-Path ([System.IO.Path]::GetTempPath()) ("buda-" + [guid]::NewGuid().ToString("N"))
-$Destination = $null
-$BackupPath = $null
-$BinaryReplaced = $false
-$InstallSucceeded = $false
-New-Item -ItemType Directory -Path $TempDir | Out-Null
-
-function Copy-ReleaseAsset {
-  param(
-    [Parameter(Mandatory = $true)][string]$Name,
-    [Parameter(Mandatory = $true)][string]$Destination
-  )
-
-  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
-    $Source = Join-Path $env:BUDA_RELEASE_ASSET_DIR $Name
-    if (-not (Test-Path -LiteralPath $Source -PathType Leaf)) {
-      throw "Local release asset not found: $Source"
+$ErrorActionPreference = 'Stop'
+if (-not [string]::IsNullOrWhiteSpace($Version) -and -not [string]::IsNullOrWhiteSpace($Channel)) { throw '--Version and --Channel are mutually exclusive.' }
+if ($Version -match '^buda/') { $Version = $Version.Substring(5) }
+if ($Version -match '^v') { $Version = $Version.Substring(1) }
+if ($Version -and $Version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') { throw "Invalid -Version '$Version'." }
+if (-not $Version) { $Version = $env:BUDA_RELEASE_VERSION }
+$arch = $env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()
+if ($arch -eq 'AMD64') { $binary = 'buda-windows-amd64.exe'; $launcher = 'buda-launcher-windows-amd64.exe' }
+elseif ($arch -eq 'ARM64') { $binary = 'buda-windows-arm64.exe'; $launcher = 'buda-launcher-windows-arm64.exe' }
+else { throw "Unsupported Windows architecture: $arch" }
+if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
+  $wanted = if ($Channel) { $Channel } else { 'stable' }
+  $all = @(); $page = 1
+  do {
+    $batch = @(Invoke-RestMethod "https://api.github.com/repos/CGuiho/buda/releases?per_page=100&page=$page")
+    $all += $batch; $page++
+  } while ($batch.Count -eq 100)
+  $matches = @($all | Where-Object { -not $_.draft -and $_.tag_name -match '^buda/v' } | ForEach-Object {
+    $candidate = $_.tag_name.Substring(6); $candidateChannel = if ($candidate.Contains('-')) { $candidate.Split('-')[1].Split('.')[0] } else { 'stable' }
+    $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-0002-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml',
+      'buda-linux-amd64', 'buda-linux-arm64', 'buda-linux-armv7', 'buda-linux-armv6', 'buda-darwin-amd64', 'buda-darwin-arm64', 'buda-windows-amd64.exe', 'buda-windows-arm64.exe',
+      'buda-launcher-linux-amd64', 'buda-launcher-linux-arm64', 'buda-launcher-linux-armv7', 'buda-launcher-linux-armv6', 'buda-launcher-darwin-amd64', 'buda-launcher-darwin-arm64', 'buda-launcher-windows-amd64.exe', 'buda-launcher-windows-arm64.exe')
+    $assetNames = @($_.assets | ForEach-Object { [string]$_.name })
+    $uniqueAssetNames = @($assetNames | Select-Object -Unique)
+    if ($assetNames.Count -ne $uniqueAssetNames.Count) { return }
+    if ($candidateChannel -eq $wanted -and $candidate -match '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' -and @($requiredNames | Where-Object { $assetNames -notcontains $_ }).Count -eq 0) { [pscustomobject]@{ Release=$_; Version=$candidate } }
+  } | Sort-Object Version -Descending)
+  if ($matches.Count -eq 0) { throw "No release found for channel $wanted." }
+  function Compare-SemVer([string]$left, [string]$right) {
+    $leftParts = $left.Split('+')[0].Split('-',2); $rightParts = $right.Split('+')[0].Split('-',2)
+    $lCore = $leftParts[0].Split('.'); $rCore = $rightParts[0].Split('.')
+    for ($i=0; $i -lt 3; $i++) { $comparison = [int]$lCore[$i] - [int]$rCore[$i]; if ($comparison -ne 0) { return [Math]::Sign($comparison) } }
+    if ($leftParts.Count -eq 1 -and $rightParts.Count -eq 1) { return 0 }
+    if ($leftParts.Count -eq 1) { return 1 }
+    if ($rightParts.Count -eq 1) { return -1 }
+    $lIds = $leftParts[1].Split('.'); $rIds = $rightParts[1].Split('.')
+    for ($i=0; $i -lt [Math]::Max($lIds.Count,$rIds.Count); $i++) {
+      if ($i -ge $lIds.Count) { return -1 }; if ($i -ge $rIds.Count) { return 1 }
+      $ln = $lIds[$i] -match '^[0-9]+$'; $rn = $rIds[$i] -match '^[0-9]+$'
+      if ($ln -and $rn) { $comparison = [int64]$lIds[$i] - [int64]$rIds[$i] } elseif ($ln) { return -1 } elseif ($rn) { return 1 } else { $comparison = [string]::CompareOrdinal($lIds[$i],$rIds[$i]) }
+      if ($comparison -ne 0) { return [Math]::Sign($comparison) }
     }
-    Copy-Item -LiteralPath $Source -Destination $Destination
-    return
+    return 0
   }
-  Invoke-WebRequest -Uri "$BaseUrl/$Name" -OutFile $Destination
+  $best = $matches[0]
+  foreach ($candidate in $matches | Select-Object -Skip 1) { if ((Compare-SemVer $candidate.Version $best.Version) -gt 0) { $best = $candidate } }
+  $Version = $best.Version
+}
+if (-not $Version) { throw 'Version selection did not resolve a stable release.' }
+$tag = "buda/v$Version"
+$assetDir = $env:BUDA_RELEASE_ASSET_DIR
+$userHome = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { [Environment]::GetFolderPath('UserProfile') }
+$guihoHome = Join-Path $userHome '.guiho'
+$cliHome = Join-Path $guihoHome 'buda'
+$globalConfigName = 'buda.global.yaml'
+$binDir = Join-Path $guihoHome 'bin'
+$tempRoot = Join-Path $guihoHome '.temp'
+New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
+$stage = Join-Path $tempRoot ('buda-install-' + [guid]::NewGuid().ToString('N'))
+New-Item -ItemType Directory -Path $stage | Out-Null
+$mutated = $false
+$committed = $false
+$hadCurrent = $false; $hadManifest = $false; $hadLauncher = $false; $hadVersion = $false
+$hadLegacy = $false
+$versionDir = Join-Path $cliHome (Join-Path 'versions' $Version)
+$backupDir = Join-Path $stage 'backup'
+# The historical 0.1.x direct-binary installation wrote the payload to
+# %LOCALAPPDATA%\GUIHO\bin\buda.exe. Migration removes it only from that exact
+# historical path, only after the new launcher transaction has been verified,
+# and never in place.
+$legacyPath = if ($env:LOCALAPPDATA) { Join-Path (Join-Path $env:LOCALAPPDATA 'GUIHO\bin') 'buda.exe' } else { '' }
+
+function Get-Asset([string]$name) {
+  $destination = Join-Path $stage $name
+  if ($assetDir) { Copy-Item -LiteralPath (Join-Path $assetDir $name) -Destination $destination }
+  else { Invoke-WebRequest -Uri "https://github.com/CGuiho/buda/releases/download/$tag/$name" -OutFile $destination }
+  return $destination
+}
+function Write-Atomic([string]$path, [string]$content) {
+  $temporary = "$path.new"
+  $encoding = New-Object System.Text.UTF8Encoding($false)
+  [System.IO.File]::WriteAllText($temporary, $content, $encoding)
+  Move-Item -Force -LiteralPath $temporary -Destination $path
+}
+function Get-Sha256([string]$path) {
+  $stream = [System.IO.File]::OpenRead($path)
+  try {
+    $hash = [System.Security.Cryptography.SHA256]::Create()
+    try { return ([System.BitConverter]::ToString($hash.ComputeHash($stream)) -replace '-', '').ToUpperInvariant() }
+    finally { $hash.Dispose() }
+  } finally { $stream.Dispose() }
+}
+function Verify-Checksum([string]$name, $checksumLines) {
+  $matches = @($checksumLines | Where-Object { $_ -match "^\s*([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($name))\s*$" })
+  if ($matches.Count -ne 1) { throw "Missing or duplicate checksum for $name." }
+  $expected = $matches[0].Substring(0,64).ToUpperInvariant()
+  $actual = Get-Sha256 (Join-Path $stage $name)
+  if ($expected -ne $actual) { throw "Checksum mismatch for $name." }
+}
+function Restore-Previous {
+  if (-not $mutated) { return }
+  if (Test-Path -LiteralPath $versionDir) { Remove-Item -Recurse -Force -LiteralPath $versionDir -ErrorAction SilentlyContinue }
+  if ($hadVersion) { Move-Item -Force -LiteralPath (Join-Path $backupDir 'version') -Destination $versionDir }
+  $currentPath = Join-Path $cliHome 'current.json'; $manifestPath = Join-Path $cliHome 'installed-artifacts.json'; $launcherPath = Join-Path $binDir 'buda.exe'
+  if ($hadCurrent) { Copy-Item -Force -LiteralPath (Join-Path $backupDir 'current.json') -Destination $currentPath } elseif (Test-Path -LiteralPath $currentPath) { Remove-Item -Force -LiteralPath $currentPath }
+  if ($hadManifest) { Copy-Item -Force -LiteralPath (Join-Path $backupDir 'installed-artifacts.json') -Destination $manifestPath } elseif (Test-Path -LiteralPath $manifestPath) { Remove-Item -Force -LiteralPath $manifestPath }
+  if ($hadLauncher) { Copy-Item -Force -LiteralPath (Join-Path $backupDir 'buda.exe') -Destination $launcherPath } elseif (Test-Path -LiteralPath $launcherPath) { Remove-Item -Force -LiteralPath $launcherPath }
+  if ($hadLegacy) { Copy-Item -Force -LiteralPath (Join-Path $backupDir 'legacy-buda.exe') -Destination $legacyPath }
 }
 
 try {
-  Write-Host "Initiating Buda installation sequence..."
-  Write-Host "Target version: $Tag"
-  Write-Host "Target asset: $Asset"
-  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_RELEASE_ASSET_DIR)) {
-    Write-Host "Source directory: $env:BUDA_RELEASE_ASSET_DIR"
-  } else {
-    Write-Host "Source URL: $BaseUrl/$Asset"
+  Write-Host "Resolved Buda $Version for windows/$arch"
+  Write-Host "CLI home: $cliHome"
+  [void](Get-Asset 'artifacts.json'); [void](Get-Asset 'checksums.txt')
+  $manifest = Get-Content -Raw -LiteralPath (Join-Path $stage 'artifacts.json') | ConvertFrom-Json
+  if ($manifest.schema -ne 1 -or $manifest.cli -ne 'buda' -or $manifest.version -ne $Version) { throw 'Release artifacts.json is not a valid Buda manifest for the selected version.' }
+  $paths = @($manifest.artifacts | ForEach-Object { [string]$_.path })
+  if (@($paths | Sort-Object -Unique).Count -ne $paths.Count) { throw 'Manifest contains duplicate asset paths.' }
+  $required = @($binary,$launcher,'guiho-s-0002-buda.zip','guiho-i-buda.md','guiho-p-buda.md','buda.schema.json','buda.global.schema.json','buda.example.yaml','buda.global.example.yaml','artifacts.json')
+  foreach ($name in $paths) {
+    if ([string]::IsNullOrWhiteSpace($name) -or [IO.Path]::GetFileName($name) -ne $name -or $name.Contains('/') -or $name.Contains('\') -or $name -eq '..') { throw "Unsafe manifest asset path '$name'." }
+    if (-not (Test-Path -LiteralPath (Join-Path $stage $name))) { [void](Get-Asset $name) }
   }
-
-  $BinaryPath = Join-Path $TempDir $Asset
-  $ChecksumsPath = Join-Path $TempDir "checksums.txt"
-  $SkillPath = Join-Path $TempDir $SkillAsset
-  Copy-ReleaseAsset -Name $Asset -Destination $BinaryPath
-  Copy-ReleaseAsset -Name "checksums.txt" -Destination $ChecksumsPath
-  Copy-ReleaseAsset -Name $SkillAsset -Destination $SkillPath
-
-  foreach ($Verification in @(@($Asset, $BinaryPath), @($SkillAsset, $SkillPath))) {
-    $VerificationName = $Verification[0]
-    $VerificationPath = $Verification[1]
-    $ChecksumLine = Get-Content -LiteralPath $ChecksumsPath | Where-Object { $_ -match "\s+$([regex]::Escape($VerificationName))$" } | Select-Object -First 1
-    if (-not $ChecksumLine) { throw "Checksum entry missing for $VerificationName." }
-    $ExpectedHash = ($ChecksumLine -split "\s+")[0].ToUpperInvariant()
-    $ActualHash = (Get-FileHash -Algorithm SHA256 -LiteralPath $VerificationPath).Hash.ToUpperInvariant()
-    if ($ExpectedHash -ne $ActualHash) { throw "Checksum verification failed for $VerificationName." }
+  foreach ($name in $required) { if ($paths -notcontains $name) { throw "Manifest does not declare required asset $name." } }
+  $checksumLines = @(Get-Content -LiteralPath (Join-Path $stage 'checksums.txt'))
+  foreach ($name in $paths) { Verify-Checksum $name $checksumLines }
+  foreach ($line in $checksumLines) {
+    if ($line -notmatch '^\s*[0-9a-fA-F]{64}\s+\*?([^\s]+)\s*$') { throw "Malformed checksum entry '$line'." }
+    if ($paths -notcontains $matches[1]) { throw "Checksum names undeclared asset $($matches[1])." }
   }
-  Write-Host "[OK] SHA-256 verification complete for binary and skill archive."
+  $observed = (& (Join-Path $stage $binary) --version | Out-String).Trim()
+  if ($observed -ne $Version) { throw "Candidate version '$observed' does not match '$Version'." }
+  $selfTest = (& (Join-Path $stage $binary) __self-test | Out-String).Trim()
+  if ($selfTest -ne 'ok') { throw 'Candidate self-test failed.' }
 
-  New-Item -ItemType Directory -Force -Path $InstallDir | Out-Null
-  $Destination = Join-Path $InstallDir "buda.exe"
-
-  $ExpandedSkill = Join-Path $TempDir "skill"
-  Expand-Archive -LiteralPath $SkillPath -DestinationPath $ExpandedSkill
-  $SourceSkill = Join-Path $ExpandedSkill "guiho-s-0002-buda"
-  if (-not (Test-Path -LiteralPath (Join-Path $SourceSkill "SKILL.md"))) {
-    throw "Skill archive does not contain guiho-s-0002-buda/SKILL.md."
-  }
-
-  # npm installs both qmd.cmd and qmd.ps1 on Windows. Prefer the application
-  # launcher so the installer works under PowerShell's default script policy.
-  $Qmd = Get-Command qmd.cmd -CommandType Application -ErrorAction SilentlyContinue
-  if (-not $Qmd) {
-    $Qmd = Get-Command qmd -CommandType Application -ErrorAction SilentlyContinue
-  }
-  # Probe common off-PATH locations (agent-managed environments) before failing.
-  if (-not $Qmd) {
-    $ProbeDirs = @()
-    $NpmRoot = $null
-    try { $NpmRoot = (npm root -g 2>$null) } catch { }
-    if ($NpmRoot) { $ProbeDirs += (Join-Path $NpmRoot "bin") }
-    $ProbeDirs += @(
-      (Join-Path $env:USERPROFILE ".hermes\node\bin"),
-      (Join-Path $env:USERPROFILE ".local\bin"),
-      (Join-Path $env:USERPROFILE ".npm-global\bin"),
-      (Join-Path $env:APPDATA "npm")
-    )
-    foreach ($ProbeDir in $ProbeDirs) {
-      if ([string]::IsNullOrWhiteSpace($ProbeDir)) { continue }
-      $ProbePath = Join-Path $ProbeDir "qmd.cmd"
-      if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
-        $Qmd = Get-Item -LiteralPath $ProbePath
-        Write-Warning "qmd was not on PATH but was found at $ProbePath; add '$ProbeDir' to PATH for reliable operation."
-        break
-      }
-      $ProbePath = Join-Path $ProbeDir "qmd"
-      if (Test-Path -LiteralPath $ProbePath -PathType Leaf) {
-        $Qmd = Get-Item -LiteralPath $ProbePath
-        Write-Warning "qmd was not on PATH but was found at $ProbePath; add '$ProbeDir' to PATH for reliable operation."
-        break
-      }
+  New-Item -ItemType Directory -Force -Path $backupDir,(Join-Path $cliHome 'versions'),$binDir | Out-Null
+  $currentPath = Join-Path $cliHome 'current.json'; $manifestPath = Join-Path $cliHome 'installed-artifacts.json'; $launcherPath = Join-Path $binDir 'buda.exe'
+  if (Test-Path -LiteralPath $currentPath) { Copy-Item -Force -LiteralPath $currentPath -Destination (Join-Path $backupDir 'current.json'); $hadCurrent = $true }
+  if (Test-Path -LiteralPath $manifestPath) { Copy-Item -Force -LiteralPath $manifestPath -Destination (Join-Path $backupDir 'installed-artifacts.json'); $hadManifest = $true }
+  if (Test-Path -LiteralPath $launcherPath) { Copy-Item -Force -LiteralPath $launcherPath -Destination (Join-Path $backupDir 'buda.exe'); $hadLauncher = $true }
+  if ($legacyPath -and (Test-Path -LiteralPath $legacyPath -PathType Leaf)) {
+    $legacyObserved = (& $legacyPath --version | Out-String).Trim()
+    if ($legacyObserved -match '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') {
+      Copy-Item -Force -LiteralPath $legacyPath -Destination (Join-Path $backupDir 'legacy-buda.exe'); $hadLegacy = $true
     }
   }
-  if (-not $Qmd) {
-    throw "qmd is required but not installed. Install @tobilu/qmd@2.5.3, then run: buda doctor --wiki <path>"
-  }
-  $QmdSource = $Qmd.Source
-  if (-not $QmdSource) { $QmdSource = $Qmd.FullName }
-  $QmdVersionOutput = (& $QmdSource --version | Out-String).Trim()
-  if ($QmdVersionOutput -notmatch '(?i)(?:qmd\s+)?v?(\d+)\.(\d+)\.(\d+)') {
-    throw "Could not parse qmd version: $QmdVersionOutput"
-  }
-  $QmdMajor = [int]$Matches[1]
-  $QmdMinor = [int]$Matches[2]
-  if ($QmdMajor -ne 2 -or $QmdMinor -lt 5) {
-    throw "Unsupported qmd version '$QmdVersionOutput'; Buda requires >=2.5.0,<3.0.0."
-  }
-
-  $StagedBinary = Join-Path $InstallDir (".buda-new-" + [guid]::NewGuid().ToString("N") + ".exe")
-  Copy-Item -LiteralPath $BinaryPath -Destination $StagedBinary
-  if (Test-Path -LiteralPath $Destination) {
-    $BackupPath = Join-Path $InstallDir (".buda-backup-" + [guid]::NewGuid().ToString("N") + ".exe")
-    Move-Item -LiteralPath $Destination -Destination $BackupPath
-  }
-  $BinaryReplaced = $true
-  Move-Item -LiteralPath $StagedBinary -Destination $Destination
-  Write-Host "[OK] Installed binary: $Destination"
-
-  & $Destination agent skill update
-  Write-Host "[OK] Installed both global Buda skill destinations transactionally from embedded resources."
-
-  $InstalledVersion = (& $Destination --version | Out-String).Trim()
-  if ($InstalledVersion -ne "buda v$ExpectedVersion") { throw "Installed version '$InstalledVersion' does not match requested tag '$Tag'." }
-  Write-Host $InstalledVersion
-  # The binary is verified and installed; mark the install successful before
-  # the optional skill-destination registrations below so an optional
-  # registration failure can never roll back a valid binary replacement.
-  $InstallSucceeded = $true
-
-  # Register the embedded skill into optional destinations: BUDA_SKILL_DIRS
-  # (semicolon-separated) and the Hermes skills directory when it exists. The
-  # built-in ~/.agents/skills and ~/.claude/skills destinations are already
-  # handled by `buda agent skill update` above; these are additive and
-  # non-fatal: a failure only warns and leaves the installation complete.
-  function Register-SkillDir([string]$Target) {
-    if ([string]::IsNullOrWhiteSpace($Target)) { return }
-    $Dest = Join-Path $Target "guiho-s-0002-buda"
-    try {
-      New-Item -ItemType Directory -Force -Path $Target | Out-Null
-      if (Test-Path -LiteralPath $Dest) { Remove-Item -Recurse -Force -LiteralPath $Dest }
-      Copy-Item -Recurse -LiteralPath $SourceSkill -Destination $Dest
-      Write-Host "[OK] Registered Buda skill: $Dest"
-    } catch {
-      Write-Warning "Could not register Buda skill in '$Target' (skipped): $($_.Exception.Message)"
-    }
-  }
-
-  if (-not [string]::IsNullOrWhiteSpace($env:BUDA_SKILL_DIRS)) {
-    foreach ($SkillDir in ($env:BUDA_SKILL_DIRS -split ";")) {
-      Register-SkillDir $SkillDir
-    }
-  }
-
-  $HermesSkillsDir = $env:HERMES_SKILLS_DIR
-  if ([string]::IsNullOrWhiteSpace($HermesSkillsDir)) {
-    $HermesSkillsDir = Join-Path $env:USERPROFILE ".hermes\skills"
-  }
-  if (Test-Path -LiteralPath $HermesSkillsDir -PathType Container) {
-    Register-SkillDir $HermesSkillsDir
-  }
-
-  $UserPath = [Environment]::GetEnvironmentVariable("Path", "User")
-  $PathEntries = @($UserPath -split ";" | Where-Object { -not [string]::IsNullOrWhiteSpace($_) })
-  if ($PathEntries -notcontains $InstallDir) {
-    try {
-      [Environment]::SetEnvironmentVariable("Path", (($PathEntries + $InstallDir) -join ";"), "User")
-      Write-Host "[OK] Added installation directory to the user PATH."
-    } catch {
-      Write-Warning "Buda is installed, but the user PATH could not be updated. Add '$InstallDir' to PATH manually."
-    }
-  }
-  # Verify the binary is callable in the current session; warn (not fail) when
-  # the install directory is not yet on the session PATH.
-  if (-not (Get-Command $CliName -ErrorAction SilentlyContinue)) {
-    Write-Warning "buda was installed to $InstallDir which is not on the session PATH. Open a new shell or run: `$env:Path = '$InstallDir;' + `$env:Path. Then run: buda doctor --wiki <path>"
-  }
-  Write-Host $QmdVersionOutput
-  Write-Host "[OK] Buda installation complete. Repository instructions are installed only for an explicit --wiki path."
-} catch {
-  if ($BinaryReplaced -and -not $InstallSucceeded) {
-    if ($Destination -and (Test-Path -LiteralPath $Destination)) { Remove-Item -Force -LiteralPath $Destination }
-    if ($BackupPath -and (Test-Path -LiteralPath $BackupPath)) { Move-Item -LiteralPath $BackupPath -Destination $Destination }
-  }
-  throw
-} finally {
-  if ($InstallSucceeded -and $BackupPath -and (Test-Path -LiteralPath $BackupPath)) { Remove-Item -Force -LiteralPath $BackupPath }
-  if (Test-Path -LiteralPath $TempDir) { Remove-Item -Recurse -Force -LiteralPath $TempDir }
+  $mutated = $true
+  if (Test-Path -LiteralPath $versionDir) { Move-Item -Force -LiteralPath $versionDir -Destination (Join-Path $backupDir 'version'); $hadVersion = $true }
+  $previous = ''
+  if ($hadCurrent) { try { $previous = (Get-Content -Raw -LiteralPath $currentPath | ConvertFrom-Json).active } catch { $previous = '' } }
+  $previousVersion = if ($previous) { $previous.Split('/')[0] } else { '' }
+  New-Item -ItemType Directory -Force -Path (Join-Path $versionDir 'artifacts') | Out-Null
+  Copy-Item -Force -LiteralPath (Join-Path $stage $binary) -Destination (Join-Path $versionDir 'buda.exe')
+  foreach ($name in $paths) { Copy-Item -Force -LiteralPath (Join-Path $stage $name) -Destination (Join-Path $versionDir (Join-Path 'artifacts' $name)) }
+  Copy-Item -Force -LiteralPath (Join-Path $stage 'checksums.txt') -Destination (Join-Path $versionDir 'artifacts/checksums.txt')
+  $newLauncher = Join-Path $binDir '.buda-launcher-new.exe'
+  Copy-Item -Force -LiteralPath (Join-Path $stage $launcher) -Destination $newLauncher
+  Move-Item -Force -LiteralPath $newLauncher -Destination $launcherPath
+  $pointer = @{ schema = 1; active = "$Version/buda.exe"; previous = $previous; active_version = $Version; previous_version = $previousVersion } | ConvertTo-Json -Compress
+  Write-Atomic $currentPath $pointer
+  Copy-Item -Force -LiteralPath (Join-Path $stage 'artifacts.json') -Destination (Join-Path $cliHome '.installed-artifacts.json.new')
+  Move-Item -Force -LiteralPath (Join-Path $cliHome '.installed-artifacts.json.new') -Destination $manifestPath
+  $committed = $true
+  $observed = (& $launcherPath --version | Out-String).Trim()
+  if ($observed -ne $Version) { throw "Stable launcher reported '$observed'; expected '$Version'." }
+  $selfTest = (& $launcherPath __self-test | Out-String).Trim()
+  if ($selfTest -ne 'ok') { throw 'Stable launcher self-test failed.' }
+  $userPath = [Environment]::GetEnvironmentVariable('Path','User'); $entries = @($userPath -split ';' | Where-Object { $_ }); if ($entries -notcontains $binDir) { [Environment]::SetEnvironmentVariable('Path', (($entries + $binDir) -join ';'), 'User') }
+  if ($WikiId) { & $launcherPath init --wiki $Wiki --wiki-id $WikiId } else { & $launcherPath init --wiki $Wiki }; if ($LASTEXITCODE -ne 0) { throw 'Buda installed, but explicit-wiki init failed.' }
+  if ($hadLegacy -and (Test-Path -LiteralPath $legacyPath)) { Remove-Item -Force -LiteralPath $legacyPath }
+  Write-Host "Installed Buda $Version"
+  Write-Host "Launcher: $launcherPath"
+  Write-Host "Payload: $(Join-Path $versionDir 'buda.exe')"
+  Write-Host "CLI home: $cliHome"
 }
+catch {
+  Restore-Previous
+  throw
+}
+finally { if (Test-Path -LiteralPath $stage) { Remove-Item -Recurse -Force -LiteralPath $stage } }

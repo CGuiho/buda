@@ -25,7 +25,9 @@ remain contained within that wiki root.
 
 ## Ownership
 
-- `internal/config` owns strict `buda.yaml` decoding and semantics.
+- `internal/config` owns strict project/global YAML decoding, deterministic
+  inheritance, policy validation, version-pinned schema references, and offline
+  examples.
 - `internal/repository` owns explicit wiki resolution and path containment.
 - `internal/okf` owns forward-compatible OKF parsing and Buda extension checks.
 - `internal/source`, `internal/capture`, and `internal/ingest` own durable
@@ -40,6 +42,18 @@ remain contained within that wiki root.
 - `internal/pack` owns deterministic canonical-bundle archives.
 - `internal/help` renders command-tree and Markdown help from the live Cobra
   tree.
+- `internal/installlayout` owns the native `$HOME/.guiho/buda` layout and
+  operation staging containment.
+- `internal/artifact` owns the release and installed ownership manifests that
+  drive install, upgrade, repair, and uninstall.
+- `internal/launcher` and `cmd/buda-launcher` own stable dispatch through
+  immutable versioned payloads and one verified previous-version fallback.
+- `internal/lifecycle` owns token locks, recoverable journals, atomic files,
+  and safe removal boundaries.
+- `internal/releasecatalog` owns exact-version/channel selection and complete
+  release rejection before activation.
+- `internal/uninstall` owns the shared manifest-based removal plan and
+  preservation semantics.
 
 The `cmd` package assembles one new Cobra tree for every invocation. Command
 handlers translate stable CLI input/output to focused service APIs. `main.go`
@@ -87,7 +101,12 @@ There is no fallback index or search implementation.
 
 ## Distribution boundary
 
-Release tooling builds eight pure-Go executables for Linux AMD64/ARM64/ARMv7/
-ARMv6, Darwin AMD64/ARM64, and Windows AMD64/ARM64. The embedded skill ZIP,
-instruction Markdown, and checksum manifest complete the eleven-artifact
-layout. Building these artifacts is not publishing them.
+Release tooling builds eight pure-Go immutable payloads for Linux
+AMD64/ARM64/ARMv7/ARMv6, Darwin AMD64/ARM64, and Windows AMD64/ARM64, plus a
+platform-matched stable launcher for each target. It publishes the typed main
+skill, setup prompt, managed instruction, both schemas, complete examples,
+`artifacts.json`, and `checksums.txt` as one manifest-derived release unit.
+ARMv6 and ARMv7 are foreign build-only targets unless tested on native hosts.
+The launcher never performs network work; upgrade and installer transactions
+stage and checksum every declared file before activation. Building these
+artifacts is not publishing them.

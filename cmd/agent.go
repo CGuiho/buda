@@ -32,12 +32,12 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
 		Use:     "skill",
 		Short:   "Manage the embedded guiho-s-0002-buda skill.",
-		Example: "  buda agent skill update\n  buda agent skill update --local --wiki ./wiki",
+		Example: "  buda agent skill upgrade\n  buda agent skill upgrade --local --wiki ./wiki",
 		Args:    NoArgs,
 		RunE:    showHelp,
 	}
 	command.PersistentFlags().BoolVar(&local, "local", false, "Use both project-local skill destinations under --wiki")
-	for _, action := range []string{"install", "uninstall", "update"} {
+	for _, action := range []string{"install", "uninstall", "upgrade"} {
 		action := action
 		command.AddCommand(&cobra.Command{
 			Use:     action,
@@ -110,11 +110,11 @@ func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
 		Use:     "instruction",
 		Short:   "Manage bounded Buda blocks in repository instructions.",
-		Example: "  buda agent instruction update --wiki ./wiki",
+		Example: "  buda agent instruction upgrade --wiki ./wiki",
 		Args:    NoArgs,
 		RunE:    showHelp,
 	}
-	for _, action := range []string{"apply", "remove", "update"} {
+	for _, action := range []string{"apply", "remove", "upgrade"} {
 		action := action
 		command.AddCommand(&cobra.Command{
 			Use:     action,
@@ -157,7 +157,7 @@ func newAgentInstructionCommand(deps Dependencies) *cobra.Command {
 				return err
 			}
 			return writeAgentValue(command, deps, map[string]any{
-				"embedded": map[string]string{"id": "buda", "body": template}, "targets": targets,
+				"embedded": map[string]string{"id": agent.InstructionID, "body": template}, "targets": targets,
 			})
 		},
 	})
@@ -203,7 +203,7 @@ func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
 		Use:     "prompt",
 		Short:   "Inspect embedded Buda prompt resources without running a model.",
-		Example: "  buda agent prompt show buda",
+		Example: "  buda agent prompt show guiho-p-buda",
 		Args:    NoArgs,
 		RunE:    showHelp,
 	}
@@ -224,7 +224,7 @@ func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 	command.AddCommand(&cobra.Command{
 		Use:     "show <id>",
 		Short:   "Print one raw embedded Buda prompt.",
-		Example: "  buda agent prompt show buda",
+		Example: "  buda agent prompt show guiho-p-buda",
 		Args:    ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
 			if args[0] != agent.PromptID {

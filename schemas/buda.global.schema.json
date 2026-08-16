@@ -1,0 +1,25 @@
+{
+  "$schema": "https://json-schema.org/draft/2020-12/schema",
+  "$id": "https://github.com/CGuiho/buda/releases/download/buda/v0.2.0/buda.global.schema.json",
+  "title": "Buda global configuration",
+  "type": "object",
+  "additionalProperties": false,
+  "required": ["schema"],
+  "properties": {
+    "schema": { "const": 1 },
+    "bundle": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" },
+    "derived": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" },
+    "qmd": {
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "executable": { "type": "string", "minLength": 1 },
+        "collection": { "type": "string", "minLength": 1 },
+        "project_directory": { "type": "string", "pattern": "^(?!/)(?!.*(^|/)\\.\\.?(/|$)).+$" }
+      }
+    },
+    "agent": {
+      "$ref": "buda.schema.json#/$defs/agent"
+    }
+  }
+}

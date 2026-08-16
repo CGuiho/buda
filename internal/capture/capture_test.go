@@ -320,3 +320,95 @@ func TestCaptureAlreadyMarkedDoesNotDuplicateMarker(t *testing.T) {
 		t.Fatalf("captured concept not healthy: conformant=%v healthy=%v findings=%+v", report.Conformant, report.Healthy, report.Findings)
 	}
 }
+
+func TestCaptureReplacePreservesUnknownOKFMetadata(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(wiki, repository.InitOptions{WikiID: "wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	selected, err := repository.Open(wiki)
+	if err != nil {
+		t.Fatal(err)
+	}
+	now := time.Date(2026, 8, 16, 0, 0, 0, 0, time.UTC)
+	initial := []byte(`---
+type: Note
+title: Custom Knowledge
+description: Has custom producer metadata.
+status: draft
+custom_owner: human:alice
+tags:
+  - domain:research
+  - priority:high
+extra_field:
+  nested_key: 42
+generated:
+  by: human:alice
+  at: 2026-08-16T00:00:00Z
+sources:
+  - id: capture-input
+    resource: buda:capture
+    title: Explicit user-directed capture input
+    author: human:alice
+---
+
+Initial text.[^capture-input]
+
+[^capture-input]: Explicit user-directed capture input.
+`)
+	targetPath := filepath.Join(selected.Bundle, "concepts", "custom.md")
+	if err := os.MkdirAll(filepath.Dir(targetPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(targetPath, initial, 0o644); err != nil {
+		t.Fatal(err)
+	}
+
+	// Now run capture with --replace and updated text
+	request := Request{
+		Target:      "concepts/custom.md",
+		Title:       "Updated Custom Knowledge",
+		Description: "Updated description.",
+		Type:        "Decision",
+		Text:        []byte("Updated text content with new insights."),
+		Actor:       "human:bob",
+		Now:         now,
+		Replace:     true,
+	}
+	result, err := Run(selected, request)
+	if err != nil || !result.Updated {
+		t.Fatalf("Run = %+v, %v", result, err)
+	}
+
+	updatedBytes, err := os.ReadFile(targetPath)
+	if err != nil {
+		t.Fatal(err)
+	}
+	document, err := okf.ParseConcept("concepts/custom.md", updatedBytes)
+	if err != nil {
+		t.Fatalf("parse updated concept: %v", err)
+	}
+
+	if document.String("type") != "Decision" {
+		t.Fatalf("type = %q, want Decision", document.String("type"))
+	}
+	if document.String("title") != "Updated Custom Knowledge" {
+		t.Fatalf("title = %q, want Updated Custom Knowledge", document.String("title"))
+	}
+	// Verify unknown OKF metadata keys were preserved
+	if document.String("custom_owner") != "human:alice" {
+		t.Fatalf("custom_owner = %q, want human:alice", document.String("custom_owner"))
+	}
+	tags := document.Strings("tags")
+	if len(tags) != 2 || tags[0] != "domain:research" || tags[1] != "priority:high" {
+		t.Fatalf("tags = %+v, want [domain:research priority:high]", tags)
+	}
+	metaCopy, err := document.MetadataCopy()
+	if err != nil {
+		t.Fatalf("MetadataCopy() err = %v", err)
+	}
+	extra, ok := metaCopy["extra_field"].(map[string]any)
+	if !ok || extra["nested_key"] != 42 {
+		t.Fatalf("extra_field = %+v, want map with nested_key: 42", metaCopy["extra_field"])
+	}
+}

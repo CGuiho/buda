@@ -6,9 +6,11 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/CGuiho/buda/internal/agent"
+	"github.com/CGuiho/buda/internal/config"
 	"github.com/CGuiho/buda/internal/qmd"
 	"github.com/CGuiho/buda/internal/repository"
 )
@@ -45,6 +47,17 @@ func TestInitCommandPreflightsQMDAndInstallsAgentResources(t *testing.T) {
 	home := t.TempDir()
 	client := &domainFakeQMD{}
 	output := &bytes.Buffer{}
+	globalPath := config.GlobalPath(home)
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	globalData, err := config.MarshalGlobal(config.DefaultGlobal(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, globalData, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	deps := domainDeps(output, home)
 	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
 	root.SetArgs([]string{"--wiki", wiki, "--json", "init", "--wiki-id", "wiki-test"})
@@ -98,6 +111,72 @@ func TestCaptureCommandRefreshesQMDAndEmitsOneJSONDocument(t *testing.T) {
 	}
 }
 
+func TestInitFailsBeforeAnyWriteWhenPoliciesAreUnansweredWithoutTerminal(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	home := t.TempDir()
+	client := &domainFakeQMD{}
+	deps := domainDeps(&bytes.Buffer{}, home)
+	deps.Interactive = func() bool { return false }
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
+	root.SetArgs([]string{"--wiki", wiki, "init", "--wiki-id", "wiki-test"})
+	err := root.Execute()
+	if ExitCode(err) != 2 || !strings.Contains(err.Error(), "interactive terminal") {
+		t.Fatalf("error = %v, code = %d", err, ExitCode(err))
+	}
+	if client.ensure != 0 {
+		t.Fatalf("qmd project was initialized before policy answers: %d", client.ensure)
+	}
+	for _, path := range []string{
+		config.GlobalPath(home),
+		filepath.Join(wiki, "buda.yaml"),
+		filepath.Join(wiki, "AGENTS.md"),
+		filepath.Join(wiki, "knowledge"),
+		filepath.Join(home, ".agents", "skills", agent.SkillID),
+	} {
+		if _, statErr := os.Stat(path); statErr == nil {
+			t.Fatalf("init wrote %s before every policy answer existed", path)
+		}
+	}
+}
+
+func TestInitMigrationCarriesLegacyWikiIDWithoutTerminal(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	home := t.TempDir()
+	legacyPath := filepath.Join(home, ".guiho", "buda", "buda.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacy := "schema: 1\nwiki_id: legacy-wiki\nbundle: knowledge\nqmd:\n  executable: qmd\n  collection: buda-wiki\n  project_directory: .qmd\nderived: .buda\n"
+	if err := os.WriteFile(legacyPath, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	client := &domainFakeQMD{}
+	deps := domainDeps(&bytes.Buffer{}, home)
+	deps.Interactive = func() bool { return false }
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
+	root.SetArgs([]string{"--wiki", wiki, "init"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	project, err := config.LoadProject(filepath.Join(wiki, "buda.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if project.WikiID != "legacy-wiki" {
+		t.Fatalf("project wiki_id = %q, want legacy-wiki", project.WikiID)
+	}
+	global, err := config.LoadGlobal(config.GlobalPath(home))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if global.Agent == nil || global.Agent.Evolution.Upgrade != config.PolicyAlwaysAsk {
+		t.Fatalf("migrated global agent = %#v", global.Agent)
+	}
+	if client.ensure != 1 {
+		t.Fatalf("qmd project was not established: %d", client.ensure)
+	}
+}
+
 func TestStatusKeepsCanonicalAndQMDResultsSeparate(t *testing.T) {
 	wiki := initializedWiki(t)
 	output := &bytes.Buffer{}
@@ -118,7 +197,9 @@ func TestStatusKeepsCanonicalAndQMDResultsSeparate(t *testing.T) {
 
 func domainDeps(output *bytes.Buffer, home string) Dependencies {
 	return Dependencies{
-		In: bytes.NewReader(nil), Out: output, Err: &bytes.Buffer{}, Options: &Options{},
+		In: strings.NewReader("yes\n"), Out: output, Err: &bytes.Buffer{}, Options: &Options{},
+		Interactive:         func() bool { return true },
+		HomeDir:             func() (string, error) { return home, nil },
 		Agents:              agent.NewService(agent.DefaultResources(), agent.WithHomeDir(func() (string, error) { return home, nil })),
 		Executable:          func() (string, error) { return "buda", nil },
 		ScheduleMaintenance: func(string, string) error { return nil },

@@ -53,7 +53,7 @@ func NewDoctorCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command
 			localSkills, localErr := deps.Agents.SkillInstallations(true, repo.Root)
 			instructions, instructionErr := deps.Agents.ListInstructions(repo.Root)
 			if globalErr != nil || localErr != nil || instructionErr != nil {
-				checks["agent_resources"] = doctorCheck{State: "error", Repair: "buda agent skill update; buda agent instruction update --wiki <path>", Message: firstError(globalErr, localErr, instructionErr)}
+				checks["agent_resources"] = doctorCheck{State: "error", Repair: "buda agent skill upgrade; buda agent instruction upgrade --wiki <path>", Message: firstError(globalErr, localErr, instructionErr)}
 				failureCode = maxExit(failureCode, 1)
 			} else {
 				current := installationsCurrent(globalSkills) && optionalInstallationsCurrent(localSkills) && instructionsCurrent(instructions)
@@ -62,7 +62,7 @@ func NewDoctorCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command
 					state = "stale"
 					failureCode = maxExit(failureCode, 1)
 				}
-				checks["agent_resources"] = doctorCheck{State: state, Repair: "buda agent skill update; buda agent skill update --local --wiki <path>; buda agent instruction update --wiki <path>", Detail: map[string]any{"global_skills": globalSkills, "local_skills": localSkills, "instructions": instructions}}
+				checks["agent_resources"] = doctorCheck{State: state, Repair: "buda agent skill upgrade; buda agent skill upgrade --local --wiki <path>; buda agent instruction upgrade --wiki <path>", Detail: map[string]any{"global_skills": globalSkills, "local_skills": localSkills, "instructions": instructions}}
 			}
 
 			reproducible, packMessage := checkPackReproducibility(repo)

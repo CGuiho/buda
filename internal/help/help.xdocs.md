@@ -5,6 +5,7 @@ parent: buda-internal
 children: []
 files:
   help.go: Scoped tree, depth, flag, positional, and documentation renderers.
+  help_test.go: Convention depth grammar and scoped global-flag tree tests.
 documents: {}
 tags:
   - help

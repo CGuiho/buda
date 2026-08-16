@@ -11,7 +11,7 @@ tags:
 keywords:
   - Buda 0.1.1
   - release notes
-  - eleven artifacts
+  - manifest-derived release
   - GitHub Releases
 ---
 
@@ -19,6 +19,39 @@ keywords:
 
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
+
+## [0.2.0] - Unreleased
+
+This entry prepares the next minor Buda release after `buda/v0.1.1`. It adopts
+GUIHO CLI Convention 0001 while preserving Buda's explicit-wiki and qmd-only
+product boundaries.
+
+### Added
+
+- Separate global and project configuration contracts with strict offline JSON
+  Schemas, complete examples, version-pinned schema comments, and
+  `agent.evolution` policy inheritance.
+- The confirmed `guiho-p-buda` setup prompt, typed `guiho-i-buda` instruction,
+  evolution guidance in `guiho-s-0002-buda`, stable launcher, immutable
+  payload layout, token-owned lifecycle journals, and manifest-based ownership.
+- `artifacts.json` and complete checksum-derived release packaging for all
+  payloads, launchers, schemas, examples, and agent resources.
+- Synchronous upgrade recovery output and ownership-safe uninstall options for
+  config/data preservation.
+
+### Changed
+
+- Root `--version` now emits only raw SemVer. Help depth accepts `max` or an
+  integer greater than one, and global flags repeat only with
+  `--help-tree-global-flags`.
+- Agent resource commands use `upgrade`; the prohibited `update` name is gone.
+- Install and uninstall scripts use the shared `$HOME/.guiho` layout, explicit
+  wiki parameters, immutable version directories, complete checksums, and
+  manifest-derived state.
+
+This entry is preparation only until Mirror applies the authorized `0.2.0`
+version, creates the canonical tag, and the tag workflow publishes the
+verified release.
 
 ## [0.1.1] - 2026-08-07
 

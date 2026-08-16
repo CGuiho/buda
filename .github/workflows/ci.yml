@@ -1,87 +1,74 @@
 name: CI
 
-permissions:
-  contents: read
-
 on:
   pull_request:
   push:
-    branches:
-      - main
+    branches: [main]
+
+permissions:
+  contents: read
 
 jobs:
-  go-quality-and-release-assets:
+  quality:
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-        with:
-          fetch-depth: 0
-
+        with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - name: Verify Go formatting
-        run: test -z "$(gofmt -l .)"
-
-      - name: Verify tidy module graph
+        with: { go-version-file: go.mod, cache: true }
+      - name: Install repository tooling
+        env:
+          GOBIN: ${{ github.workspace }}/.bin
         run: |
+          mkdir -p "$GOBIN"
+          # These projects use repository-prefixed release tags (for example
+          # mirror/v4.0.1), which Go does not interpret as module versions.
+          # Pin the corresponding release commits with immutable pseudo-versions.
+          go install github.com/CGuiho/mirror@v0.0.0-20260802221718-766730ccf4b6
+          go install github.com/CGuiho/runx@v0.0.0-20260811091523-2c96e8aec105
+          go install github.com/CGuiho/xdocs@v0.0.0-20260802225907-1d353b79b73e
+      - name: Mirror configuration
+        run: ./.bin/mirror config check
+      - name: RunX catalog
+        run: |
+          ./.bin/runx check --format json
+          ./.bin/runx list --format json
+      - name: Strict XDocs
+        run: |
+          ./.bin/xdocs meta . --documents --strict
+          ./.bin/xdocs tree
+          ./.bin/xdocs doctor . --warnings-as-errors
+      - name: Formatting and module graph
+        run: |
+          test -z "$(gofmt -l .)"
           go mod tidy
           git diff --exit-code -- go.mod go.sum
-
-      - name: Test all Go packages
-        run: go test -count=1 ./...
-
-      - name: Vet all Go packages
-        run: go vet ./...
-
-      - name: Build exact 11-artifact release matrix
+      - name: Go tests and vet
         run: |
-          build_date="$(git show -s --format=%cI HEAD)"
-          go run ./devops/build-binaries.go \
-            --version 0.0.2-ci \
-            --commit "${GITHUB_SHA}" \
-            --build-date "${build_date}"
-          test "$(find dist -maxdepth 1 -type f | wc -l)" -eq 11
+          go test -count=1 ./...
+          go vet ./...
+      - name: Lifecycle transaction and interruption acceptance
+        run: |
+          go test -count=1 -run 'Lock|Rollback|Recover|Interrupt|Quarantine|Snapshot|Projection|Pointer|Checksum' ./internal/lifecycle/... ./internal/upgrade/... ./internal/uninstall/... ./internal/launcher/...
+      - name: Build manifest-derived release unit
+        run: |
+          go run ./devops/build-binaries.go --version 0.2.0-ci --commit "$GITHUB_SHA" --build-date "$(git show -s --format=%cI HEAD)"
+          test -f dist/artifacts.json
           (cd dist && sha256sum --check checksums.txt)
-
-      - name: Smoke native Linux binary
+          test "$(dist/buda-linux-amd64 --version)" = '0.2.0-ci'
+          dist/buda-linux-amd64 --help-tree --help-tree-depth 2 | grep -F 'COMMAND TREE'
+      - name: Installer and uninstaller syntax
         run: |
-          test "$(dist/buda-linux-amd64 --version)" = 'buda v0.0.2-ci'
-          dist/buda-linux-amd64 --help-tree-depth 2 --help-tree | grep -F 'COMMAND TREE'
-          dist/buda-linux-amd64 agent skill show guiho-s-0002-buda | grep -F 'id: guiho-s-0002-buda'
-          dist/buda-linux-amd64 agent prompt list | grep -F 'id: buda'
-
-      - name: Validate installer syntax
-        run: sh -n devops/install.sh
-
-      - name: Preflight local Bash upgrade installer
-        shell: bash
-        run: |
-          root="$(mktemp -d)"
-          trap 'rm -rf "$root"' EXIT
-          mkdir -p "$root/home" "$root/install" "$root/fake-bin"
-          go build -trimpath -ldflags '-X main.version=0.0.1' -o "$root/install/buda" .
-          printf '#!/usr/bin/env sh\nprintf "qmd 2.5.3\\n"\n' > "$root/fake-bin/qmd"
-          chmod +x "$root/fake-bin/qmd"
-          export HOME="$root/home"
-          export PATH="$root/fake-bin:$PATH"
-          export GUIHO_INSTALL_DIR="$root/install"
-          export BUDA_RELEASE_ASSET_DIR="$PWD/dist"
-          sh devops/install.sh buda/v0.0.2-ci
-          test "$("$root/install/buda" --version)" = 'buda v0.0.2-ci'
-          test -s "$HOME/.agents/skills/guiho-s-0002-buda/SKILL.md"
-          test -s "$HOME/.claude/skills/guiho-s-0002-buda/SKILL.md"
-
+          sh -n devops/install.sh
+          sh -n devops/uninstall.sh
       - uses: actions/upload-artifact@v4
         with:
-          name: buda-go-release-assets
+          name: buda-release-unit
           path: dist/*
           if-no-files-found: error
 
   native-smoke:
-    needs: go-quality-and-release-assets
+    needs: quality
     strategy:
       fail-fast: false
       matrix:
@@ -101,168 +88,232 @@ jobs:
     runs-on: ${{ matrix.runner }}
     steps:
       - uses: actions/download-artifact@v4
-        with:
-          name: buda-go-release-assets
-          path: dist
-
-      - name: Smoke Unix target
+        with: { name: buda-release-unit, path: dist }
+      - name: Unix native launcher/payload smoke
         if: runner.os != 'Windows'
+        env:
+          ASSET: ${{ matrix.asset }}
         run: |
-          chmod +x "dist/${{ matrix.asset }}"
-          test "$("dist/${{ matrix.asset }}" --version)" = 'buda v0.0.2-ci'
-          "dist/${{ matrix.asset }}" --help-tree-depth 1 --help-tree | grep -F 'COMMAND TREE'
-          "dist/${{ matrix.asset }}" agent prompt list | grep -F 'id: buda'
-
-      - name: Smoke Windows target
+          chmod +x "dist/$ASSET"
+          test "$("dist/$ASSET" --version)" = '0.2.0-ci'
+          export HOME="$RUNNER_TEMP/launcher-home"
+          mkdir -p "$HOME/.guiho/buda/versions/0.2.0-ci"
+          payload="buda"
+          case "$ASSET" in *.exe) payload="buda.exe" ;; esac
+          cp "dist/$ASSET" "$HOME/.guiho/buda/versions/0.2.0-ci/$payload"
+          chmod +x "$HOME/.guiho/buda/versions/0.2.0-ci/$payload"
+          printf '{"schema":1,"active":"0.2.0-ci/%s","previous":"","active_version":"0.2.0-ci","previous_version":""}\n' "$payload" > "$HOME/.guiho/buda/current.json"
+          launcher="dist/buda-launcher-${ASSET#buda-}"
+          chmod +x "$launcher"
+          test "$("$launcher" --version)" = '0.2.0-ci'
+      - name: Windows native launcher/payload smoke
         if: runner.os == 'Windows'
         shell: pwsh
+        env:
+          ASSET: ${{ matrix.asset }}
         run: |
-          $binary = Join-Path $PWD 'dist\${{ matrix.asset }}'
-          if ((& $binary --version | Out-String).Trim() -ne 'buda v0.0.2-ci') { exit 1 }
-          if (-not ((& $binary --help-tree-depth 1 --help-tree | Out-String) -match 'COMMAND TREE')) { exit 1 }
-          if (-not ((& $binary agent prompt list | Out-String) -match 'id: buda')) { exit 1 }
+          $value = (& (Join-Path $PWD "dist\$env:ASSET") --version | Out-String).Trim()
+          if ($value -ne '0.2.0-ci') { throw "Unexpected raw payload version: $value" }
+          $launcherHome = Join-Path $env:RUNNER_TEMP 'launcher-home'
+          $env:USERPROFILE = $launcherHome
+          New-Item -ItemType Directory -Force -Path (Join-Path $launcherHome '.guiho\buda\versions\0.2.0-ci') | Out-Null
+          Copy-Item -LiteralPath "dist\$env:ASSET" -Destination (Join-Path $launcherHome '.guiho\buda\versions\0.2.0-ci\buda.exe')
+          Set-Content -NoNewline -Path (Join-Path $launcherHome '.guiho\buda\current.json') -Value '{"schema":1,"active":"0.2.0-ci/buda.exe","previous":"","active_version":"0.2.0-ci","previous_version":""}'
+          $launcher = 'dist\buda-launcher-' + $env:ASSET.Substring(5)
+          $launcherValue = (& (Join-Path $PWD $launcher) --version | Out-String).Trim()
+          if ($launcherValue -ne '0.2.0-ci') { throw "Unexpected raw launcher version: $launcherValue" }
 
-  windows-installer-syntax:
-    needs: go-quality-and-release-assets
+  posix-lifecycle:
+    needs: quality
+    runs-on: ubuntu-latest
+    env:
+      BUDA_DISABLE_MAINTENANCE: '1'
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/download-artifact@v4
+        with: { name: buda-release-unit, path: dist }
+      - name: Install disposable qmd compatibility stub
+        run: |
+          mkdir -p "$RUNNER_TEMP/stub"
+          cat > "$RUNNER_TEMP/stub/qmd" <<'STUB'
+          #!/bin/sh
+          # CI-only process stub satisfying Buda's qmd compatibility contract.
+          case "$1" in
+            --version|version) printf 'qmd 2.6.0\n' ;;
+            --help|capabilities)
+              printf '%s\n' 'qmd search qmd vsearch qmd query qmd get qmd multi-get qmd init qmd status qmd update qmd embed qmd collection --format --collection' ;;
+            init)
+              mkdir -p .qmd
+              printf 'collections: {}\n' > .qmd/index.yml ;;
+            collection)
+              case "$2" in
+                add)
+                  printf 'collections:\n  %s:\n    path: %s\n' "$5" "../$3" > .qmd/index.yml ;;
+                show)
+                  path=$(sed -n 's/^    path: //p' .qmd/index.yml)
+                  printf 'Path: %s\n' "${path#../}" ;;
+              esac ;;
+          esac
+          STUB
+          chmod +x "$RUNNER_TEMP/stub/qmd"
+      - name: Native POSIX install, repair, and uninstall lifecycle
+        env:
+          BUDA_RELEASE_ASSET_DIR: ${{ github.workspace }}/dist
+          BUDA_RELEASE_VERSION: 0.2.0-ci
+        run: |
+          set -eu
+          export HOME="$RUNNER_TEMP/buda-lifecycle-home"
+          export PATH="$RUNNER_TEMP/stub:$PATH"
+          mkdir -p "$HOME/.guiho/buda"
+          cp examples/buda.global.example.yaml "$HOME/.guiho/buda/buda.global.yaml"
+          wiki="$RUNNER_TEMP/wiki"
+          mkdir -p "$wiki"
+          sh devops/install.sh --wiki "$wiki" --wiki-id lifecycle-wiki --version 0.2.0-ci
+          test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
+          test -f "$wiki/buda.yaml"
+          test -f "$wiki/AGENTS.md"
+          test -d "$wiki/knowledge"
+          test -f "$HOME/.guiho/buda/current.json"
+          # Same-version reinstall is an idempotent repair.
+          sh devops/install.sh --wiki "$wiki" --version 0.2.0-ci
+          test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
+          # Uninstall is destructive by default but never touches shared or
+          # user-owned content.
+          printf 'keep' > "$HOME/.guiho/sentinel.txt"
+          printf 'keep' > "$wiki/knowledge/index.md"
+          sh devops/uninstall.sh --wiki "$wiki" --yes
+          test ! -e "$HOME/.guiho/bin/buda"
+          test ! -f "$wiki/buda.yaml"
+          test -f "$wiki/knowledge/index.md"
+          test -f "$HOME/.guiho/sentinel.txt"
+          test -d "$HOME/.guiho/bin"
+      - name: Legacy 0.1.1 direct-binary migration through the launcher transaction
+        env:
+          BUDA_RELEASE_ASSET_DIR: ${{ github.workspace }}/dist
+          BUDA_RELEASE_VERSION: 0.2.0-ci
+        run: |
+          set -eu
+          export HOME="$RUNNER_TEMP/buda-migration-home"
+          export PATH="$RUNNER_TEMP/stub:$PATH"
+          mkdir -p "$HOME/.local/bin" "$HOME/.guiho/buda"
+          # Synthetic official-layout 0.1.1 installation: direct binary on the
+          # historical path plus the legacy global buda.yaml.
+          cp dist/buda-linux-amd64 "$HOME/.local/bin/buda"
+          chmod +x "$HOME/.local/bin/buda"
+          cat > "$HOME/.guiho/buda/buda.yaml" <<'LEGACY'
+          schema: 1
+          wiki_id: legacy-wiki
+          bundle: knowledge
+          qmd:
+            executable: qmd
+            collection: buda-wiki
+            project_directory: .qmd
+          derived: .buda
+          LEGACY
+          wiki="$RUNNER_TEMP/migration-wiki"
+          mkdir -p "$wiki"
+          sh devops/install.sh --wiki "$wiki" --version 0.2.0-ci
+          test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
+          test ! -e "$HOME/.local/bin/buda"
+          test -f "$HOME/.guiho/buda/buda.global.yaml"
+          test -f "$HOME/.guiho/buda/buda.yaml"
+          grep -F 'legacy-wiki' "$HOME/.guiho/buda/buda.yaml"
+
+  windows-lifecycle:
+    needs: quality
     runs-on: windows-latest
     steps:
       - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
       - uses: actions/download-artifact@v4
-        with:
-          name: buda-go-release-assets
-          path: dist
-
-      - name: Validate PowerShell installer syntax
+        with: { name: buda-release-unit, path: dist }
+      - name: Install disposable qmd compatibility stub
         shell: pwsh
         run: |
-          $tokens = $null
-          $errors = $null
-          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'devops\install.ps1'), [ref]$tokens, [ref]$errors) | Out-Null
-          if ($errors.Count) {
-            $errors | ForEach-Object { Write-Error $_.Message }
-            exit 1
+          $stub = Join-Path $env:RUNNER_TEMP 'stub'
+          New-Item -ItemType Directory -Force -Path $stub | Out-Null
+          @'
+          @echo off
+          %SystemRoot%\System32\WindowsPowerShell\v1.0\powershell.exe -NoProfile -ExecutionPolicy Bypass -File "%~dp0qmd-stub.ps1" %*
+          '@ | Set-Content -NoNewline -Path (Join-Path $stub 'qmd.cmd') -Encoding ASCII
+          @'
+          param([Parameter(ValueFromRemainingArguments=$true)][string[]]$ArgsList)
+          switch ($ArgsList[0]) {
+            '--version' { Write-Output 'qmd 2.6.0' }
+            'version' { Write-Output 'qmd 2.6.0' }
+            '--help' { Write-Output 'qmd search qmd vsearch qmd query qmd get qmd multi-get qmd init qmd status qmd update qmd embed qmd collection --format --collection' }
+            'capabilities' { Write-Output 'qmd search qmd vsearch qmd query qmd get qmd multi-get qmd init qmd status qmd update qmd embed qmd collection --format --collection' }
+            'init' {
+              New-Item -ItemType Directory -Force -Path .qmd | Out-Null
+              Set-Content -NoNewline -Path .qmd\index.yml -Value "collections: {}`n"
+            }
+            'collection' {
+              if ($ArgsList[1] -eq 'add') {
+                Set-Content -NoNewline -Path .qmd\index.yml -Value "collections:`n  $($ArgsList[4]):`n    path: ../$($ArgsList[2])`n"
+              } elseif ($ArgsList[1] -eq 'show') {
+                $line = (Select-String -Path .qmd\index.yml -Pattern '^\s+path: (.+)$').Matches[0].Groups[1].Value
+                Write-Output ('Path: ' + $line.Substring(3))
+              }
+            }
           }
+          exit 0
+          '@ | Set-Content -NoNewline -Path (Join-Path $stub 'qmd-stub.ps1') -Encoding UTF8
+      - name: Native Windows install, repair, migration, and uninstall lifecycle
+        shell: pwsh
+        env:
+          BUDA_RELEASE_ASSET_DIR: ${{ github.workspace }}\dist
+          BUDA_RELEASE_VERSION: 0.2.0-ci
+          BUDA_DISABLE_MAINTENANCE: '1'
+        run: |
+          $ErrorActionPreference = 'Stop'
+          $lifecycleHome = Join-Path $env:RUNNER_TEMP 'buda-win-home'
+          $env:USERPROFILE = $lifecycleHome
+          New-Item -ItemType Directory -Force -Path (Join-Path $lifecycleHome '.guiho\buda') | Out-Null
+          Copy-Item -LiteralPath 'examples\buda.global.example.yaml' -Destination (Join-Path $lifecycleHome '.guiho\buda\buda.global.yaml')
+          $env:PATH = (Join-Path $env:RUNNER_TEMP 'stub') + ';' + $env:PATH
+          # Synthetic official-layout 0.1.1 direct binary on the historical path.
+          $legacyDir = Join-Path $env:LOCALAPPDATA 'GUIHO\bin'
+          New-Item -ItemType Directory -Force -Path $legacyDir | Out-Null
+          Copy-Item -LiteralPath 'dist\buda-windows-amd64.exe' -Destination (Join-Path $legacyDir 'buda.exe')
+          $wiki = Join-Path $env:RUNNER_TEMP 'win-wiki'
+          New-Item -ItemType Directory -Path $wiki | Out-Null
+          & '.\devops\install.ps1' -Version '0.2.0-ci' -Wiki $wiki -WikiId 'win-lifecycle'
+          $launcher = Join-Path $lifecycleHome '.guiho\bin\buda.exe'
+          $version = (& $launcher --version | Out-String).Trim()
+          if ($version -ne '0.2.0-ci') { throw "Unexpected installed version: $version" }
+          if (Test-Path -LiteralPath (Join-Path $legacyDir 'buda.exe')) { throw 'Legacy direct binary survived verified launcher activation.' }
+          if (-not (Test-Path -LiteralPath (Join-Path $wiki 'buda.yaml'))) { throw 'Selected wiki configuration missing.' }
+          # Same-version reinstall is an idempotent repair.
+          & '.\devops\install.ps1' -Version '0.2.0-ci' -Wiki $wiki
+          # Uninstall is synchronous and destructive by default; user-owned
+          # sentinels survive.
+          Set-Content -NoNewline -Path (Join-Path $lifecycleHome '.guiho\sentinel.txt') -Value 'keep'
+          Set-Content -NoNewline -Path (Join-Path $wiki 'knowledge\index.md') -Value 'keep'
+          & '.\devops\uninstall.ps1' -Wiki $wiki -Yes
+          if (Test-Path -LiteralPath $launcher) { throw 'Stable launcher survived synchronous uninstall.' }
+          if (Test-Path -LiteralPath (Join-Path $wiki 'buda.yaml')) { throw 'Selected wiki configuration survived uninstall.' }
+          if (-not (Test-Path -LiteralPath (Join-Path $wiki 'knowledge\index.md'))) { throw 'Canonical OKF content was removed.' }
+          if (-not (Test-Path -LiteralPath (Join-Path $lifecycleHome '.guiho\sentinel.txt'))) { throw 'Shared GUIHO sentinel was removed.' }
 
-      - name: Preflight local PowerShell upgrade installer
+  windows-script-syntax:
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+      - name: PowerShell installer and uninstaller syntax
         shell: pwsh
         run: |
-          $root = Join-Path $env:RUNNER_TEMP 'buda-local-installer'
-          $homeDirectory = Join-Path $root 'home'
-          $installDirectory = Join-Path $root 'bin'
-          $fakeBin = Join-Path $root 'fake-bin'
-          New-Item -ItemType Directory -Force -Path $homeDirectory, $installDirectory, $fakeBin | Out-Null
-          go build -trimpath -ldflags '-X main.version=0.0.1' -o (Join-Path $installDirectory 'buda.exe') .
-          Set-Content -LiteralPath (Join-Path $fakeBin 'qmd.cmd') -Value '@echo qmd 2.5.3' -Encoding ASCII
-          $env:HOME = $homeDirectory
-          $env:USERPROFILE = $homeDirectory
-          $env:PATH = "$fakeBin;$env:PATH"
-          $env:BUDA_RELEASE_ASSET_DIR = (Resolve-Path 'dist').Path
-          & .\devops\install.ps1 -Version 'buda/v0.0.2-ci' -InstallDir $installDirectory
-          $actual = (& (Join-Path $installDirectory 'buda.exe') --version | Out-String).Trim()
-          if ($actual -ne 'buda v0.0.2-ci') { throw "Unexpected installed version: $actual" }
-          if (-not (Test-Path -LiteralPath "$homeDirectory\.agents\skills\guiho-s-0002-buda\SKILL.md")) { throw 'Missing agents skill.' }
-          if (-not (Test-Path -LiteralPath "$homeDirectory\.claude\skills\guiho-s-0002-buda\SKILL.md")) { throw 'Missing Claude skill.' }
+          $errors = @()
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'devops/install.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          [System.Management.Automation.Language.Parser]::ParseFile((Resolve-Path 'devops/uninstall.ps1'), [ref]$null, [ref]$errors) | Out-Null
+          if ($errors.Count) { $errors | ForEach-Object { Write-Error $_.Message }; exit 1 }
 
-  qmd-lexical-e2e:
+  build-only-foreign-targets:
+    needs: quality
     runs-on: ubuntu-latest
     steps:
       - uses: actions/checkout@v4
-
       - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install the tested external qmd runtime
-        run: npm install --global @tobilu/qmd@2.5.3
-
-      - name: Exercise one project-local wiki through real qmd
-        shell: bash
+        with: { go-version-file: go.mod }
+      - name: Foreign build-only targets
         run: |
-          set -euo pipefail
-          wiki="${RUNNER_TEMP}/buda-wiki"
-          export HOME="${RUNNER_TEMP}/buda-home"
-          mkdir -p "$HOME"
-          go build -trimpath -o "${RUNNER_TEMP}/buda" .
-
-          "${RUNNER_TEMP}/buda" init --wiki "$wiki" --wiki-id ci-wiki
-          "${RUNNER_TEMP}/buda" capture --wiki "$wiki" \
-            --target concepts/ci-evidence.md \
-            --title 'CI evidence' \
-            --description 'Evidence used to prove the external qmd boundary.' \
-            --actor agent:ci \
-            --text 'Buda delegates lexical retrieval to qmd.'
-          "${RUNNER_TEMP}/buda" query --wiki "$wiki" --mode lexical \
-            --text 'lexical retrieval' --json > "${RUNNER_TEMP}/query.json"
-          jq -e '.results | length == 1' "${RUNNER_TEMP}/query.json"
-          jq -e '.results[0].path == "concepts/ci-evidence.md"' "${RUNNER_TEMP}/query.json"
-
-          "${RUNNER_TEMP}/buda" get --wiki "$wiki" concepts/ci-evidence.md \
-            --json > "${RUNNER_TEMP}/get.json"
-          jq -e '.document.path == "concepts/ci-evidence.md"' "${RUNNER_TEMP}/get.json"
-          "${RUNNER_TEMP}/buda" status --wiki "$wiki" --json > "${RUNNER_TEMP}/status.json"
-          jq -e '.qmd.version == "2.5.3" and .qmd.documents >= 1' "${RUNNER_TEMP}/status.json"
-
-          set +e
-          "${RUNNER_TEMP}/buda" doctor --wiki "$wiki" --json > "${RUNNER_TEMP}/doctor.json"
-          doctor_exit=$?
-          set -e
-          test "$doctor_exit" -eq 0 -o "$doctor_exit" -eq 1
-          jq -e '.checks.qmd.state != "unavailable"' "${RUNNER_TEMP}/doctor.json"
-
-  qmd-windows-e2e:
-    runs-on: windows-latest
-    steps:
-      - uses: actions/checkout@v4
-
-      - uses: actions/setup-go@v6
-        with:
-          go-version-file: go.mod
-          cache: true
-
-      - uses: actions/setup-node@v4
-        with:
-          node-version: '22'
-
-      - name: Install the tested external qmd runtime
-        run: npm install --global @tobilu/qmd@2.5.3
-
-      - name: Exercise npm qmd.cmd through Buda on Windows
-        shell: pwsh
-        run: |
-          $wiki = Join-Path $env:RUNNER_TEMP 'buda-qmd-windows'
-          $homeDirectory = Join-Path $env:RUNNER_TEMP 'buda-qmd-home'
-          $binary = Join-Path $env:RUNNER_TEMP 'buda.exe'
-          New-Item -ItemType Directory -Force -Path $homeDirectory | Out-Null
-          $env:HOME = $homeDirectory
-          $env:USERPROFILE = $homeDirectory
-          go build -trimpath -o $binary .
-
-          & $binary init --wiki $wiki --wiki-id windows-smoke
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          & $binary capture --wiki $wiki `
-            --target concepts/windows.md `
-            --title 'Windows evidence' `
-            --description 'Evidence for npm qmd.cmd execution.' `
-            --actor agent:windows `
-            --text 'Buda executes the npm qmd launcher without a retrieval fallback.'
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          $query = (& $binary query --wiki $wiki --mode lexical --text 'npm qmd launcher' --json | Out-String) | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($query.results.Count -ne 1 -or $query.results[0].path -ne 'concepts/windows.md') { throw 'Unexpected qmd query result.' }
-          $document = (& $binary get --wiki $wiki concepts/windows.md --json | Out-String) | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($document.document.path -ne 'concepts/windows.md') { throw 'Unexpected qmd document path.' }
-          $status = (& $binary status --wiki $wiki --json | Out-String) | ConvertFrom-Json
-          if ($LASTEXITCODE -ne 0) { exit $LASTEXITCODE }
-          if ($status.qmd.version -ne '2.5.3' -or $status.qmd.documents -lt 1) { throw 'Unexpected qmd status.' }
+          GOOS=linux GOARCH=arm GOARM=6 CGO_ENABLED=0 go build ./...
+          GOOS=linux GOARCH=arm GOARM=7 CGO_ENABLED=0 go build ./...

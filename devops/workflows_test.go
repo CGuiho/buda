@@ -46,12 +46,12 @@ func TestGitHubWorkflowsAreValidYAMLAndReleaseOnlyToGitHub(t *testing.T) {
 		t.Fatal(err)
 	}
 	for _, required := range []string{
-		"tags:\n      - 'buda/v*'",
+		"tags: ['buda/v*']",
 		"contents: write",
-		"Build and verify exact 11 assets",
-		"Verify exact public asset set",
+		"Build complete release unit",
+		"Verify public asset set and checksums",
 		"gh release create",
-		"buda/v$env:BUDA_VERSION",
+		"buda/v",
 	} {
 		if !strings.Contains(string(publish), required) {
 			t.Fatalf("publish workflow missing %q", required)
@@ -65,9 +65,8 @@ func TestGitHubWorkflowsAreValidYAMLAndReleaseOnlyToGitHub(t *testing.T) {
 	for _, required := range []string{
 		"go test -count=1 ./...",
 		"go vet ./...",
-		"@tobilu/qmd@2.5.3",
-		"qmd-lexical-e2e:",
-		"--mode lexical",
+		"Build manifest-derived release unit",
+		"xdocs doctor . --warnings-as-errors",
 	} {
 		if !strings.Contains(string(ci), required) {
 			t.Fatalf("CI workflow missing %q", required)

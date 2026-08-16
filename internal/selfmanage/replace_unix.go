@@ -32,10 +32,6 @@ func replaceExecutable(executable, candidate, backup, targetVersion, _, _ string
 	return false, nil
 }
 
-func CompleteWindowsReplacement(_, _, _, _, _, _, _ string, _ int) error {
-	return fmt.Errorf("Windows replacement helper is unavailable on this platform")
-}
-
 func RemoveExecutable(path string) (bool, error) {
 	if err := os.Remove(path); err != nil {
 		return false, fmt.Errorf("remove Buda executable: %w", err)
@@ -43,14 +39,6 @@ func RemoveExecutable(path string) (bool, error) {
 	return false, nil
 }
 
-func CompleteWindowsRemoval(_, _ string, _ int) error {
-	return fmt.Errorf("Windows removal helper is unavailable on this platform")
-}
-
 func Rollback(executable string) (bool, error) {
 	return false, rollbackFiles(executable)
-}
-
-func CompleteWindowsRollback(_, _ string, _ int) error {
-	return fmt.Errorf("Windows rollback helper is unavailable on this platform")
 }
