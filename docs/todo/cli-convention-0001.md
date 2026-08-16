@@ -3,9 +3,9 @@ name: buda-cli-convention-0001-execution
 purpose: Durable execution record for the approved GUIHO CLI Convention 0001 implementation.
 description: Tracks the unattended implementation branch, plan units, provisional decisions, validation state, and release deferral for Buda Convention 0001.
 created: 2026-08-16
-updated: 2026-08-16T00:00:00Z
+updated: 2026-08-17T00:00:00Z
 owner: buda-todo
-status: review-ready
+status: complete
 plan_unit: U00-U14 aggregate execution
 skipped_phases:
   - brainstorm: approved convention audit and implementation plan already provide requirements.
@@ -56,10 +56,11 @@ publication remain deferred to the integration owner after independent review.
 
 - [x] U00-U04 authority, public surface, config, and agent resource implementation complete.
 - [x] U05-U08 lifecycle primitives, launcher, release builder, and init integration complete.
-- [x] U09-U11 installer, upgrade, and uninstall implementations complete; native mutation/recovery acceptance remains review-gated.
+- [x] U09-U11 installer, upgrade, and uninstall implementations complete; native lifecycle, migration, interruption, and recovery acceptance passed on hosted runners.
 - [x] U12-U13 documentation, tooling, CI, and release-preparation implementation complete.
-- [ ] U14 aggregate review and release preparation complete.
-- [ ] Independent implementation review and validation accepted on exact head.
+- [x] U14 aggregate review and release preparation complete.
+- [x] Independent implementation review and validation accepted on the exact PR head; the review fix pass closed every remaining blocker.
+- [x] Mirror minor plan `0.2.0` applied; canonical tag `buda/v0.2.0` pushed; GitHub Release published from the manifest-derived asset set.
 
 ## Testing state
 
@@ -83,8 +84,21 @@ Current state is `review-ready`. The final local validation pass recorded:
 - POSIX `install.sh`/`uninstall.sh` syntax and PowerShell installer/uninstaller
   parsing: passed.
 
-Remaining gates are the independent exact-head review, full native installer
-mutation/reinstall and crash-recovery suites, legacy 0.1.1 migration evidence,
-and the separately authorized Mirror apply/tag/release boundary. Do not mark
-the record complete until the PR head is reviewed and pushed and the deferred
-release boundary is explicitly recorded.
+Remaining gates closed on the merged head `de020bd` and its release
+preparation commit `1a4b33f`:
+
+- PR #7 merged with CI green on every job (quality, native-smoke on all six
+  hosted platforms, posix-lifecycle, windows-lifecycle, foreign build-only
+  targets, and script syntax).
+- The review fix pass closed every release blocker, including the
+  non-interactive legacy `wiki_id` carryover and the Windows native-smoke
+  variable fix; the POSIX legacy 0.1.1 migration and Windows locked-file
+  lifecycle acceptance passed on hosted runners.
+- Mirror applied the authorized minor plan: current `0.1.1` → `0.2.0`, tag
+  `buda/v0.2.0` at `1a4b33f`, pushed. The publish workflow completed
+  successfully and published the `buda/v0.2.0` GitHub Release with the
+  complete manifest-derived 25-file set; local SHA-256 verification of all
+  downloaded assets passed, and the native Windows payload and launcher
+  returned `0.2.0` with `__self-test` `ok` in a disposable home.
+- No production deployment, traffic, DNS, database, secret, or live-service
+  action occurred.

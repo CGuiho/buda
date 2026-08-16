@@ -7,15 +7,16 @@ owner: buda-questions
 flags: []
 tags: [questions, cli, convention-0001]
 keywords: [Buda, GUIHO CLI Convention 0001, stable launcher, release manifest]
-status: resolved-review-ready
+status: resolved-accepted
 ---
 
 # Convention 0001 execution question ledger
 
 The plan executor continued unattended using the approved audit, plan, and
 acceptance matrix. Naming, artifact-model, lifecycle-policy, and validation
-boundary decisions are resolved below. Independent review remains required
-before merge; none authorizes a tag, release, or production action.
+boundary decisions are resolved below. The review fix pass closed every
+release blocker, PR #7 merged, CI was green on the merged head, and the
+authorized Mirror minor plan published `buda/v0.2.0`.
 
 ## Q01 — Complete release asset count versus historical exact-eleven guidance
 
@@ -34,8 +35,8 @@ before merge; none authorizes a tag, release, or production action.
 - Confidence: high. Reversibility: high before release publication.
 - Action: updated release builder, workflows, tests, docs, and acceptance
   matrix to validate counts from the manifest rather than a hard-coded eleven.
-- Decision status: resolved; independent implementation review remains an
-  acceptance gate.
+- Decision status: resolved and accepted; the published `buda/v0.2.0`
+  release carries the manifest-derived 25-file set.
 
 ## Q02 — Stable launcher replacement while the invoking launcher is active
 
@@ -62,8 +63,9 @@ before merge; none authorizes a tag, release, or production action.
 - Action: implemented missing-launcher installation, complete rollback of a
   newly created launcher, and post-activation launcher verification. No helper
   or deferred `scheduled` replacement was introduced.
-- Decision status: resolved; Windows locked-launcher mutation remains a native
-  acceptance scenario for independent review.
+- Decision status: resolved and accepted; the hosted Windows lifecycle job
+  exercised the missing-launcher, rollback, and locked-file behavior on a
+  disposable home and passed on the merged head.
 
 ## Q03 — Native installer and migration execution on this Windows host
 
@@ -86,5 +88,8 @@ before merge; none authorizes a tag, release, or production action.
 - Confidence: high. Reversibility: high.
 - Action: added explicit remaining-gap evidence to `docs/todo/` and the PR
   handoff.
-- Decision status: resolved validation boundary; native acceptance remains an
-  explicit independent-review gate.
+- Decision status: resolved and accepted; the hosted `posix-lifecycle` and
+  `windows-lifecycle` CI jobs ran the native installer, legacy 0.1.1
+  migration, repair, and synchronous uninstall acceptance in disposable
+  homes, all passing on the merged head. No personal installation was ever
+  mutated.

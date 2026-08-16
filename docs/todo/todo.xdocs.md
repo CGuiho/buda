@@ -5,7 +5,7 @@ parent: buda-docs
 children: []
 files: {}
 documents:
-  cli-convention-0001.md: Durable execution record for Convention 0001 implementation, validation, resolved decisions, and release deferral.
+  cli-convention-0001.md: Durable execution record for Convention 0001 implementation, validation, resolved decisions, and the completed release boundary.
 tags:
   - documentation
   - todo
@@ -15,7 +15,7 @@ keywords:
   - plan executor
   - Convention 0001
 flags: []
-status: draft
+status: stable
 ---
 
 This directory contains durable task specifications used while executing

@@ -1,15 +1,15 @@
 ---
 subject: buda-questions
-description: Resolved execution decisions and explicitly review-gated validation boundaries for Convention 0001 delivery.
+description: Resolved execution decisions and accepted validation boundaries for Convention 0001 delivery.
 parent: buda-docs
 children: []
 files: {}
 documents:
-  cli-convention-0001.md: Accepted implementation decisions, validation boundaries, and independent-review handoff risks for Convention 0001.
+  cli-convention-0001.md: Accepted implementation decisions, closed validation boundaries, and review acceptance for Convention 0001.
 tags: [questions, plan-execution]
 keywords: [Convention 0001, decision record, review]
 flags: []
-status: review-ready
+status: stable
 ---
 
 Question records preserve unattended implementation decisions and distinguish

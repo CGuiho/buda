@@ -25,7 +25,7 @@ keywords:
 
 ## Plan status
 
-**Status: approved and executing.**
+**Status: complete and released.**
 
 This plan converts the findings in
 [`GUIHO_CLI_CONVENTION_0001_COMPLIANCE_AUDIT.md`](GUIHO_CLI_CONVENTION_0001_COMPLIANCE_AUDIT.md)
@@ -36,10 +36,11 @@ is recorded in
 Repository progress is tracked in [`../TODO.md`](../TODO.md).
 
 The work is intentionally breaking in behavior and installation layout. The
-user has explicitly selected the next minor release target **Buda 0.2.0 from
-0.1.1**; Mirror remains the final authority for applying that target. No tag or
-GitHub Release is created until implementation, exact-head review, and all
-validation gates pass.
+user selected the next minor release target **Buda 0.2.0 from 0.1.1**; the
+authorized Mirror minor plan applied `0.2.0`, the canonical tag `buda/v0.2.0`
+was created and pushed after implementation, exact-head review, and all
+validation gates passed, and the published GitHub Release carries the
+manifest-derived asset set.
 
 ## Governing authority and conflict resolution
 
