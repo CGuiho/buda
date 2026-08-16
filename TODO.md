@@ -62,26 +62,29 @@ required exact-head evidence does not complete the unit.
 - [x] **U11 — Uninstall:** two scripts plus Cobra parity, full plan/confirmation/preservation, ownership safety, and native Windows completion.
 - [x] **U12 — Documentation:** current README/architecture/XDocs/agent guidance, migration instructions, and final Uninstall section.
 - [x] **U13 — Aggregate CI/release gates:** workflow/tooling implementation, manifest publication, and exact-head evidence preparation; native lifecycle and migration gates remain review-gated.
-- [ ] **U14 — Aggregate review and release preparation:** accepted integration PR, TODO reconciliation, independent validation, and clean Mirror minor plan for 0.2.0.
+- [x] **U14 — Aggregate review and release preparation:** accepted integration PR, TODO reconciliation, independent validation, and clean Mirror minor plan for 0.2.0.
 
 ## Aggregate acceptance gates
 
-- [ ] `INV-01` through `INV-06` product invariants pass.
-- [ ] `ACC-A1` through `ACC-I5` audit-finding acceptance rows pass.
-- [ ] `GATE-01` format and `GATE-02` module checks pass.
-- [ ] `GATE-03` full tests and `GATE-04` vet pass.
-- [ ] `GATE-05` Mirror config, RunX, and strict XDocs pass.
-- [ ] `GATE-06` schemas/examples and `GATE-07` complete release build pass.
-- [ ] `GATE-08` native lifecycle and `GATE-09` legacy migration pass.
-- [ ] `GATE-10` transaction recovery and `GATE-11` documentation pass.
-- [ ] `GATE-12` independent exact-head review/validation is accepted.
-- [ ] `GATE-13` Mirror minor plan for 0.2.0 is complete, clean, and reviewed.
+- [x] `INV-01` through `INV-06` product invariants pass.
+- [x] `ACC-A1` through `ACC-I5` audit-finding acceptance rows pass.
+- [x] `GATE-01` format and `GATE-02` module checks pass.
+- [x] `GATE-03` full tests and `GATE-04` vet pass.
+- [x] `GATE-05` Mirror config, RunX, and strict XDocs pass.
+- [x] `GATE-06` schemas/examples and `GATE-07` complete release build pass.
+- [x] `GATE-08` native lifecycle and `GATE-09` legacy migration pass.
+- [x] `GATE-10` transaction recovery and `GATE-11` documentation pass.
+- [x] `GATE-12` independent exact-head review/validation is accepted.
+- [x] `GATE-13` Mirror minor plan for 0.2.0 is complete, clean, and reviewed.
 
-The local implementation pass has already demonstrated GATE-01 through
-GATE-07's repository checks, but the aggregate gates remain unchecked until
-the exact PR head receives independent review. Native installer/migration and
-crash-recovery execution remain review-gated because this Windows checkout was
-not allowed to mutate an existing personal installation.
+Every gate above closed on the merged head. PR #7 (`codex/cli-convention-0001`,
+head `484848b`) merged into `main` as `de020bd` with CI green on all twelve
+jobs; the review fix pass closed every Kimi release blocker; the release
+preparation commit `1a4b33f` dated the changelog entry; and the separately
+authorized Mirror minor plan produced the canonical tag `buda/v0.2.0` and the
+published manifest-derived GitHub Release. Native lifecycle, legacy
+migration, interruption/recovery, and disposable-home acceptance all ran on
+hosted runners; no personal installation or production surface was touched.
 
 ## Kimi review fix pass
 
@@ -124,13 +127,20 @@ Evidence recorded during the fix pass:
 
 ## Release boundary
 
-- [ ] Apply the separately authorized Mirror minor plan,
+- [x] Apply the separately authorized Mirror minor plan,
   create/push the release commit and annotated canonical tag, and publish the
   GitHub Release.
-- [ ] After authorization, verify remote ancestry, workflow success, release
+- [x] After authorization, verify remote ancestry, workflow success, release
   publication, complete manifest-derived assets, checksums, and downloaded
   native launcher/payload smoke.
-- [ ] Confirm explicitly that no production deployment, traffic, DNS, database,
+- [x] Confirm explicitly that no production deployment, traffic, DNS, database,
   secret, or live-service action occurred.
 
-No unchecked release-boundary item is implied by implementation approval.
+Applied on 2026-08-16/17: changelog dated in `1a4b33f`; `mirror version apply
+minor --yes` created and pushed `buda/v0.2.0` at `1a4b33f`; the publish
+workflow (run `31978692658`) succeeded and published the release with all 24
+manifest artifacts plus `checksums.txt`; every downloaded asset re-verified
+against `checksums.txt`; the native Windows payload and launcher returned
+`0.2.0` with `__self-test` `ok` from a disposable home; and the tag is a
+verified ancestor of `origin/main`. No production deployment, traffic, DNS,
+database, secret, or live-service action occurred.
