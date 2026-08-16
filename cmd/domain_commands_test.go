@@ -6,6 +6,7 @@ import (
 	"encoding/json"
 	"os"
 	"path/filepath"
+	"strings"
 	"testing"
 
 	"github.com/CGuiho/buda/internal/agent"
@@ -118,7 +119,8 @@ func TestStatusKeepsCanonicalAndQMDResultsSeparate(t *testing.T) {
 
 func domainDeps(output *bytes.Buffer, home string) Dependencies {
 	return Dependencies{
-		In: bytes.NewReader(nil), Out: output, Err: &bytes.Buffer{}, Options: &Options{},
+		In: strings.NewReader("yes\n"), Out: output, Err: &bytes.Buffer{}, Options: &Options{},
+		Interactive:         func() bool { return true },
 		Agents:              agent.NewService(agent.DefaultResources(), agent.WithHomeDir(func() (string, error) { return home, nil })),
 		Executable:          func() (string, error) { return "buda", nil },
 		ScheduleMaintenance: func(string, string) error { return nil },

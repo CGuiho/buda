@@ -55,6 +55,15 @@ func testWiki(t *testing.T) string {
 	return root
 }
 
+func testInstallLayout(t *testing.T) installlayout.Layout {
+	t.Helper()
+	layout, err := installlayout.ForHome(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
+	return layout
+}
+
 func upgradeClient(binary []byte) *http.Client {
 	digest := sha256.Sum256(binary)
 	return &http.Client{Transport: releaseTransport(func(request *http.Request) (*http.Response, error) {
@@ -171,9 +180,11 @@ func TestUpgradeAndUninstallNeverScheduleResourceMaintenance(t *testing.T) {
 func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 	var output bytes.Buffer
 	wiki := testWiki(t)
+	layout := testInstallLayout(t)
 	called := false
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
+		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
 		UpgradeBinary: func(context.Context, selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
 			called = true
 			return selfmanage.UpgradeResult{}, nil
@@ -192,9 +203,11 @@ func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 	var output bytes.Buffer
 	wiki := testWiki(t)
+	layout := testInstallLayout(t)
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
-		Executable: func() (string, error) { return "C:/tools/buda.exe", nil },
+		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
+		Executable:    func() (string, error) { return "C:/tools/buda.exe", nil },
 		UpgradeBinary: func(_ context.Context, options selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
 			options.Progress(selfmanage.DownloadProgress{Bytes: 6, Total: 6, Percent: 100})
 			return selfmanage.UpgradeResult{Executable: options.Executable, Backup: options.Executable + ".old", TargetVersion: options.TargetVersion}, nil
@@ -216,9 +229,11 @@ func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 func TestReconciliationFailureAutomaticallyRollsBack(t *testing.T) {
 	rolledBack := false
 	wiki := testWiki(t)
+	layout := testInstallLayout(t)
 	deps := Dependencies{
 		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
-		Executable: func() (string, error) { return "C:/tools/buda.exe", nil },
+		InstallLayout: func() (installlayout.Layout, error) { return layout, nil },
+		Executable:    func() (string, error) { return "C:/tools/buda.exe", nil },
 		UpgradeBinary: func(_ context.Context, options selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error) {
 			return selfmanage.UpgradeResult{Executable: options.Executable, Backup: options.Executable + ".old"}, nil
 		},

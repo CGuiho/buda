@@ -99,7 +99,7 @@ func TestRunRejectsSymlinkedPayload(t *testing.T) {
 		t.Fatal(err)
 	}
 	var out, errOut bytes.Buffer
-	if code := Run(nil, strings.NewReader(""), &out, &errOut, layout); code == 0 || !strings.Contains(errOut.String(), "symlink") {
+	if code := Run(nil, strings.NewReader(""), &out, &errOut, layout); code == 0 || !strings.Contains(errOut.String(), "outside the versions directory") {
 		t.Fatalf("symlinked payload result code=%d stderr=%q", code, errOut.String())
 	}
 }
