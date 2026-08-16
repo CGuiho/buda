@@ -9,6 +9,7 @@ tags:
   - changelog
   - releases
 keywords:
+  - Buda 0.2.0
   - Buda 0.1.1
   - release notes
   - manifest-derived release
@@ -20,11 +21,10 @@ keywords:
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
 
-## [0.2.0] - Unreleased
+## [0.2.0] - 2026-08-17
 
-This entry prepares the next minor Buda release after `buda/v0.1.1`. It adopts
-GUIHO CLI Convention 0001 while preserving Buda's explicit-wiki and qmd-only
-product boundaries.
+This release migrates Buda onto GUIHO CLI Convention 0001 while preserving
+Buda's explicit-wiki and qmd-only product boundaries.
 
 ### Added
 
@@ -48,10 +48,6 @@ product boundaries.
 - Install and uninstall scripts use the shared `$HOME/.guiho` layout, explicit
   wiki parameters, immutable version directories, complete checksums, and
   manifest-derived state.
-
-This entry is preparation only until Mirror applies the authorized `0.2.0`
-version, creates the canonical tag, and the tag workflow publishes the
-verified release.
 
 ## [0.1.1] - 2026-08-07
 
