@@ -10,6 +10,7 @@ import (
 	"testing"
 
 	"github.com/CGuiho/buda/internal/agent"
+	"github.com/CGuiho/buda/internal/config"
 	"github.com/CGuiho/buda/internal/qmd"
 	"github.com/CGuiho/buda/internal/repository"
 )
@@ -46,6 +47,17 @@ func TestInitCommandPreflightsQMDAndInstallsAgentResources(t *testing.T) {
 	home := t.TempDir()
 	client := &domainFakeQMD{}
 	output := &bytes.Buffer{}
+	globalPath := config.GlobalPath(home)
+	if err := os.MkdirAll(filepath.Dir(globalPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	globalData, err := config.MarshalGlobal(config.DefaultGlobal(), "test")
+	if err != nil {
+		t.Fatal(err)
+	}
+	if err := os.WriteFile(globalPath, globalData, 0o644); err != nil {
+		t.Fatal(err)
+	}
 	deps := domainDeps(output, home)
 	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
 	root.SetArgs([]string{"--wiki", wiki, "--json", "init", "--wiki-id", "wiki-test"})
@@ -121,6 +133,7 @@ func domainDeps(output *bytes.Buffer, home string) Dependencies {
 	return Dependencies{
 		In: strings.NewReader("yes\n"), Out: output, Err: &bytes.Buffer{}, Options: &Options{},
 		Interactive:         func() bool { return true },
+		HomeDir:             func() (string, error) { return home, nil },
 		Agents:              agent.NewService(agent.DefaultResources(), agent.WithHomeDir(func() (string, error) { return home, nil })),
 		Executable:          func() (string, error) { return "buda", nil },
 		ScheduleMaintenance: func(string, string) error { return nil },
