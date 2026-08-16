@@ -13,24 +13,73 @@ import (
 )
 
 const (
-	FileName      = "buda.yaml"
-	CurrentSchema = 1
+	FileName       = "buda.yaml"
+	GlobalFileName = "buda.global.yaml"
+	CurrentSchema  = 1
 )
 
-// Config is the complete supported buda.yaml shape. Configuration is never
-// merged: callers load exactly one resolved file.
+// Config is the effective configuration after the global baseline and the
+// explicitly selected project's overrides have been merged.
 type Config struct {
-	Schema  int       `yaml:"schema" json:"schema"`
-	WikiID  string    `yaml:"wiki_id" json:"wiki_id"`
-	Bundle  string    `yaml:"bundle" json:"bundle"`
-	QMD     QMDConfig `yaml:"qmd" json:"qmd"`
-	Derived string    `yaml:"derived" json:"derived"`
+	Schema  int         `yaml:"schema" json:"schema"`
+	WikiID  string      `yaml:"wiki_id" json:"wiki_id"`
+	Bundle  string      `yaml:"bundle" json:"bundle"`
+	QMD     QMDConfig   `yaml:"qmd" json:"qmd"`
+	Derived string      `yaml:"derived" json:"derived"`
+	Agent   AgentConfig `yaml:"agent" json:"agent"`
 }
 
 type QMDConfig struct {
 	Executable       string `yaml:"executable" json:"executable"`
 	Collection       string `yaml:"collection" json:"collection"`
 	ProjectDirectory string `yaml:"project_directory" json:"project_directory"`
+}
+
+// Policy is deliberately a string enum rather than a Boolean. This keeps
+// unattended agent authority explicit and makes unknown values fail closed.
+type Policy string
+
+const (
+	PolicyDisabled      Policy = "disabled"
+	PolicyAlwaysAsk     Policy = "always-ask"
+	PolicyAlwaysProceed Policy = "always-proceed"
+)
+
+type AgentConfig struct {
+	Evolution EvolutionConfig `yaml:"evolution" json:"evolution"`
+}
+
+type EvolutionConfig struct {
+	Upgrade Policy        `yaml:"upgrade" json:"upgrade"`
+	Issues  IssuePolicies `yaml:"issues" json:"issues"`
+}
+
+type IssuePolicies struct {
+	Bugs         Policy `yaml:"bugs" json:"bugs"`
+	Improvements Policy `yaml:"improvements" json:"improvements"`
+	Reviews      Policy `yaml:"reviews" json:"reviews"`
+}
+
+// GlobalConfig is the user-wide baseline stored in the CLI home. Pointers are
+// intentional: an omitted value is distinguishable from an explicit value
+// when the effective project configuration is merged.
+type GlobalConfig struct {
+	Schema  int          `yaml:"schema" json:"schema"`
+	Bundle  *string      `yaml:"bundle,omitempty" json:"bundle,omitempty"`
+	QMD     *QMDConfig   `yaml:"qmd,omitempty" json:"qmd,omitempty"`
+	Derived *string      `yaml:"derived,omitempty" json:"derived,omitempty"`
+	Agent   *AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
+}
+
+// ProjectConfig is the explicit-wiki configuration. WikiID is required;
+// other fields override the global baseline only when present.
+type ProjectConfig struct {
+	Schema  int          `yaml:"schema" json:"schema"`
+	WikiID  string       `yaml:"wiki_id" json:"wiki_id"`
+	Bundle  *string      `yaml:"bundle,omitempty" json:"bundle,omitempty"`
+	QMD     *QMDConfig   `yaml:"qmd,omitempty" json:"qmd,omitempty"`
+	Derived *string      `yaml:"derived,omitempty" json:"derived,omitempty"`
+	Agent   *AgentConfig `yaml:"agent,omitempty" json:"agent,omitempty"`
 }
 
 func Default(wikiID string) Config {
@@ -44,7 +93,17 @@ func Default(wikiID string) Config {
 			Collection:       "buda-wiki",
 			ProjectDirectory: ".qmd",
 		},
+		Agent: DefaultAgent(),
 	}
+}
+
+func DefaultAgent() AgentConfig {
+	return AgentConfig{Evolution: EvolutionConfig{
+		Upgrade: PolicyAlwaysAsk,
+		Issues: IssuePolicies{
+			Bugs: PolicyAlwaysAsk, Improvements: PolicyAlwaysAsk, Reviews: PolicyAlwaysAsk,
+		},
+	}}
 }
 
 // Resolve implements the shared GUIHO precedence contract without merging:
@@ -58,6 +117,10 @@ func Resolve(explicit, cwd, home string) (string, error) {
 			candidates = append(candidates, filepath.Join(cwd, FileName))
 		}
 		if home != "" {
+			candidates = append(candidates, filepath.Join(home, ".guiho", "buda", GlobalFileName))
+			// Legacy 0.1.x used buda.yaml in the global directory. Keep this
+			// read-only discovery path for migration; new writes always use the
+			// distinct global filename.
 			candidates = append(candidates, filepath.Join(home, ".guiho", "buda", FileName))
 		}
 	}
@@ -94,6 +157,29 @@ func Load(path string) (Config, error) {
 		return Config{}, fmt.Errorf("decode configuration %q: %w", path, err)
 	}
 	return configuration, nil
+}
+
+// LoadEffective loads the explicit project configuration and the optional
+// user-wide baseline without discovering a wiki. A missing global file uses
+// the embedded defaults; callers that own initialization should create it.
+func LoadEffective(projectPath, home string) (Config, error) {
+	project, err := LoadProject(projectPath)
+	if err != nil {
+		return Config{}, fmt.Errorf("load project configuration: %w", err)
+	}
+	global := DefaultGlobal()
+	if strings.TrimSpace(home) != "" {
+		path := GlobalPath(home)
+		if _, statErr := os.Stat(path); statErr == nil {
+			global, err = LoadGlobal(path)
+			if err != nil {
+				return Config{}, err
+			}
+		} else if !errors.Is(statErr, os.ErrNotExist) {
+			return Config{}, fmt.Errorf("inspect global configuration: %w", statErr)
+		}
+	}
+	return Merge(global, project)
 }
 
 func Decode(reader io.Reader) (Config, error) {
@@ -153,6 +239,9 @@ func (configuration Config) Validate() error {
 	if cleanBundle == cleanQMD || cleanBundle == cleanDerived || cleanQMD == cleanDerived {
 		return errors.New("bundle, qmd.project_directory, and derived must be distinct paths")
 	}
+	if err := validateAgent(configuration.Agent); err != nil {
+		return err
+	}
 	return nil
 }
 
@@ -160,7 +249,7 @@ func validateRepositoryRelative(name, value string) error {
 	if strings.TrimSpace(value) == "" {
 		return fmt.Errorf("%s must not be empty", name)
 	}
-	if strings.ContainsRune(value, '\x00') || filepath.IsAbs(value) {
+	if strings.ContainsRune(value, '\x00') || strings.ContainsRune(value, ':') || filepath.IsAbs(value) || filepath.VolumeName(value) != "" {
 		return fmt.Errorf("%s must be a repository-relative path", name)
 	}
 	clean := filepath.Clean(value)
@@ -174,9 +263,8 @@ func Marshal(configuration Config) ([]byte, error) {
 	if err := configuration.Validate(); err != nil {
 		return nil, err
 	}
-	data, err := yaml.Marshal(configuration)
-	if err != nil {
-		return nil, fmt.Errorf("encode configuration: %w", err)
-	}
-	return data, nil
+	bundle, derived := configuration.Bundle, configuration.Derived
+	qmd := configuration.QMD
+	agent := configuration.Agent
+	return MarshalProject(ProjectConfig{Schema: configuration.Schema, WikiID: configuration.WikiID, Bundle: &bundle, QMD: &qmd, Derived: &derived, Agent: &agent}, "0.2.0")
 }

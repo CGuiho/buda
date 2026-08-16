@@ -66,6 +66,16 @@ func TestVersionComparisonAndTargetSelection(t *testing.T) {
 	if _, err := AssetName("buda-linux-ppc64"); err == nil {
 		t.Fatal("unsupported embedded target was accepted")
 	}
+	for target, want := range map[string]string{
+		"buda-linux-amd64":   "buda-launcher-linux-amd64",
+		"buda-linux-armv7":   "buda-launcher-linux-armv7",
+		"buda-windows-amd64": "buda-launcher-windows-amd64.exe",
+	} {
+		got, err := LauncherAssetName(target)
+		if err != nil || got != want {
+			t.Fatalf("LauncherAssetName(%q) = %q, %v", target, got, err)
+		}
+	}
 }
 
 func TestUpgradeVerifiesChecksumBeforeInjectedReplacement(t *testing.T) {
@@ -131,7 +141,7 @@ func TestFetchChecksumRequiresExactAssetEntry(t *testing.T) {
 	}
 }
 
-func TestUpgradeRotatesPriorBackupAndKeepsScheduledCandidate(t *testing.T) {
+func TestUpgradeRejectsDeferredReplacementAndRestoresBackupRotation(t *testing.T) {
 	content := []byte("next")
 	digest := sha256.Sum256(content)
 	server := httptest.NewServer(http.HandlerFunc(func(writer http.ResponseWriter, _ *http.Request) { _, _ = writer.Write(content) }))
@@ -153,16 +163,17 @@ func TestUpgradeRotatesPriorBackupAndKeepsScheduledCandidate(t *testing.T) {
 			return true, nil
 		},
 	})
-	if err != nil {
-		t.Fatal(err)
+	if err == nil || !strings.Contains(err.Error(), "synchronously") {
+		t.Fatalf("deferred replacement error = %v", err)
 	}
-	defer os.Remove(candidate)
-	if _, err := os.Stat(candidate); err != nil {
-		t.Fatalf("scheduled candidate was removed before helper takeover: %v", err)
+	if candidate != "" {
+		if _, statErr := os.Stat(candidate); !os.IsNotExist(statErr) {
+			t.Fatalf("deferred candidate was not cleaned: %v", statErr)
+		}
 	}
-	rotated, err := os.ReadFile(executable + ".old.previous")
-	if err != nil || string(rotated) != "previous" {
-		t.Fatalf("prior backup was not safely rotated: %q %v", rotated, err)
+	restored, err := os.ReadFile(executable + ".old")
+	if err != nil || string(restored) != "previous" {
+		t.Fatalf("prior backup was not restored after rejected deferred replacement: %q %v", restored, err)
 	}
 }
 

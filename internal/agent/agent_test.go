@@ -37,7 +37,7 @@ func TestEmbeddedResourcesCarryTheRequiredIdentityAndReferences(t *testing.T) {
 	if skill.ID != SkillID || skill.Version == "" || !strings.HasPrefix(skill.Digest, "sha256:") {
 		t.Fatalf("skill = %#v", skill)
 	}
-	prompt, err := service.Prompt()
+	prompt, err := service.Instruction()
 	if err != nil {
 		t.Fatal(err)
 	}
@@ -204,7 +204,7 @@ func TestInstructionsRespectTargetsLineEndingsOutsideContentAndIdempotency(t *te
 	}
 }
 
-func TestInstructionUpdateConvergesDuplicatesAndRejectsMalformedMarkers(t *testing.T) {
+func TestInstructionUpgradeConvergesDuplicatesAndRejectsMalformedMarkers(t *testing.T) {
 	wiki := t.TempDir()
 	writeWikiConfig(t, wiki, "wiki-test")
 	path := filepath.Join(wiki, "AGENTS.md")
@@ -252,7 +252,7 @@ func TestInstructionMutationRejectsMarkerLikeVariantsWithoutChangingBytes(t *tes
 			for _, operation := range []struct {
 				name string
 				run  func(string) ([]InstructionTarget, error)
-			}{{"apply", service.ApplyInstructions}, {"update", service.ApplyInstructions}, {"remove", service.RemoveInstructions}} {
+			}{{"apply", service.ApplyInstructions}, {"upgrade", service.ApplyInstructions}, {"remove", service.RemoveInstructions}} {
 				t.Run(operation.name, func(t *testing.T) {
 					if _, err := operation.run(wiki); err == nil || !strings.Contains(err.Error(), "malformed") {
 						t.Fatalf("marker variant error = %v", err)
@@ -306,7 +306,7 @@ func TestInstructionTargetPrecedence(t *testing.T) {
 	}{
 		{name: "neither creates AGENTS", want: []string{"AGENTS.md"}},
 		{name: "AGENTS only", existing: []string{"AGENTS.md"}, want: []string{"AGENTS.md"}},
-		{name: "CLAUDE only", existing: []string{"CLAUDE.md"}, want: []string{"CLAUDE.md"}},
+		{name: "CLAUDE only", existing: []string{"CLAUDE.md"}, want: []string{"AGENTS.md", "CLAUDE.md"}},
 		{name: "both", existing: []string{"AGENTS.md", "CLAUDE.md"}, want: []string{"AGENTS.md", "CLAUDE.md"}},
 	} {
 		t.Run(test.name, func(t *testing.T) {

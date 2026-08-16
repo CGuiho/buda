@@ -5,7 +5,7 @@ parent: buda-internal
 children: []
 files:
   agent_test.go: Skill and instruction lifecycle tests.
-  instruction.go: Atomic bounded-marker instruction apply, remove, update, list, and show behavior.
+  instruction.go: Atomic bounded-marker instruction apply, remove, upgrade, list, and show behavior.
   resources.go: Embedded skill, instruction, and prompt resource access.
   skill.go: Global and explicit-wiki local skill destination management.
 documents: {}

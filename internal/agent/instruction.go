@@ -29,7 +29,7 @@ type InstructionTarget struct {
 }
 
 func (s *Service) InstructionTemplate(context InstructionContext) (string, error) {
-	prompt, err := s.Prompt()
+	prompt, err := s.Instruction()
 	if err != nil {
 		return "", err
 	}
@@ -47,7 +47,15 @@ func (s *Service) ReadInstructionContext(wiki string) (InstructionContext, error
 		return InstructionContext{}, repositoryError("resolve --wiki", err)
 	}
 	absolute = filepath.Clean(absolute)
-	value, err := config.Load(filepath.Join(absolute, config.FileName))
+	resolveHome := s.homeDir
+	if resolveHome == nil {
+		resolveHome = os.UserHomeDir
+	}
+	home, err := resolveHome()
+	if err != nil {
+		return InstructionContext{}, mutation("resolve Buda configuration home", err)
+	}
+	value, err := config.LoadEffective(filepath.Join(absolute, config.FileName), home)
 	if err != nil {
 		return InstructionContext{}, repositoryError("load strict buda.yaml", err)
 	}
@@ -172,21 +180,24 @@ func (s *Service) InstalledInstruction(wiki, name string) (string, error) {
 }
 
 func instructionTargets(wiki string, createDefault bool) ([]string, error) {
-	candidates := []string{filepath.Join(wiki, "AGENTS.md"), filepath.Join(wiki, "CLAUDE.md")}
+	agentsPath := filepath.Join(wiki, "AGENTS.md")
+	claudePath := filepath.Join(wiki, "CLAUDE.md")
+	candidates := []string{agentsPath, claudePath}
 	var targets []string
-	for _, path := range candidates {
+	// AGENTS.md is the canonical convention target and must always exist. A
+	// CLAUDE.md projection is reconciled only when the project already owns it.
+	for index, path := range candidates {
 		info, err := os.Lstat(path)
 		if err == nil && info.Mode()&os.ModeSymlink != 0 {
 			return nil, mutation("refuse symlinked instruction target "+path, nil)
 		}
 		if err == nil {
 			targets = append(targets, path)
+		} else if index == 0 && createDefault {
+			targets = append(targets, path)
 		} else if !os.IsNotExist(err) {
 			return nil, mutation("inspect instruction target", err)
 		}
-	}
-	if len(targets) == 0 && createDefault {
-		targets = append(targets, candidates[0])
 	}
 	return targets, nil
 }

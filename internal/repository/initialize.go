@@ -13,9 +13,11 @@ import (
 )
 
 type InitOptions struct {
-	WikiID       string
-	Now          time.Time
-	BeforeCommit func(Repository) error
+	WikiID        string
+	Configuration config.Config
+	Version       string
+	Now           time.Time
+	BeforeCommit  func(Repository) error
 }
 
 type InitResult struct {
@@ -76,13 +78,26 @@ func Initialize(wiki string, options InitOptions) (InitResult, error) {
 		return InitResult{}, fmt.Errorf("inspect initialization target: %w", err)
 	}
 
-	configuration := config.Default(options.WikiID)
-	configurationData, err := config.Marshal(configuration)
+	configuration := options.Configuration
+	if configuration.Schema == 0 {
+		configuration = config.Default(options.WikiID)
+	}
+	if configuration.WikiID != options.WikiID {
+		return InitResult{}, fmt.Errorf("initialization configuration wiki_id %q does not match requested %q", configuration.WikiID, options.WikiID)
+	}
+	if err := configuration.Validate(); err != nil {
+		return InitResult{}, err
+	}
+	version := strings.TrimPrefix(strings.TrimSpace(options.Version), "v")
+	if version == "" {
+		version = "0.2.0"
+	}
+	projectData, err := config.MarshalProject(config.ProjectConfig{Schema: config.CurrentSchema, WikiID: options.WikiID}, version)
 	if err != nil {
 		return InitResult{}, err
 	}
 	files := map[string][]byte{
-		config.FileName: configurationData,
+		config.FileName: projectData,
 		filepath.Join(configuration.Bundle, "index.md"): []byte("---\nokf_version: \"0.2\"\n---\n# Knowledge\n\nThis Buda wiki uses Open Knowledge Format v0.2.\n"),
 		filepath.Join(configuration.Bundle, "log.md"):   []byte(fmt.Sprintf("# Wiki Update Log\n\n## %s\n* **Initialization**: Created the Buda wiki.\n", options.Now.UTC().Format("2006-01-02"))),
 	}

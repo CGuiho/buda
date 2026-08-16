@@ -2,89 +2,77 @@ package cmd
 
 import (
 	"fmt"
+	"os"
 
-	"github.com/CGuiho/buda/internal/selfmanage"
+	"github.com/CGuiho/buda/internal/uninstall"
 	"github.com/spf13/cobra"
 )
 
 func newUninstallCommand(deps Dependencies) *cobra.Command {
-	var dryRun, keepResources bool
-	command := &cobra.Command{
-		Use: "uninstall", Short: "Remove the installed Buda binary and agent resources.", Args: NoArgs,
+	var dryRun, preserveConfig, preserveData, yes bool
+	command := &cobra.Command{Use: "uninstall", Short: "Remove Buda-owned installation artifacts safely.", Args: NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
 			wiki, err := optionalSelectedWiki(deps.Options.Wiki)
 			if err != nil {
 				return err
 			}
-			executable, err := absoluteExecutable(deps)
+			layout, err := deps.InstallLayout()
 			if err != nil {
-				return MutationError("determine Buda executable", err)
+				return MutationError("resolve Buda installation layout", err)
 			}
-			result := map[string]any{"command": "buda uninstall", "executable": executable, "dry_run": dryRun, "keep_agent_resources": keepResources, "scheduled": false}
+			plan, err := uninstall.BuildPlan(layout, wiki, preserveConfig, preserveData)
+			if err != nil {
+				return MutationError("build uninstall plan", err)
+			}
+			if JSONRequested(deps) && dryRun {
+				return WriteJSON(command, map[string]any{"command": "buda uninstall", "dry_run": true, "plan": plan})
+			}
 			if dryRun {
-				if JSONRequested(deps) {
-					return WriteJSON(command, result)
-				}
-				fmt.Fprintf(command.OutOrStdout(), "Would remove executable: %s\n", executable)
-				if !keepResources {
-					fmt.Fprintln(command.OutOrStdout(), "Would remove both global Buda skills.")
-					if wiki != "" {
-						fmt.Fprintf(command.OutOrStdout(), "Would remove Buda instruction blocks from: %s\n", wiki)
-					}
+				for _, item := range plan.Items {
+					fmt.Fprintf(command.OutOrStdout(), "%s %s (%s)\n", item.Action, item.Path, item.Owner)
 				}
 				return nil
 			}
-			var skills any = []any{}
-			var instructions any = []any{}
-			if !keepResources {
-				skillResults, err := deps.Agents.UninstallSkill(false, "")
-				if err != nil {
-					return MutationError("remove global Buda skills", err)
-				}
-				skills = skillResults
-				if wiki != "" {
-					instructionResults, err := deps.Agents.RemoveInstructions(wiki)
-					if err != nil {
-						return MutationError("remove Buda instruction blocks", err)
-					}
-					instructions = instructionResults
+			if !yes && !interactiveReader(deps.In) {
+				return UsageError("uninstall is destructive; provide --yes when no interactive terminal is available")
+			}
+			if !yes {
+				fmt.Fprint(command.OutOrStdout(), "Remove all Buda-owned artifacts listed above? [y/N] ")
+				var answer string
+				if _, err := fmt.Fscan(deps.In, &answer); err != nil || (answer != "y" && answer != "Y" && answer != "yes" && answer != "YES") {
+					return UsageError("uninstall cancelled")
 				}
 			}
-			scheduled, err := deps.RemoveExecutable(executable)
-			if err != nil {
-				return MutationError("remove Buda executable", err)
+			if err := uninstall.Apply(plan); err != nil {
+				return MutationError("apply Buda uninstall plan", err)
 			}
-			result["scheduled"] = scheduled
-			result["removed_skills"] = skills
-			result["instruction_results"] = instructions
+			executable, err := absoluteExecutable(deps)
+			if err == nil && executable != layout.Launcher {
+				if deferred, removeErr := deps.RemoveExecutable(executable); removeErr != nil {
+					return MutationError("remove legacy Buda executable", removeErr)
+				} else if deferred {
+					return MutationError("remove Buda executable", fmt.Errorf("removal was not synchronous"))
+				}
+			}
 			if JSONRequested(deps) {
-				return WriteJSON(command, result)
+				return WriteJSON(command, map[string]any{"command": "buda uninstall", "outcome": "succeeded", "plan": plan})
 			}
-			if scheduled {
-				fmt.Fprintf(command.OutOrStdout(), "Scheduled executable removal: %s\n", executable)
-			} else {
-				fmt.Fprintf(command.OutOrStdout(), "Removed executable: %s\n", executable)
-			}
+			fmt.Fprintln(command.OutOrStdout(), "Buda uninstall completed synchronously.")
 			return nil
 		},
 	}
-	command.Flags().BoolVar(&dryRun, "dry-run", false, "Preview without deleting")
-	command.Flags().BoolVar(&keepResources, "keep-agent-resources", false, "Keep global skills and explicit-wiki instruction blocks")
-	command.AddCommand(newWindowsRemovalCommand())
+	command.Flags().BoolVar(&dryRun, "dry-run", false, "Preview the manifest-driven removal plan without changing files")
+	command.Flags().BoolVar(&preserveConfig, "preserve-config", false, "Preserve global and selected-project configuration")
+	command.Flags().BoolVar(&preserveData, "preserve-data", false, "Preserve persistent Buda data and databases")
+	command.Flags().BoolVar(&yes, "yes", false, "Confirm destructive removal without prompting")
 	return command
 }
 
-func newWindowsRemovalCommand() *cobra.Command {
-	var pid int
-	var executable, helper string
-	command := &cobra.Command{
-		Use: "__remove-windows", Hidden: true, Args: NoArgs,
-		RunE: func(_ *cobra.Command, _ []string) error {
-			return selfmanage.CompleteWindowsRemoval(executable, helper, pid)
-		},
+func interactiveReader(reader any) bool {
+	file, ok := reader.(*os.File)
+	if !ok || file == nil {
+		return false
 	}
-	command.Flags().IntVar(&pid, "pid", 0, "Internal parent process ID")
-	command.Flags().StringVar(&executable, "executable", "", "Internal executable path")
-	command.Flags().StringVar(&helper, "helper", "", "Internal helper path")
-	return command
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }

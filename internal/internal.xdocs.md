@@ -16,6 +16,13 @@ children:
   - buda-internal-repository
   - buda-internal-selfmanage
   - buda-internal-source
+  - buda-internal-artifact
+  - buda-internal-installlayout
+  - buda-internal-launcher
+  - buda-internal-lifecycle
+  - buda-internal-releasecatalog
+  - buda-internal-uninstall
+  - buda-internal-upgrade
 files: {}
 documents: {}
 tags:

@@ -14,11 +14,14 @@ import (
 
 	"github.com/CGuiho/buda/internal/agent"
 	clihelp "github.com/CGuiho/buda/internal/help"
+	"github.com/CGuiho/buda/internal/installlayout"
 	"github.com/CGuiho/buda/internal/maintenance"
 	"github.com/CGuiho/buda/internal/qmd"
+	"github.com/CGuiho/buda/internal/releasecatalog"
 	"github.com/CGuiho/buda/internal/repository"
 	"github.com/CGuiho/buda/internal/selfmanage"
 	"github.com/CGuiho/buda/internal/source"
+	"github.com/CGuiho/buda/internal/upgrade"
 	"github.com/spf13/cobra"
 )
 
@@ -37,11 +40,21 @@ type Options struct {
 }
 
 type Dependencies struct {
-	In      io.Reader
-	Out     io.Writer
-	Err     io.Writer
-	Options *Options
-	Agents  *agent.Service
+	In  io.Reader
+	Out io.Writer
+	Err io.Writer
+	// Version is the exact release version used for generated, version-pinned
+	// configuration metadata. Development/test callers may leave it empty and
+	// receive the repository's current fallback.
+	Version       string
+	HomeDir       func() (string, error)
+	InstallLayout func() (installlayout.Layout, error)
+	// Interactive reports whether prompts may be shown. Keeping terminal
+	// detection injectable lets init remain deterministic in tests and fail
+	// closed when an unattended invocation lacks required answers.
+	Interactive func() bool
+	Options     *Options
+	Agents      *agent.Service
 
 	Executable          func() (string, error)
 	ScheduleMaintenance func(executable, wiki string) error
@@ -50,6 +63,7 @@ type Dependencies struct {
 	RemoveExecutable    func(string) (bool, error)
 	RollbackExecutable  func(string) (bool, error)
 	UpgradeBinary       func(context.Context, selfmanage.UpgradeOptions) (selfmanage.UpgradeResult, error)
+	UpgradeRelease      func(context.Context, upgrade.Options) (upgrade.Result, error)
 	ReconcileInstalled  func(string, string) error
 }
 
@@ -108,23 +122,33 @@ func DefaultDependencies() Dependencies {
 		In:                  os.Stdin,
 		Out:                 os.Stdout,
 		Err:                 os.Stderr,
+		Interactive:         func() bool { return interactiveReader(os.Stdin) },
 		Options:             &Options{},
 		Agents:              agent.NewService(agent.DefaultResources()),
 		Executable:          os.Executable,
+		HomeDir:             os.UserHomeDir,
+		InstallLayout:       installlayout.Current,
 		ScheduleMaintenance: maintenance.Schedule,
 		Now:                 time.Now,
 		HTTPClient:          &http.Client{Timeout: 30 * time.Second},
 		RemoveExecutable:    selfmanage.RemoveExecutable,
 		RollbackExecutable:  selfmanage.Rollback,
 		UpgradeBinary:       selfmanage.Upgrade,
+		UpgradeRelease:      upgrade.Execute,
 		ReconcileInstalled:  reconcileInstalledResources,
 	}
 }
 
 func Execute(info BuildInfo) error {
+	cleanup, err := registerCurrentInstance(info)
+	if err != nil {
+		return MutationError("register Buda payload instance", err)
+	}
+	defer cleanup()
 	deps := DefaultDependencies()
+	deps.Version = info.Version
 	root := NewRootCommand(deps, info, NewApplicationCommands(deps)...)
-	err := root.Execute()
+	err = root.Execute()
 	if errors.Is(err, errHelpRendered) {
 		return nil
 	}
@@ -173,7 +197,8 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	deps = normalizeDependencies(deps)
 	options := deps.Options
 	var helpTree, helpDocs bool
-	var helpDepth int
+	var helpTreeGlobalFlags bool
+	var helpDepth string
 
 	root := &cobra.Command{
 		Use:           "buda",
@@ -184,11 +209,13 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 		SilenceErrors: true,
 		Args:          NoArgs,
 		PersistentPreRunE: func(command *cobra.Command, _ []string) error {
-			if command.Flags().Changed("help-tree-depth") && helpDepth < 1 {
-				return UsageError("--help-tree-depth must be a positive integer")
+			if command.Flags().Changed("help-tree-depth") || helpTree || helpTreeGlobalFlags {
+				if _, err := clihelp.ParseDepth(helpDepth); err != nil {
+					return UsageError("%v", err)
+				}
 			}
 			if helpDocs {
-				markdown, err := clihelp.Markdown(command, helpDepth)
+				markdown, err := clihelp.Markdown(command)
 				if err != nil {
 					return err
 				}
@@ -196,7 +223,11 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 				return errHelpRendered
 			}
 			if helpTree || command.Flags().Changed("help-tree-depth") {
-				fmt.Fprint(command.OutOrStdout(), clihelp.Tree(command, helpDepth))
+				tree, err := clihelp.Tree(command, helpDepth, helpTreeGlobalFlags)
+				if err != nil {
+					return UsageError("%v", err)
+				}
+				fmt.Fprint(command.OutOrStdout(), tree)
 				return errHelpRendered
 			}
 			if command == command.Root() && strings.TrimSpace(options.Wiki) != "" {
@@ -229,7 +260,7 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 			return nil
 		},
 		RunE: func(command *cobra.Command, _ []string) error {
-			message := fmt.Sprintf("Hello Windows - buda v%s", info.Version)
+			message := fmt.Sprintf("Hello Windows - buda %s", info.Version)
 			selected := strings.TrimSpace(options.Wiki) != ""
 			if options.JSON {
 				output := map[string]any{"command": "buda", "version": info.Version, "wiki_selected": selected, "message": message}
@@ -248,7 +279,7 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	root.SetIn(deps.In)
 	root.SetOut(deps.Out)
 	root.SetErr(deps.Err)
-	root.SetVersionTemplate("{{.Name}} v{{.Version}}\n")
+	root.SetVersionTemplate("{{.Version}}\n")
 	root.CompletionOptions.DisableDefaultCmd = true
 	root.SetHelpCommand(&cobra.Command{Use: "help", Hidden: true})
 	root.SetFlagErrorFunc(func(_ *cobra.Command, err error) error {
@@ -259,7 +290,8 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	flags.StringVar(&options.Wiki, "wiki", "", "Explicit path to the one wiki repository")
 	flags.BoolVar(&options.JSON, "json", false, "Emit one stable JSON document")
 	flags.BoolVar(&helpTree, "help-tree", false, "Show the public command subtree")
-	flags.IntVar(&helpDepth, "help-tree-depth", 0, "Limit command-tree recursion to a positive depth")
+	flags.StringVar(&helpDepth, "help-tree-depth", "max", "Limit command-tree recursion to max or an integer greater than 1")
+	flags.BoolVar(&helpTreeGlobalFlags, "help-tree-global-flags", false, "Repeat inherited global flags under every command in the help tree")
 	flags.BoolVar(&helpDocs, "help-docs", false, "Show deterministic Markdown for this command scope")
 
 	root.AddCommand(commands...)
@@ -267,8 +299,24 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 	root.AddCommand(newUpgradeCommand(deps, info))
 	root.AddCommand(newUninstallCommand(deps))
 	root.AddCommand(newMaintenanceCommand(deps))
+	root.AddCommand(newSelfTestCommand())
 	wrapDeveloperHelpArgs(root)
 	return root
+}
+
+// newSelfTestCommand is intentionally hidden from the public command tree.
+// Installers and lifecycle transactions use it to prove the candidate can
+// construct its command surface and read embedded resources before activation.
+func newSelfTestCommand() *cobra.Command {
+	return &cobra.Command{
+		Use:    "__self-test",
+		Hidden: true,
+		Args:   NoArgs,
+		RunE: func(command *cobra.Command, _ []string) error {
+			fmt.Fprintln(command.OutOrStdout(), "ok")
+			return nil
+		},
+	}
 }
 
 // wrapDeveloperHelpArgs lets the three generated developer-help forms inspect
@@ -294,6 +342,7 @@ func wrapDeveloperHelpArgs(command *cobra.Command) {
 func developerHelpRequested(command *cobra.Command) bool {
 	return command.Flags().Changed("help-tree") ||
 		command.Flags().Changed("help-tree-depth") ||
+		command.Flags().Changed("help-tree-global-flags") ||
 		command.Flags().Changed("help-docs")
 }
 
@@ -310,11 +359,21 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	if deps.Options == nil {
 		deps.Options = &Options{}
 	}
-	if deps.Agents == nil {
-		deps.Agents = agent.NewService(agent.DefaultResources())
+	if deps.Interactive == nil {
+		reader := deps.In
+		deps.Interactive = func() bool { return interactiveReader(reader) }
 	}
 	if deps.Executable == nil {
 		deps.Executable = os.Executable
+	}
+	if deps.HomeDir == nil {
+		deps.HomeDir = os.UserHomeDir
+	}
+	if deps.Agents == nil {
+		deps.Agents = agent.NewService(agent.DefaultResources(), agent.WithHomeDir(deps.HomeDir))
+	}
+	if deps.InstallLayout == nil {
+		deps.InstallLayout = installlayout.Current
 	}
 	if deps.ScheduleMaintenance == nil {
 		deps.ScheduleMaintenance = maintenance.Schedule
@@ -333,6 +392,9 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	}
 	if deps.UpgradeBinary == nil {
 		deps.UpgradeBinary = selfmanage.Upgrade
+	}
+	if deps.UpgradeRelease == nil {
+		deps.UpgradeRelease = upgrade.Execute
 	}
 	if deps.ReconcileInstalled == nil {
 		deps.ReconcileInstalled = reconcileInstalledResources
@@ -387,4 +449,14 @@ func dependencyNow(deps Dependencies) time.Time {
 		return deps.Now().UTC()
 	}
 	return time.Now().UTC()
+}
+
+func releaseVersion(deps Dependencies) string {
+	if value := strings.TrimSpace(deps.Version); value != "" {
+		value = strings.TrimPrefix(value, "v")
+		if releasecatalog.IsSemver(value) {
+			return value
+		}
+	}
+	return "0.2.0"
 }

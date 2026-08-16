@@ -46,7 +46,6 @@ type UpgradeResult struct {
 	Asset          string `json:"asset"`
 	Executable     string `json:"executable"`
 	Backup         string `json:"backup,omitempty"`
-	Scheduled      bool   `json:"scheduled"`
 	Recovery       string `json:"recovery,omitempty"`
 }
 
@@ -71,6 +70,25 @@ func AssetName(buildTarget string) (string, error) {
 		return target + ".exe", nil
 	}
 	return target, nil
+}
+
+// LauncherAssetName returns the stable launcher paired with a released
+// payload. Keeping this derivation beside AssetName prevents an upgrade from
+// accepting a payload-only release that cannot repair a fresh installation.
+func LauncherAssetName(buildTarget string) (string, error) {
+	payload, err := AssetName(buildTarget)
+	if err != nil {
+		return "", err
+	}
+	target := strings.TrimSuffix(payload, ".exe")
+	if !strings.HasPrefix(target, "buda-") {
+		return "", fmt.Errorf("unsupported embedded build target %q", buildTarget)
+	}
+	launcher := "buda-launcher-" + strings.TrimPrefix(target, "buda-")
+	if strings.HasSuffix(payload, ".exe") {
+		launcher += ".exe"
+	}
+	return launcher, nil
 }
 
 func FetchChecksum(ctx context.Context, client Doer, manifestURL, assetName string) (string, error) {
@@ -162,7 +180,7 @@ func Upgrade(ctx context.Context, options UpgradeOptions) (UpgradeResult, error)
 	if replace == nil {
 		replace = replaceExecutable
 	}
-	scheduled, err := replace(executable, candidate, result.Backup, result.TargetVersion, expected, options.Wiki, verify)
+	deferred, err := replace(executable, candidate, result.Backup, result.TargetVersion, expected, options.Wiki, verify)
 	if err != nil {
 		if rotated {
 			if restoreErr := restoreRotatedBackup(result.Backup); restoreErr != nil {
@@ -171,13 +189,16 @@ func Upgrade(ctx context.Context, options UpgradeOptions) (UpgradeResult, error)
 		}
 		return result, err
 	}
-	result.Scheduled = scheduled
-	if scheduled {
-		removeCandidate = false
+	if deferred {
+		if rotated {
+			if restoreErr := restoreRotatedBackup(result.Backup); restoreErr != nil {
+				return result, fmt.Errorf("replacement did not complete synchronously; restoring prior rollback backup also failed: %v", restoreErr)
+			}
+		}
+		return result, errors.New("replacement did not complete synchronously; stable launcher installation is required")
 	}
-	if !scheduled {
-		result.Recovery = ""
-	}
+	removeCandidate = false
+	result.Recovery = ""
 	return result, nil
 }
 
@@ -318,7 +339,7 @@ func VerifyExecutable(path, version string) error {
 	if err != nil {
 		return fmt.Errorf("verify replacement executable: %w (%s)", err, strings.TrimSpace(string(output)))
 	}
-	expected := "buda v" + strings.TrimPrefix(version, "v")
+	expected := strings.TrimPrefix(version, "v")
 	if observed := strings.TrimSpace(string(output)); observed != expected {
 		return fmt.Errorf("verify replacement executable: expected %q, got %q", expected, observed)
 	}

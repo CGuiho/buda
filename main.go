@@ -8,7 +8,10 @@ import (
 )
 
 var (
-	version     = "dev"
+	// Keep source builds SemVer-compatible. Release builds replace this value
+	// with the exact tag version through ldflags, while local `go run` and
+	// developer binaries still obey the raw-version CLI contract.
+	version     = "0.2.0-dev.0"
 	commit      = "unknown"
 	buildDate   = "unknown"
 	buildTarget = "development"

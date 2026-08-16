@@ -67,7 +67,11 @@ func Open(wiki string) (Repository, error) {
 		return Repository{}, fmt.Errorf("wiki path %q is not a directory", root)
 	}
 	configPath := filepath.Join(root, config.FileName)
-	configuration, err := config.Load(configPath)
+	home, err := os.UserHomeDir()
+	if err != nil {
+		return Repository{}, fmt.Errorf("resolve user home for global Buda configuration: %w", err)
+	}
+	configuration, err := config.LoadEffective(configPath, home)
 	if err != nil {
 		return Repository{}, fmt.Errorf("selected wiki must contain exactly one root %s: %w", config.FileName, err)
 	}

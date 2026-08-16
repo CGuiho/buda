@@ -8,9 +8,12 @@ import (
 	"errors"
 	"io"
 	"net/http"
+	"path/filepath"
 	"strings"
 	"testing"
 
+	"github.com/CGuiho/buda/internal/installlayout"
+	"github.com/CGuiho/buda/internal/repository"
 	"github.com/CGuiho/buda/internal/selfmanage"
 )
 
@@ -27,11 +30,29 @@ func catalogClient() *http.Client {
  "html_url":"https://github.com/CGuiho/buda/releases/tag/buda/v0.0.2",
  "assets":[
   {"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda-linux-amd64"},
-  {"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"}
+  {"name":"buda-launcher-linux-amd64","browser_download_url":"https://downloads.example/buda-launcher-linux-amd64"},
+  {"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"},
+  {"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"},
+  {"name":"buda.schema.json","browser_download_url":"https://downloads.example/buda.schema.json"},
+  {"name":"buda.global.schema.json","browser_download_url":"https://downloads.example/buda.global.schema.json"},
+  {"name":"buda.example.yaml","browser_download_url":"https://downloads.example/buda.example.yaml"},
+  {"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"},
+  {"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"},
+  {"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"},
+  {"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}
  ]
 }]`
 		return &http.Response{StatusCode: http.StatusOK, Status: "200 OK", Body: io.NopCloser(strings.NewReader(body)), Header: make(http.Header)}, nil
 	})}
+}
+
+func testWiki(t *testing.T) string {
+	t.Helper()
+	root := filepath.Join(t.TempDir(), "wiki")
+	if _, err := repository.Initialize(root, repository.InitOptions{WikiID: "test-wiki"}); err != nil {
+		t.Fatal(err)
+	}
+	return root
 }
 
 func upgradeClient(binary []byte) *http.Client {
@@ -40,7 +61,19 @@ func upgradeClient(binary []byte) *http.Client {
 		body := ""
 		switch request.URL.Host {
 		case "api.github.com":
-			body = `[{"tag_name":"buda/v0.0.2","assets":[{"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda"},{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"}]}]`
+			body = `[{"tag_name":"buda/v0.0.2","html_url":"https://github.com/CGuiho/buda/releases/tag/buda/v0.0.2","assets":[
+{"name":"buda-linux-amd64","browser_download_url":"https://downloads.example/buda"},
+{"name":"buda-launcher-linux-amd64","browser_download_url":"https://downloads.example/buda-launcher-linux-amd64"},
+{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"},
+{"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"},
+{"name":"buda.schema.json","browser_download_url":"https://downloads.example/buda.schema.json"},
+{"name":"buda.global.schema.json","browser_download_url":"https://downloads.example/buda.global.schema.json"},
+{"name":"buda.example.yaml","browser_download_url":"https://downloads.example/buda.example.yaml"},
+{"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"},
+{"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"},
+{"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"},
+{"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}
+]}]`
 		case "downloads.example":
 			if strings.HasSuffix(request.URL.Path, "checksums.txt") {
 				body = hex.EncodeToString(digest[:]) + "  buda-linux-amd64\n"
@@ -52,11 +85,12 @@ func upgradeClient(binary []byte) *http.Client {
 	})}
 }
 
-func TestUpgradeDryRunUsesCanonicalReleaseWithoutWiki(t *testing.T) {
+func TestUpgradeDryRunUsesCanonicalReleaseWithExplicitWiki(t *testing.T) {
 	var output bytes.Buffer
+	wiki := testWiki(t)
 	deps := Dependencies{Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(), Executable: func() (string, error) { return "buda", nil }}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1", Target: "buda-linux-amd64"})
-	root.SetArgs([]string{"upgrade", "--dry-run"})
+	root.SetArgs([]string{"upgrade", "--dry-run", "--wiki", wiki})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -85,28 +119,43 @@ func TestUpgradeCheckAndListEmitOneJSONDocument(t *testing.T) {
 func TestUninstallDryRunNeedsNoWikiAndDoesNotDelete(t *testing.T) {
 	var output bytes.Buffer
 	removed := false
+	layout, err := installlayout.ForHome(t.TempDir())
+	if err != nil {
+		t.Fatal(err)
+	}
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{},
 		Executable:       func() (string, error) { return "buda", nil },
 		RemoveExecutable: func(string) (bool, error) { removed = true; return false, nil },
+		InstallLayout:    func() (installlayout.Layout, error) { return layout, nil },
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1"})
 	root.SetArgs([]string{"uninstall", "--dry-run"})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	if removed || !strings.Contains(output.String(), "Would remove executable:") || !strings.Contains(output.String(), "Would remove both global Buda skills") {
+	if removed || !strings.Contains(output.String(), "REMOVE ") || !strings.Contains(output.String(), "buda CLI home") {
 		t.Fatalf("uninstall preview = %q, removed=%t", output.String(), removed)
 	}
 }
 
 func TestUpgradeAndUninstallNeverScheduleResourceMaintenance(t *testing.T) {
 	for _, arguments := range [][]string{{"upgrade", "--dry-run"}, {"uninstall", "--dry-run"}} {
+		if arguments[0] == "upgrade" {
+			arguments = append(arguments, "--wiki", testWiki(t))
+		}
 		scheduled := 0
 		deps := Dependencies{
 			Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
 			Executable:          func() (string, error) { return "buda", nil },
 			ScheduleMaintenance: func(string, string) error { scheduled++; return nil },
+		}
+		if arguments[0] == "uninstall" {
+			layout, layoutErr := installlayout.ForHome(t.TempDir())
+			if layoutErr != nil {
+				t.Fatal(layoutErr)
+			}
+			deps.InstallLayout = func() (installlayout.Layout, error) { return layout, nil }
 		}
 		root := NewRootCommand(deps, BuildInfo{Version: "0.0.1", Target: "buda-linux-amd64"})
 		root.SetArgs(arguments)
@@ -121,6 +170,7 @@ func TestUpgradeAndUninstallNeverScheduleResourceMaintenance(t *testing.T) {
 
 func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 	var output bytes.Buffer
+	wiki := testWiki(t)
 	called := false
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: catalogClient(),
@@ -130,7 +180,7 @@ func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 		},
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.2", Target: "buda-linux-amd64"})
-	root.SetArgs([]string{"upgrade"})
+	root.SetArgs([]string{"upgrade", "--wiki", wiki})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
@@ -141,6 +191,7 @@ func TestUpgradeEqualVersionIsNoOp(t *testing.T) {
 
 func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 	var output bytes.Buffer
+	wiki := testWiki(t)
 	deps := Dependencies{
 		Out: &output, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
 		Executable: func() (string, error) { return "C:/tools/buda.exe", nil },
@@ -151,11 +202,11 @@ func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 		ReconcileInstalled: func(string, string) error { return nil },
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1", Target: "buda-linux-amd64"})
-	root.SetArgs([]string{"upgrade"})
+	root.SetArgs([]string{"upgrade", "--wiki", wiki})
 	if err := root.Execute(); err != nil {
 		t.Fatal(err)
 	}
-	for _, expected := range []string{"Target: 0.0.2", "URL: https://downloads.example/buda", "Checksum verified: sha256:", "Installation path: C:/tools/buda.exe", "Download progress: 100.0%", "Agent resources: reconciled", "Final version verified: buda v0.0.2"} {
+	for _, expected := range []string{"Target: 0.0.2", "URL: https://downloads.example/buda", "Checksum verified: sha256:", "Installation path: C:/tools/buda.exe", "Download progress: 100.0%", "Agent resources: reconciled", "Final version verified: 0.0.2"} {
 		if !strings.Contains(output.String(), expected) {
 			t.Fatalf("upgrade text missing %q:\n%s", expected, output.String())
 		}
@@ -164,6 +215,7 @@ func TestUpgradeTextReportsOperationalProgress(t *testing.T) {
 
 func TestReconciliationFailureAutomaticallyRollsBack(t *testing.T) {
 	rolledBack := false
+	wiki := testWiki(t)
 	deps := Dependencies{
 		Out: &bytes.Buffer{}, Err: &bytes.Buffer{}, Options: &Options{}, HTTPClient: upgradeClient([]byte("binary")),
 		Executable: func() (string, error) { return "C:/tools/buda.exe", nil },
@@ -174,7 +226,7 @@ func TestReconciliationFailureAutomaticallyRollsBack(t *testing.T) {
 		RollbackExecutable: func(string) (bool, error) { rolledBack = true; return false, nil },
 	}
 	root := NewRootCommand(deps, BuildInfo{Version: "0.0.1", Target: "buda-linux-amd64"})
-	root.SetArgs([]string{"upgrade"})
+	root.SetArgs([]string{"upgrade", "--wiki", wiki})
 	err := root.Execute()
 	if !rolledBack || err == nil || !strings.Contains(err.Error(), "automatically rolled back") {
 		t.Fatalf("reconcile failure=%v rolledBack=%t", err, rolledBack)
