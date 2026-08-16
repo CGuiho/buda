@@ -61,8 +61,10 @@ transaction: the installer activates and verifies the new launcher and
 immutable payload first, then removes the old binary from its exact historical
 path (`~/.local/bin/buda` on Unix, `%LOCALAPPDATA%\GUIHO\bin\buda.exe` on
 Windows). The legacy global `buda.yaml` is strictly validated, mapped into
-`buda.global.yaml`, and left in place. Canonical OKF knowledge and
-configuration are never deleted by installation.
+`buda.global.yaml`, and left in place; its `wiki_id` is carried into the
+explicitly selected wiki so migration works without a terminal and keeps the
+wiki's identity. Canonical OKF knowledge and configuration are never deleted
+by installation.
 
 ## Upgrade
 

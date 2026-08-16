@@ -139,6 +139,44 @@ func TestInitFailsBeforeAnyWriteWhenPoliciesAreUnansweredWithoutTerminal(t *test
 	}
 }
 
+func TestInitMigrationCarriesLegacyWikiIDWithoutTerminal(t *testing.T) {
+	wiki := filepath.Join(t.TempDir(), "wiki")
+	home := t.TempDir()
+	legacyPath := filepath.Join(home, ".guiho", "buda", "buda.yaml")
+	if err := os.MkdirAll(filepath.Dir(legacyPath), 0o755); err != nil {
+		t.Fatal(err)
+	}
+	legacy := "schema: 1\nwiki_id: legacy-wiki\nbundle: knowledge\nqmd:\n  executable: qmd\n  collection: buda-wiki\n  project_directory: .qmd\nderived: .buda\n"
+	if err := os.WriteFile(legacyPath, []byte(legacy), 0o644); err != nil {
+		t.Fatal(err)
+	}
+	client := &domainFakeQMD{}
+	deps := domainDeps(&bytes.Buffer{}, home)
+	deps.Interactive = func() bool { return false }
+	root := NewRootCommand(deps, BuildInfo{Version: "test"}, NewInitCommand(deps, func(repository.Repository) (QMDClient, error) { return client, nil }))
+	root.SetArgs([]string{"--wiki", wiki, "init"})
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	project, err := config.LoadProject(filepath.Join(wiki, "buda.yaml"))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if project.WikiID != "legacy-wiki" {
+		t.Fatalf("project wiki_id = %q, want legacy-wiki", project.WikiID)
+	}
+	global, err := config.LoadGlobal(config.GlobalPath(home))
+	if err != nil {
+		t.Fatal(err)
+	}
+	if global.Agent == nil || global.Agent.Evolution.Upgrade != config.PolicyAlwaysAsk {
+		t.Fatalf("migrated global agent = %#v", global.Agent)
+	}
+	if client.ensure != 1 {
+		t.Fatalf("qmd project was not established: %d", client.ensure)
+	}
+}
+
 func TestStatusKeepsCanonicalAndQMDResultsSeparate(t *testing.T) {
 	wiki := initializedWiki(t)
 	output := &bytes.Buffer{}

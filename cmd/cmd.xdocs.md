@@ -14,7 +14,7 @@ files:
   index.go: qmd project initialization and indexing command.
   ingest.go: Source registration and qmd-backed ingest work-item command.
   instance.go: Installed-payload instance registration for lifecycle process safety.
-  init.go: OKF-aware wiki initialization command.
+  init.go: OKF-aware wiki initialization command with global-config discovery, legacy 0.1.x migration, wiki-id identity carryover, and atomic persistence.
   init_policy_test.go: Interactive agent-evolution policy setup and fail-closed tests.
   lint.go: Base OKF conformance and Buda health command.
   pack.go: Deterministic portable-bundle packaging command.

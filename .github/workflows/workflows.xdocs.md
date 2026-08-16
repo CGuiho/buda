@@ -32,9 +32,10 @@ checks are required.
 Native lifecycle jobs on Linux and Windows install the release from a local
 asset directory into a disposable home with a qmd process stub, verify the
 stable launcher, prove same-version reinstall repair, migrate a synthetic
-0.1.1 direct-binary layout through the launcher transaction, and run a
-synchronous default uninstall while asserting that canonical OKF content and
-shared GUIHO sentinels survive.
+0.1.1 direct-binary layout through the launcher transaction (carrying the
+legacy wiki_id into the newly selected wiki), and run a synchronous default
+uninstall while asserting that canonical OKF content and shared GUIHO
+sentinels survive.
 
 Publication runs for canonical `buda/v*` tags or a manual recovery dispatch.
 It reconciles one GitHub Release to every manifest-declared asset, verifies

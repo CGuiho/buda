@@ -114,11 +114,11 @@ jobs:
         run: |
           $value = (& (Join-Path $PWD "dist\$env:ASSET") --version | Out-String).Trim()
           if ($value -ne '0.2.0-ci') { throw "Unexpected raw payload version: $value" }
-          $home = Join-Path $env:RUNNER_TEMP 'launcher-home'
-          $env:USERPROFILE = $home
-          New-Item -ItemType Directory -Force -Path (Join-Path $home '.guiho\buda\versions\0.2.0-ci') | Out-Null
-          Copy-Item -LiteralPath "dist\$env:ASSET" -Destination (Join-Path $home '.guiho\buda\versions\0.2.0-ci\buda.exe')
-          Set-Content -NoNewline -Path (Join-Path $home '.guiho\buda\current.json') -Value '{"schema":1,"active":"0.2.0-ci/buda.exe","previous":"","active_version":"0.2.0-ci","previous_version":""}'
+          $launcherHome = Join-Path $env:RUNNER_TEMP 'launcher-home'
+          $env:USERPROFILE = $launcherHome
+          New-Item -ItemType Directory -Force -Path (Join-Path $launcherHome '.guiho\buda\versions\0.2.0-ci') | Out-Null
+          Copy-Item -LiteralPath "dist\$env:ASSET" -Destination (Join-Path $launcherHome '.guiho\buda\versions\0.2.0-ci\buda.exe')
+          Set-Content -NoNewline -Path (Join-Path $launcherHome '.guiho\buda\current.json') -Value '{"schema":1,"active":"0.2.0-ci/buda.exe","previous":"","active_version":"0.2.0-ci","previous_version":""}'
           $launcher = 'dist\buda-launcher-' + $env:ASSET.Substring(5)
           $launcherValue = (& (Join-Path $PWD $launcher) --version | Out-String).Trim()
           if ($launcherValue -ne '0.2.0-ci') { throw "Unexpected raw launcher version: $launcherValue" }

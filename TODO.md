@@ -98,7 +98,7 @@ source, tests, workflows, or the disposable-home native Windows smoke.
 | Init discovers all unanswered policies before any write | `cmd/init.go` resolves/migrates the global config without writing, prompts every missing policy, and persists only afterwards; `TestInitFailsBeforeAnyWriteWhenPoliciesAreUnansweredWithoutTerminal` proves zero writes. |
 | Full release matrix, duplicate rejection, typed launcher metadata, ARMv6/v7 | Go catalog, `install.sh` jq filter, and `install.ps1` all require the complete 24-binary matrix and reject duplicate asset names; `setTargetMetadata` types payload and launcher entries; ARMv6/ARMv7 appear in every selector and the release manifest. |
 | Meaningful zero-mutation self-test and probe instance bypass | `__self-test` verifies the build version and reads every embedded skill/prompt/schema/example; only exact `--version`/`-v`/`__self-test` invocations bypass instance registration; `TestVersionAndSelfTestDoNotMutateFileSystem` proves zero mutation. |
-| Historical install migration exclusively through the launcher transaction | Installers remove the verified legacy binary only after launcher activation, from the exact historical paths (`~/.local/bin/buda`, `%LOCALAPPDATA%\GUIHO\bin\buda.exe`); no in-place mutable route remains. |
+| Historical install migration exclusively through the launcher transaction | Installers remove the verified legacy binary only after launcher activation, from the exact historical paths (`~/.local/bin/buda`, `%LOCALAPPDATA%\GUIHO\bin\buda.exe`); no in-place mutable route remains. The legacy global `wiki_id` is carried into the newly selected wiki by `init` so migration completes without an interactive terminal and preserves identity. |
 | Explicit wiki and grouped plan before uninstall confirmation | All three uninstall interfaces require the explicit wiki and print grouped `REMOVE`/`PRESERVE` plans before any confirmation or mutation. |
 | Injected disposable home and real-profile sentinels | Lifecycle tests and the native smoke inject `USERPROFILE`/`HOME` into disposable directories and assert sentinel survival; the real user profile is never touched. |
 | Embedded strict schema/runtime/example parity | `schemas/embed.go` plus `TestEmbeddedSchemasPresentAndValid`, `TestEmbeddedExamplesValidateAgainstRuntimeConfig`, and `TestDecodingRejectsMissingSchema` pin offline parity. |
@@ -110,6 +110,12 @@ Evidence recorded during the fix pass:
 - disposable-home native Windows lifecycle smoke: install, same-version
   repair, legacy 0.1.1 direct-binary migration, and synchronous uninstall all
   passed with sentinel preservation (real profile never inspected);
+- hosted CI hardening: the POSIX legacy-migration job exposed that init
+  required an interactive terminal for a migrated wiki with no project
+  configuration; init now carries the legacy global `wiki_id` into the
+  selected wiki (covered by `TestInitMigrationCarriesLegacyWikiIDWithoutTerminal`),
+  and the Windows native smoke renamed its `$home` script variable to avoid
+  PowerShell's read-only `$HOME` automatic variable;
 - `TestRecoverInterruptedJournalStates`, `TestManifestDrivenProjectionsApplyAndRollback`,
   `TestApplyQuarantineRollbackOnFailure`, and the lifecycle acceptance test run
   are cataloged in `runx.yaml` and CI;

@@ -27,9 +27,19 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 				return RepositoryError("resolve initialization target", err)
 			}
 			projectConfigPath := filepath.Join(root, config.FileName)
+			resolved, err := resolveGlobalConfig(deps.HomeDir, version)
+			if err != nil {
+				return MutationError("prepare global Buda configuration", err)
+			}
+			globalPath, global, globalPending, migrated := resolved.path, resolved.global, resolved.pending, resolved.migrated
 			if wikiID == "" {
 				if existing, loadErr := config.LoadProject(projectConfigPath); loadErr == nil {
 					wikiID = existing.WikiID
+				} else if resolved.legacyWikiID != "" {
+					// One-time identity carryover from the 0.1.x global
+					// buda.yaml. A global file can never select a repository,
+					// but the migrating wiki keeps the id it already had.
+					wikiID = resolved.legacyWikiID
 				} else if deps.Interactive() && !JSONRequested(deps) {
 					fmt.Fprint(command.OutOrStdout(), "Immutable wiki id for this selected repository: ")
 					answer, readErr := readPromptLine(input)
@@ -40,10 +50,6 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 				} else {
 					return UsageError("--wiki-id is required for a new wiki; an existing valid project configuration was not found")
 				}
-			}
-			globalPath, global, globalPending, migrated, globalErr := resolveGlobalConfig(deps.HomeDir, version)
-			if globalErr != nil {
-				return MutationError("prepare global Buda configuration", globalErr)
 			}
 			project := config.ProjectConfig{Schema: config.CurrentSchema, WikiID: wikiID}
 			if _, statErr := os.Stat(projectConfigPath); statErr == nil {
@@ -130,32 +136,42 @@ func NewInitCommand(deps Dependencies, factories ...QMDFactory) *cobra.Command {
 	return command
 }
 
-func resolveGlobalConfig(homeDir func() (string, error), version string) (string, config.GlobalConfig, bool, bool, error) {
+type resolvedGlobalConfig struct {
+	path         string
+	global       config.GlobalConfig
+	pending      bool
+	migrated     bool
+	legacyWikiID string
+}
+
+func resolveGlobalConfig(homeDir func() (string, error), version string) (resolvedGlobalConfig, error) {
 	if homeDir == nil {
 		homeDir = os.UserHomeDir
 	}
 	home, err := homeDir()
 	if err != nil {
-		return "", config.GlobalConfig{}, false, false, err
+		return resolvedGlobalConfig{}, err
 	}
 	path := config.GlobalPath(home)
 	if _, err := os.Stat(path); err == nil {
 		global, err := config.LoadGlobal(path)
 		if err != nil {
-			return path, config.GlobalConfig{}, false, false, err
+			return resolvedGlobalConfig{}, err
 		}
-		return path, global, false, false, nil
+		return resolvedGlobalConfig{path: path, global: global}, nil
 	} else if !os.IsNotExist(err) {
-		return path, config.GlobalConfig{}, false, false, err
+		return resolvedGlobalConfig{}, err
 	}
 	// One-time read-only discovery of the 0.1.x global buda.yaml. Strictly
 	// validated before mapping; the legacy file is left untouched and the new
 	// global file is only persisted after every interactive answer exists.
+	// The legacy wiki_id never enters the global file, but it is carried to
+	// the explicitly selected wiki so migration preserves its identity.
 	legacyPath := filepath.Join(home, ".guiho", "buda", "buda.yaml")
 	if _, err := os.Stat(legacyPath); err == nil {
 		legacyConfig, loadErr := config.Load(legacyPath)
 		if loadErr != nil {
-			return path, config.GlobalConfig{}, false, false, fmt.Errorf("validate legacy global configuration: %w", loadErr)
+			return resolvedGlobalConfig{}, fmt.Errorf("validate legacy global configuration: %w", loadErr)
 		}
 		global := config.GlobalConfig{
 			Schema:  config.CurrentSchema,
@@ -171,13 +187,13 @@ func resolveGlobalConfig(homeDir func() (string, error), version string) (string
 			},
 		}
 		if err := global.Validate(); err != nil {
-			return path, config.GlobalConfig{}, false, false, err
+			return resolvedGlobalConfig{}, err
 		}
-		return path, global, true, true, nil
+		return resolvedGlobalConfig{path: path, global: global, pending: true, migrated: true, legacyWikiID: legacyConfig.WikiID}, nil
 	} else if !os.IsNotExist(err) {
-		return path, config.GlobalConfig{}, false, false, err
+		return resolvedGlobalConfig{}, err
 	}
-	return path, config.DefaultGlobal(), true, false, nil
+	return resolvedGlobalConfig{path: path, global: config.DefaultGlobal(), pending: true}, nil
 }
 
 func readPromptLine(reader *bufio.Reader) (string, error) {
