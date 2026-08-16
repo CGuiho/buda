@@ -16,6 +16,14 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
         with: { go-version-file: go.mod, cache: true }
+      - name: Install repository tooling
+        env:
+          GOBIN: ${{ github.workspace }}/.bin
+        run: |
+          mkdir -p "$GOBIN"
+          go install github.com/CGuiho/mirror@v4.0.1
+          go install github.com/CGuiho/runx@v0.12.1
+          go install github.com/CGuiho/xdocs@v0.10.0
       - name: Resolve and validate canonical version
         id: release
         shell: bash
@@ -27,10 +35,10 @@ jobs:
           echo "date=$(git show -s --format=%cI HEAD)" >> "$GITHUB_OUTPUT"
       - name: Required quality and tooling gates
         run: |
-          mirror config check
-          runx check --format json
-          xdocs meta . --documents --strict
-          xdocs doctor . --warnings-as-errors
+          ./.bin/mirror config check
+          ./.bin/runx check --format json
+          ./.bin/xdocs meta . --documents --strict
+          ./.bin/xdocs doctor . --warnings-as-errors
           test -z "$(gofmt -l .)"
           go mod tidy
           git diff --exit-code -- go.mod go.sum

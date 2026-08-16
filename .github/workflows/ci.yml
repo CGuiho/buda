@@ -16,17 +16,25 @@ jobs:
         with: { fetch-depth: 0 }
       - uses: actions/setup-go@v6
         with: { go-version-file: go.mod, cache: true }
+      - name: Install repository tooling
+        env:
+          GOBIN: ${{ github.workspace }}/.bin
+        run: |
+          mkdir -p "$GOBIN"
+          go install github.com/CGuiho/mirror@v4.0.1
+          go install github.com/CGuiho/runx@v0.12.1
+          go install github.com/CGuiho/xdocs@v0.10.0
       - name: Mirror configuration
-        run: mirror config check
+        run: ./.bin/mirror config check
       - name: RunX catalog
         run: |
-          runx check --format json
-          runx list --format json
+          ./.bin/runx check --format json
+          ./.bin/runx list --format json
       - name: Strict XDocs
         run: |
-          xdocs meta . --documents --strict
-          xdocs tree
-          xdocs doctor . --warnings-as-errors
+          ./.bin/xdocs meta . --documents --strict
+          ./.bin/xdocs tree
+          ./.bin/xdocs doctor . --warnings-as-errors
       - name: Formatting and module graph
         run: |
           test -z "$(gofmt -l .)"
