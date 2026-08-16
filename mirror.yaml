@@ -7,11 +7,6 @@ version:
   source: "git"
   output: ["git"]
   prerelease_id: ""
-package:
-  path: "package.json"
-  auxiliary_paths: []
-jsr:
-  path: "jsr.json"
 git:
   tag_template: "{name}/v{version}"
   commit: true

@@ -1,7 +1,7 @@
 ---
 subject: buda-github
 description: GitHub repository automation and workflow configuration for Buda.
-parent: null
+parent: buda-package
 children:
   - buda-github-workflows
 files: {}
