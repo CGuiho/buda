@@ -9,6 +9,7 @@ tags:
   - changelog
   - releases
 keywords:
+  - Buda 0.2.1
   - Buda 0.2.0
   - Buda 0.1.1
   - release notes
@@ -20,6 +21,24 @@ keywords:
 
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
+
+## [0.2.1] - 2026-08-21
+
+This release fixes Windows installer release discovery on Windows PowerShell
+5.1 so the documented installation one-liner resolves published stable
+releases again.
+
+### Fixed
+
+- `devops/install.ps1` now flattens each GitHub Releases page explicitly before
+  wrapping it for pagination. Windows PowerShell 5.1 emits a top-level JSON
+  array from `Invoke-RestMethod` as a single non-enumerated pipeline object,
+  so the previous direct `@(...)` wrapping nested every release inside one
+  element and channel filtering always failed with "No release found for
+  channel stable." (issue #9).
+- Result collections no longer shadow PowerShell's automatic `$Matches`
+  variable, and a regression test rejects direct `@(Invoke-RestMethod ...)`
+  wrapping in future installer changes.
 
 ## [0.2.0] - 2026-08-17
 
