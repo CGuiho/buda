@@ -46,6 +46,27 @@ func TestLifecycleScriptsExposeConventionSelectorsAndOwnershipBoundaries(t *test
 	}
 }
 
+func TestInstallPS1ReleaseDiscoverySurvivesWindowsPowerShell51(t *testing.T) {
+	// Windows PowerShell 5.1 emits a top-level JSON array from Invoke-RestMethod
+	// as a single non-enumerated pipeline object. Wrapping that call directly in
+	// @(...) nests every release inside one element, so channel filtering always
+	// fails with "No release found for channel stable." (issue #9). The response
+	// must be captured first and flattened in a second step.
+	installPS1, err := os.ReadFile("install.ps1")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(installPS1)
+	if strings.Contains(text, "@(Invoke-RestMethod") {
+		t.Fatal("install.ps1 wraps Invoke-RestMethod directly in @(...); Windows PowerShell 5.1 nests the release array and release discovery always fails")
+	}
+	for _, required := range []string{"$releasePage = Invoke-RestMethod", "$batch = @($releasePage)"} {
+		if !strings.Contains(text, required) {
+			t.Fatalf("install.ps1 missing %q", required)
+		}
+	}
+}
+
 func TestLifecycleScriptsRejectObsoleteMutableReleaseAssumptions(t *testing.T) {
 	for _, path := range []string{"install.sh", "install.ps1", "uninstall.sh", "uninstall.ps1"} {
 		content, err := os.ReadFile(path)

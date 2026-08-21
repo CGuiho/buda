@@ -16,13 +16,18 @@ if ($arch -eq 'AMD64') { $binary = 'buda-windows-amd64.exe'; $launcher = 'buda-l
 elseif ($arch -eq 'ARM64') { $binary = 'buda-windows-arm64.exe'; $launcher = 'buda-launcher-windows-arm64.exe' }
 else { throw "Unsupported Windows architecture: $arch" }
 if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
+  # Windows PowerShell 5.1 emits a top-level JSON array from Invoke-RestMethod
+  # as a single non-enumerated pipeline object, so wrapping the call directly
+  # in @(...) would nest the releases inside one element and break every filter
+  # below. Capture the response first, then flatten it explicitly.
   $wanted = if ($Channel) { $Channel } else { 'stable' }
   $all = @(); $page = 1
   do {
-    $batch = @(Invoke-RestMethod "https://api.github.com/repos/CGuiho/buda/releases?per_page=100&page=$page")
+    $releasePage = Invoke-RestMethod "https://api.github.com/repos/CGuiho/buda/releases?per_page=100&page=$page"
+    $batch = @($releasePage)
     $all += $batch; $page++
   } while ($batch.Count -eq 100)
-  $matches = @($all | Where-Object { -not $_.draft -and $_.tag_name -match '^buda/v' } | ForEach-Object {
+  $candidates = @($all | Where-Object { -not $_.draft -and $_.tag_name -match '^buda/v' } | ForEach-Object {
     $candidate = $_.tag_name.Substring(6); $candidateChannel = if ($candidate.Contains('-')) { $candidate.Split('-')[1].Split('.')[0] } else { 'stable' }
     $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-0002-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml',
       'buda-linux-amd64', 'buda-linux-arm64', 'buda-linux-armv7', 'buda-linux-armv6', 'buda-darwin-amd64', 'buda-darwin-arm64', 'buda-windows-amd64.exe', 'buda-windows-arm64.exe',
@@ -32,7 +37,7 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
     if ($assetNames.Count -ne $uniqueAssetNames.Count) { return }
     if ($candidateChannel -eq $wanted -and $candidate -match '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$' -and @($requiredNames | Where-Object { $assetNames -notcontains $_ }).Count -eq 0) { [pscustomobject]@{ Release=$_; Version=$candidate } }
   } | Sort-Object Version -Descending)
-  if ($matches.Count -eq 0) { throw "No release found for channel $wanted." }
+  if ($candidates.Count -eq 0) { throw "No release found for channel $wanted." }
   function Compare-SemVer([string]$left, [string]$right) {
     $leftParts = $left.Split('+')[0].Split('-',2); $rightParts = $right.Split('+')[0].Split('-',2)
     $lCore = $leftParts[0].Split('.'); $rCore = $rightParts[0].Split('.')
@@ -49,8 +54,8 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
     }
     return 0
   }
-  $best = $matches[0]
-  foreach ($candidate in $matches | Select-Object -Skip 1) { if ((Compare-SemVer $candidate.Version $best.Version) -gt 0) { $best = $candidate } }
+  $best = $candidates[0]
+  foreach ($candidate in $candidates | Select-Object -Skip 1) { if ((Compare-SemVer $candidate.Version $best.Version) -gt 0) { $best = $candidate } }
   $Version = $best.Version
 }
 if (-not $Version) { throw 'Version selection did not resolve a stable release.' }
@@ -98,9 +103,9 @@ function Get-Sha256([string]$path) {
   } finally { $stream.Dispose() }
 }
 function Verify-Checksum([string]$name, $checksumLines) {
-  $matches = @($checksumLines | Where-Object { $_ -match "^\s*([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($name))\s*$" })
-  if ($matches.Count -ne 1) { throw "Missing or duplicate checksum for $name." }
-  $expected = $matches[0].Substring(0,64).ToUpperInvariant()
+  $checksumMatches = @($checksumLines | Where-Object { $_ -match "^\s*([0-9a-fA-F]{64})\s+\*?$([regex]::Escape($name))\s*$" })
+  if ($checksumMatches.Count -ne 1) { throw "Missing or duplicate checksum for $name." }
+  $expected = $checksumMatches[0].Substring(0,64).ToUpperInvariant()
   $actual = Get-Sha256 (Join-Path $stage $name)
   if ($expected -ne $actual) { throw "Checksum mismatch for $name." }
 }
