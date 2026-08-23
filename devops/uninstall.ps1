@@ -45,8 +45,8 @@ if (Test-Path -LiteralPath $cliHome) {
 Write-Host "Buda Uninstall Plan:"
 Write-Host "REMOVE:"
 Write-Host "  - $launcher (buda stable launcher)"
-Write-Host "  - $(Join-Path $homeDir '.agents\skills\guiho-s-0002-buda') (buda global agent skill)"
-Write-Host "  - $(Join-Path $homeDir '.claude\skills\guiho-s-0002-buda') (buda global agent skill)"
+Write-Host "  - $(Join-Path $homeDir '.agents\skills\guiho-s-buda') (buda global agent skill)"
+Write-Host "  - $(Join-Path $homeDir '.claude\skills\guiho-s-buda') (buda global agent skill)"
 if (-not $PreserveData) { Write-Host "  - $cliHome (buda persistent data)" }
 if (-not $PreserveConfig) {
   Write-Host "  - $(Join-Path $cliHome 'buda.global.yaml') (global configuration)"
@@ -63,7 +63,7 @@ if ($PreserveConfig) {
 if ($DryRun) { exit 0 }
 if (-not $Yes) { if (-not [Environment]::UserInteractive) { throw '--Yes is required for non-interactive uninstall.' }; $answer=Read-Host 'Remove Buda-owned files? [y/N]'; if ($answer -notin @('y','Y','yes','YES')) { throw 'Uninstall cancelled.' } }
 if (Test-Path -LiteralPath $launcher) { Remove-Item -Force -LiteralPath $launcher }
-Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath (Join-Path $homeDir '.agents\skills\guiho-s-0002-buda\SKILL.md'),(Join-Path $homeDir '.claude\skills\guiho-s-0002-buda\SKILL.md')
+Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath (Join-Path $homeDir '.agents\skills\guiho-s-buda\SKILL.md'),(Join-Path $homeDir '.claude\skills\guiho-s-buda\SKILL.md')
 if ($PreserveData) {
   Remove-Item -Recurse -Force -ErrorAction SilentlyContinue -LiteralPath (Join-Path $cliHome 'versions'),(Join-Path $cliHome 'state'),(Join-Path $cliHome 'current.json'),(Join-Path $cliHome 'installed-artifacts.json'),(Join-Path $cliHome 'cache.json')
 } else {
@@ -83,5 +83,5 @@ foreach ($name in @('AGENTS.md','CLAUDE.md')) {
     Move-Item -Force -LiteralPath $tempFile -Destination $instruction
   }
 }
-Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath (Join-Path $Wiki '.agents\skills\guiho-s-0002-buda\SKILL.md'),(Join-Path $Wiki '.claude\skills\guiho-s-0002-buda\SKILL.md')
+Remove-Item -Force -ErrorAction SilentlyContinue -LiteralPath (Join-Path $Wiki '.agents\skills\guiho-s-buda\SKILL.md'),(Join-Path $Wiki '.claude\skills\guiho-s-buda\SKILL.md')
 Write-Host 'Buda uninstall completed synchronously.'

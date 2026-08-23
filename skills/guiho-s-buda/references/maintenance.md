@@ -3,7 +3,7 @@ name: buda-skill-maintenance
 purpose: Define repository health and qmd readiness maintenance.
 description: Maintenance guidance separating base OKF conformance, Buda health, and qmd readiness.
 created: 2026-07-26
-owner: buda-skill-0002-references
+owner: buda-skill-references
 flags: []
 tags:
   - maintenance

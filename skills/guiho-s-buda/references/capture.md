@@ -3,7 +3,7 @@ name: buda-skill-capture
 purpose: Define the explicit capture trigger and validated persistence workflow.
 description: Capture guidance for provenance-preserving concept and evidence writes through Buda.
 created: 2026-07-26
-owner: buda-skill-0002-references
+owner: buda-skill-references
 flags: []
 tags:
   - capture

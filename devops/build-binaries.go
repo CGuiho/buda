@@ -22,7 +22,7 @@ import (
 
 const (
 	cliName                  = "buda"
-	skillAssetName           = "guiho-s-0002-buda.zip"
+	skillAssetName           = "guiho-s-buda.zip"
 	instructionAssetName     = "guiho-i-buda.md"
 	setupPromptAssetName     = "guiho-p-buda.md"
 	installPromptAssetName   = "guiho-p-buda-install.md"
@@ -95,8 +95,8 @@ func main() {
 		fatalf("create versioned resource staging directory: %v", err)
 	}
 	defer os.RemoveAll(resourceStage)
-	versionedSkill := filepath.Join(resourceStage, "guiho-s-0002-buda")
-	if err := copyVersionedTree(filepath.Join("skills", "guiho-s-0002-buda"), versionedSkill, *version); err != nil {
+	versionedSkill := filepath.Join(resourceStage, "guiho-s-buda")
+	if err := copyVersionedTree(filepath.Join("skills", "guiho-s-buda"), versionedSkill, *version); err != nil {
 		fatalf("stage versioned skill resources: %v", err)
 	}
 	assets := []string{}
@@ -194,7 +194,7 @@ func buildManifest(version string, assets []string) artifact.Manifest {
 		setTargetMetadata(&entry, name)
 		if name == skillAssetName {
 			entry.ArchiveMembers = archiveMembers(path)
-			entry.ProjectionPaths = []string{".agents/skills/guiho-s-0002-buda", ".claude/skills/guiho-s-0002-buda"}
+			entry.ProjectionPaths = []string{".agents/skills/guiho-s-buda", ".claude/skills/guiho-s-buda"}
 		}
 		if name == instructionAssetName {
 			entry.ProjectionPaths = []string{"AGENTS.md", "CLAUDE.md"}

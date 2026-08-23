@@ -1,19 +1,6 @@
 ---
-name: guiho-s-0002-buda
-purpose: Guide agents through explicit-wiki capture, ingest, cited retrieval, curation, and maintenance with Buda.
+name: guiho-s-buda
 description: Maintain and retrieve one explicitly selected AI-maintained wiki through Buda, preserving OKF provenance and using Buda's qmd-backed commands for discovery.
-created: 2026-07-26
-version: "0.2.0"
-owner: buda-skill-0002
-flags: []
-tags:
-  - agent-skill
-  - knowledge
-keywords:
-  - Buda
-  - explicit wiki
-  - OKF
-  - qmd
 metadata:
   version: "0.2.0"
 ---

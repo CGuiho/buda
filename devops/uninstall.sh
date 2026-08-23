@@ -65,8 +65,8 @@ fi
 printf '%s\n' 'Buda Uninstall Plan:'
 printf '%s\n' 'REMOVE:'
 printf '  - %s (buda stable launcher)\n' "$BIN_DIR/buda"
-printf '  - %s (buda global agent skill)\n' "$HOME_DIR/.agents/skills/guiho-s-0002-buda"
-printf '  - %s (buda global agent skill)\n' "$HOME_DIR/.claude/skills/guiho-s-0002-buda"
+printf '  - %s (buda global agent skill)\n' "$HOME_DIR/.agents/skills/guiho-s-buda"
+printf '  - %s (buda global agent skill)\n' "$HOME_DIR/.claude/skills/guiho-s-buda"
 if [ "$PRESERVE_DATA" -ne 1 ]; then printf '  - %s (buda persistent data)\n' "$CLI_HOME"; fi
 if [ "$PRESERVE_CONFIG" -ne 1 ]; then
   printf '  - %s (global configuration)\n' "$CLI_HOME/buda.global.yaml"
@@ -87,7 +87,7 @@ if [ "$YES" -ne 1 ]; then
   printf 'Remove Buda-owned files? [y/N] '; read answer; case "$answer" in y|Y|yes|YES) ;; *) exit 2 ;; esac
 fi
 rm -f "$BIN_DIR/buda"
-rm -f "$HOME_DIR/.agents/skills/guiho-s-0002-buda/SKILL.md" "$HOME_DIR/.claude/skills/guiho-s-0002-buda/SKILL.md"
+rm -f "$HOME_DIR/.agents/skills/guiho-s-buda/SKILL.md" "$HOME_DIR/.claude/skills/guiho-s-buda/SKILL.md"
 if [ "$PRESERVE_DATA" -ne 1 ]; then
   rm -rf "$CLI_HOME/versions" "$CLI_HOME/state" "$CLI_HOME/data" "$CLI_HOME/database" "$CLI_HOME/current.json" "$CLI_HOME/installed-artifacts.json" "$CLI_HOME/cache.json"
 else
@@ -103,5 +103,5 @@ for instruction in "$WIKI/AGENTS.md" "$WIKI/CLAUDE.md"; do
     mv -f "$temporary" "$instruction"
   fi
 done
-rm -f "$WIKI/.agents/skills/guiho-s-0002-buda/SKILL.md" "$WIKI/.claude/skills/guiho-s-0002-buda/SKILL.md"
+rm -f "$WIKI/.agents/skills/guiho-s-buda/SKILL.md" "$WIKI/.claude/skills/guiho-s-buda/SKILL.md"
 printf '%s\n' 'Buda uninstall completed synchronously.'

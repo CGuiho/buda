@@ -3,7 +3,7 @@ name: buda-skill-retrieval
 purpose: Define cited retrieval from one selected wiki through Buda.
 description: Retrieval guidance for qmd-backed discovery, concept reads, citations, and evidence disclosure.
 created: 2026-07-26
-owner: buda-skill-0002-references
+owner: buda-skill-references
 flags: []
 tags:
   - retrieval

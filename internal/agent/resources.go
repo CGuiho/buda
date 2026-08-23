@@ -14,7 +14,7 @@ import (
 )
 
 const (
-	SkillID           = "guiho-s-0002-buda"
+	SkillID           = "guiho-s-buda"
 	InstructionID     = "guiho-i-buda"
 	InstructionBegin  = "<!-- BEGIN BUDA INSTRUCTIONS -->"
 	InstructionEnd    = "<!-- END BUDA INSTRUCTIONS -->"

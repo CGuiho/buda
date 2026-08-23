@@ -81,7 +81,7 @@ else
     while :; do
       releases=$(curl -fsSL "https://api.github.com/repos/$OWNER/$REPOSITORY/releases?per_page=100&page=$page")
       count=$(printf '%s' "$releases" | jq 'length')
-    candidates=$(printf '%s' "$releases" | jq -r --arg wanted "$wanted" --arg binary "$BINARY" --arg launcher "$LAUNCHER" '.[] | select(.draft|not) | select(.tag_name|test("^buda/v")) | ((.assets // []) as $raw | select(((([$binary,$launcher,"checksums.txt","artifacts.json","guiho-s-0002-buda.zip","guiho-i-buda.md","guiho-p-buda.md","buda.schema.json","buda.global.schema.json","buda.example.yaml","buda.global.example.yaml","buda-linux-amd64","buda-linux-arm64","buda-linux-armv7","buda-linux-armv6","buda-darwin-amd64","buda-darwin-arm64","buda-windows-amd64.exe","buda-windows-arm64.exe","buda-launcher-linux-amd64","buda-launcher-linux-arm64","buda-launcher-linux-armv7","buda-launcher-linux-armv6","buda-launcher-darwin-amd64","buda-launcher-darwin-arm64","buda-launcher-windows-amd64.exe","buda-launcher-windows-arm64.exe"] - ($raw | map(.name) | unique)) | length) == 0) and (($raw | map(.name) | length) == ($raw | map(.name) | unique | length)))) | (.tag_name|sub("^buda/v";"")) as $v | select($v|test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$")) | select((if ($v|contains("-")) then ($v|split("-")[1]|split(".")[0]) else "stable" end)==$wanted) | $v')
+    candidates=$(printf '%s' "$releases" | jq -r --arg wanted "$wanted" --arg binary "$BINARY" --arg launcher "$LAUNCHER" '.[] | select(.draft|not) | select(.tag_name|test("^buda/v")) | ((.assets // []) as $raw | select(((([$binary,$launcher,"checksums.txt","artifacts.json","guiho-s-buda.zip","guiho-i-buda.md","guiho-p-buda.md","buda.schema.json","buda.global.schema.json","buda.example.yaml","buda.global.example.yaml","buda-linux-amd64","buda-linux-arm64","buda-linux-armv7","buda-linux-armv6","buda-darwin-amd64","buda-darwin-arm64","buda-windows-amd64.exe","buda-windows-arm64.exe","buda-launcher-linux-amd64","buda-launcher-linux-arm64","buda-launcher-linux-armv7","buda-launcher-linux-armv6","buda-launcher-darwin-amd64","buda-launcher-darwin-arm64","buda-launcher-windows-amd64.exe","buda-launcher-windows-arm64.exe"] - ($raw | map(.name) | unique)) | length) == 0) and (($raw | map(.name) | length) == ($raw | map(.name) | unique | length)))) | (.tag_name|sub("^buda/v";"")) as $v | select($v|test("^(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)\\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\\+[0-9A-Za-z.-]+)?$")) | select((if ($v|contains("-")) then ($v|split("-")[1]|split(".")[0]) else "stable" end)==$wanted) | $v')
       for candidate in $candidates; do
         if [ -z "$selected_version" ] || [ "$(semver_gt "$candidate" "$selected_version")" = 1 ]; then selected_version=$candidate; fi
       done
@@ -139,7 +139,7 @@ for name in $(manifest_paths); do
   [ -n "$name" ] || { printf '%s\n' 'manifest contains an empty asset path' >&2; exit 1; }
   [ -f "$STAGE/$name" ] || source_asset "$name" "$STAGE/$name"
 done
-for name in "$BINARY" "$LAUNCHER" guiho-s-0002-buda.zip guiho-i-buda.md guiho-p-buda.md buda.schema.json buda.global.schema.json buda.example.yaml buda.global.example.yaml artifacts.json; do
+for name in "$BINARY" "$LAUNCHER" guiho-s-buda.zip guiho-i-buda.md guiho-p-buda.md buda.schema.json buda.global.schema.json buda.example.yaml buda.global.example.yaml artifacts.json; do
   manifest_has "$name" || { printf 'manifest does not declare required asset: %s\n' "$name" >&2; exit 1; }
 done
 # Releases created after lifecycle-specific prompt artifacts were introduced
@@ -223,5 +223,5 @@ if [ "$had_legacy" -eq 1 ]; then rm -f "$LEGACY_PATH"; fi
 # Installation is global-only. Install the bundled skill globally, but never
 # select, initialize, or mutate a wiki; project initialization is separate.
 "$BIN_DIR/buda" agent skill install >/dev/null
-printf 'Installed agent skill: guiho-s-0002-buda\n'
+printf 'Installed agent skill: guiho-s-buda\n'
 printf 'Installed Buda %s\nLauncher: %s/buda\nPayload: %s\nCLI home: %s\n' "$VERSION" "$BIN_DIR" "$VERSION_DIR/buda" "$CLI_HOME"

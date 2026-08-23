@@ -48,7 +48,7 @@ func completeReleaseAssetsJSON() string {
 		`{"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"}`,
 		`{"name":"guiho-p-buda-install.md","browser_download_url":"https://downloads.example/guiho-p-buda-install.md"}`,
 		`{"name":"guiho-p-buda-uninstall.md","browser_download_url":"https://downloads.example/guiho-p-buda-uninstall.md"}`,
-		`{"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}`,
+		`{"name":"guiho-s-buda.zip","browser_download_url":"https://downloads.example/guiho-s-buda.zip"}`,
 		`{"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"}`,
 		`{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"}`,
 	}

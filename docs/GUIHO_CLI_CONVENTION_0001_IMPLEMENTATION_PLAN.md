@@ -112,7 +112,7 @@ No naming decision remains open for implementation or review:
 | Decision | Accepted value | Recorded in |
 |---|---|---|
 | CLI home directory | `buda` under `$HOME/.guiho/buda/` | U00/U05 and `TODO.md` |
-| Main skill | retain `guiho-s-0002-buda` | U00/U04 and the bundled skill |
+| Main skill | retain `guiho-s-buda` | U00/U04 and the bundled skill |
 | Main setup prompt ID | `guiho-p-buda` | U00/U04 and the bundled prompt |
 | Agent definitions | none | U00/U04/U07 and the release manifest |
 | Canonical GitHub repository | `https://github.com/CGuiho/buda` | U00/U04 and the skill |
@@ -120,7 +120,7 @@ No naming decision remains open for implementation or review:
 | Release line | next minor `0.2.0` from `0.1.1`, applied only by Mirror after review | U00/U14 and `CHANGELOG.md` |
 
 The existing product and released skill provide strong evidence for `buda` and
-`guiho-s-0002-buda`, but the convention calls for explicit confirmation. The
+`guiho-s-buda`, but the convention calls for explicit confirmation. The
 setup prompt ID has no prior confirmation and is therefore a hard U04 gate.
 
 ## Delivery topology
@@ -236,7 +236,7 @@ derived set containing, at minimum:
 - eight immutable Buda payload binaries with the existing target names;
 - eight platform-matched stable launchers, named
   `buda-launcher-<os>-<arch>[.exe]`;
-- `guiho-s-0002-buda.zip`;
+- `guiho-s-buda.zip`;
 - the confirmed setup prompt artifact;
 - `guiho-i-buda.md`;
 - every confirmed agent definition, if any;

@@ -178,7 +178,7 @@ func Execute(ctx context.Context, options Options) (result Result, err error) {
 	if err = validateManifestAssets(manifest, files); err != nil {
 		return Result{}, err
 	}
-	if err = validateArchive(filepath.Join(op, "guiho-s-0002-buda.zip"), manifest); err != nil {
+	if err = validateArchive(filepath.Join(op, "guiho-s-buda.zip"), manifest); err != nil {
 		return Result{}, err
 	}
 	if err = lifecycle.SaveJournal(journalPath, lifecycle.Journal{Operation: "upgrade", Phase: lifecycle.PhaseStaged, Token: lock.Token, Version: selection.Release.Version, PreviousVersion: previous.ActiveVersion}); err != nil {
@@ -474,7 +474,7 @@ func validateArchive(path string, manifest artifact.Manifest) error {
 	}
 	sort.Strings(actualMembers)
 	for _, declared := range manifest.Artifacts {
-		if declared.Path != "guiho-s-0002-buda.zip" {
+		if declared.Path != "guiho-s-buda.zip" {
 			continue
 		}
 		members := append([]string(nil), declared.ArchiveMembers...)

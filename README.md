@@ -112,14 +112,14 @@ issue.
 
 ## Agent resources
 
-The main skill is `guiho-s-0002-buda`; the setup prompt is `guiho-p-buda`;
+The main skill is `guiho-s-buda`; the setup prompt is `guiho-p-buda`;
 the lifecycle prompts are `guiho-p-buda-install` and
 `guiho-p-buda-uninstall`; and the managed instruction is `guiho-i-buda`.
 Inspect them without modifying files:
 
 ```text
 buda agent skill list
-buda agent skill show guiho-s-0002-buda
+buda agent skill show guiho-s-buda
 buda agent prompt list
 buda agent prompt show guiho-p-buda-install
 buda agent prompt show guiho-p-buda-uninstall

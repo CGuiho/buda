@@ -8,12 +8,12 @@ import (
 
 func TestBudaSkillRoutesSixIntentsThroughBuda(t *testing.T) {
 	paths := []string{
-		"guiho-s-0002-buda/SKILL.md",
-		"guiho-s-0002-buda/references/capture.md",
-		"guiho-s-0002-buda/references/ingest.md",
-		"guiho-s-0002-buda/references/retrieval.md",
-		"guiho-s-0002-buda/references/curation.md",
-		"guiho-s-0002-buda/references/maintenance.md",
+		"guiho-s-buda/SKILL.md",
+		"guiho-s-buda/references/capture.md",
+		"guiho-s-buda/references/ingest.md",
+		"guiho-s-buda/references/retrieval.md",
+		"guiho-s-buda/references/curation.md",
+		"guiho-s-buda/references/maintenance.md",
 	}
 	var corpus strings.Builder
 	for _, path := range paths {
@@ -41,13 +41,13 @@ func TestBudaSkillRoutesSixIntentsThroughBuda(t *testing.T) {
 }
 
 func TestBudaSkillDocumentsRequiredWriteFlags(t *testing.T) {
-	capture, _ := fs.ReadFile(FS, "guiho-s-0002-buda/references/capture.md")
+	capture, _ := fs.ReadFile(FS, "guiho-s-buda/references/capture.md")
 	for _, flag := range []string{"--wiki", "--target", "--title", "--actor"} {
 		if !strings.Contains(string(capture), flag) {
 			t.Errorf("capture guidance omits %s", flag)
 		}
 	}
-	ingest, _ := fs.ReadFile(FS, "guiho-s-0002-buda/references/ingest.md")
+	ingest, _ := fs.ReadFile(FS, "guiho-s-buda/references/ingest.md")
 	for _, flag := range []string{"--wiki", "--source", "--actor"} {
 		if !strings.Contains(string(ingest), flag) {
 			t.Errorf("ingest guidance omits %s", flag)

@@ -29,7 +29,7 @@ func TestReleaseContractNamesAndTuning(t *testing.T) {
 	if !reflect.DeepEqual(got, want) {
 		t.Fatalf("targets = %#v, want %#v", got, want)
 	}
-	if skillAssetName != "guiho-s-0002-buda.zip" || instructionAssetName != "guiho-i-buda.md" || setupPromptAssetName != "guiho-p-buda.md" || installPromptAssetName != "guiho-p-buda-install.md" || uninstallPromptAssetName != "guiho-p-buda-uninstall.md" {
+	if skillAssetName != "guiho-s-buda.zip" || instructionAssetName != "guiho-i-buda.md" || setupPromptAssetName != "guiho-p-buda.md" || installPromptAssetName != "guiho-p-buda-install.md" || uninstallPromptAssetName != "guiho-p-buda-uninstall.md" {
 		t.Fatalf("supporting assets = %s, %s, %s, %s, %s", skillAssetName, instructionAssetName, setupPromptAssetName, installPromptAssetName, uninstallPromptAssetName)
 	}
 }

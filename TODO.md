@@ -41,6 +41,7 @@ required exact-head evidence does not complete the unit.
 
 - [x] Confirm CLI home directory name `buda`.
 - [x] Confirm retained main skill name `guiho-s-0002-buda`.
+- [x] Confirm renamed main skill name `guiho-s-buda`.
 - [x] Confirm main setup prompt ID `guiho-p-buda`.
 - [x] Confirm Buda ships no agent definitions.
 - [x] Confirm canonical repository and issue URLs.

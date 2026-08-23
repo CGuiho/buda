@@ -31,7 +31,7 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 	var local bool
 	command := &cobra.Command{
 		Use:     "skill",
-		Short:   "Manage the embedded guiho-s-0002-buda skill.",
+		Short:   "Manage the embedded guiho-s-buda skill.",
 		Example: "  buda agent skill upgrade\n  buda agent skill upgrade --local --wiki ./wiki",
 		Args:    NoArgs,
 		RunE:    showHelp,
@@ -81,7 +81,7 @@ func newAgentSkillCommand(deps Dependencies) *cobra.Command {
 	command.AddCommand(&cobra.Command{
 		Use:     "show [id]",
 		Short:   "Show embedded skill metadata and both installation states.",
-		Example: "  buda agent skill show guiho-s-0002-buda",
+		Example: "  buda agent skill show guiho-s-buda",
 		Args: func(_ *cobra.Command, args []string) error {
 			if len(args) > 1 {
 				return UsageError("accepts at most 1 arg(s), received %d", len(args))

@@ -1,7 +1,7 @@
 ---
-subject: buda-skill-0002-references
+subject: buda-skill-references
 description: Focused capture, ingest, retrieval, curation, and maintenance guidance loaded from the embedded Buda skill.
-parent: buda-skill-0002
+parent: buda-skill
 children: []
 files: {}
 documents:

@@ -1,9 +1,9 @@
 ---
-subject: buda-skill-0002
+subject: buda-skill
 description: Embedded Buda agent skill for explicit-wiki capture, ingest, retrieval, curation, and maintenance.
 parent: buda-skills
 children:
-  - buda-skill-0002-references
+  - buda-skill-references
 files: {}
 documents:
   SKILL.md: Entry-point operating contract for agents maintaining one explicitly selected Buda wiki.
@@ -11,7 +11,7 @@ tags:
   - agent-skill
   - knowledge
 keywords:
-  - guiho-s-0002-buda
+  - guiho-s-buda
   - explicit wiki
   - OKF
 flags: []

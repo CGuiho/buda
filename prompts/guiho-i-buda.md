@@ -25,7 +25,7 @@ This repository is the Buda wiki `{{WIKI_ID}}`. Its canonical OKF bundle is
 `{{BUNDLE}}`.
 
 Buda is the required tool for maintaining and retrieving this wiki. Load the
-`guiho-s-0002-buda` skill for explicit requests to remember, save, ingest,
+`guiho-s-buda` skill for explicit requests to remember, save, ingest,
 find, cite, curate, or maintain knowledge. Pass this repository path through
 `--wiki` on every Buda repository command. Maintain the wiki through Buda;
 do not bypass Buda or invoke qmd directly. Never infer another wiki, search

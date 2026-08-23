@@ -3,7 +3,7 @@ name: buda-skill-ingest
 purpose: Define source registration and affected-concept review through Buda.
 description: Ingest guidance for provenance, work-item review, linting, and qmd indexing.
 created: 2026-07-26
-owner: buda-skill-0002-references
+owner: buda-skill-references
 flags: []
 tags:
   - ingest

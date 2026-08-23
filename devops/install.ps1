@@ -27,7 +27,7 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
   } while ($batch.Count -eq 100)
   $candidates = @($all | Where-Object { -not $_.draft -and $_.tag_name -match '^buda/v' } | ForEach-Object {
     $candidate = $_.tag_name.Substring(6); $candidateChannel = if ($candidate.Contains('-')) { $candidate.Split('-')[1].Split('.')[0] } else { 'stable' }
-    $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-0002-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml',
+    $requiredNames = @($binary, $launcher, 'checksums.txt', 'artifacts.json', 'guiho-s-buda.zip', 'guiho-i-buda.md', 'guiho-p-buda.md', 'buda.schema.json', 'buda.global.schema.json', 'buda.example.yaml', 'buda.global.example.yaml',
       'buda-linux-amd64', 'buda-linux-arm64', 'buda-linux-armv7', 'buda-linux-armv6', 'buda-darwin-amd64', 'buda-darwin-arm64', 'buda-windows-amd64.exe', 'buda-windows-arm64.exe',
       'buda-launcher-linux-amd64', 'buda-launcher-linux-arm64', 'buda-launcher-linux-armv7', 'buda-launcher-linux-armv6', 'buda-launcher-darwin-amd64', 'buda-launcher-darwin-arm64', 'buda-launcher-windows-amd64.exe', 'buda-launcher-windows-arm64.exe')
     $assetNames = @($_.assets | ForEach-Object { [string]$_.name })
@@ -130,7 +130,7 @@ try {
   if ($manifest.schema -ne 1 -or $manifest.cli -ne 'buda' -or $manifest.version -ne $Version) { throw 'Release artifacts.json is not a valid Buda manifest for the selected version.' }
   $paths = @($manifest.artifacts | ForEach-Object { [string]$_.path })
   if (@($paths | Sort-Object -Unique).Count -ne $paths.Count) { throw 'Manifest contains duplicate asset paths.' }
-  $required = @($binary,$launcher,'guiho-s-0002-buda.zip','guiho-i-buda.md','guiho-p-buda.md','buda.schema.json','buda.global.schema.json','buda.example.yaml','buda.global.example.yaml','artifacts.json')
+  $required = @($binary,$launcher,'guiho-s-buda.zip','guiho-i-buda.md','guiho-p-buda.md','buda.schema.json','buda.global.schema.json','buda.example.yaml','buda.global.example.yaml','artifacts.json')
   foreach ($name in $paths) {
     if ([string]::IsNullOrWhiteSpace($name) -or [IO.Path]::GetFileName($name) -ne $name -or $name.Contains('/') -or $name.Contains('\') -or $name -eq '..') { throw "Unsafe manifest asset path '$name'." }
     if (-not (Test-Path -LiteralPath (Join-Path $stage $name))) { [void](Get-Asset $name) }
@@ -191,7 +191,7 @@ try {
   # selecting, initializing, or mutating a wiki.
   & $launcherPath agent skill install | Out-Null
   if ($LASTEXITCODE -ne 0) { throw 'Buda installed, but global agent-skill installation failed.' }
-  Write-Host 'Installed agent skill: guiho-s-0002-buda'
+  Write-Host 'Installed agent skill: guiho-s-buda'
   Write-Host "Installed Buda $Version"
   Write-Host "Launcher: $launcherPath"
   Write-Host "Payload: $(Join-Path $versionDir 'buda.exe')"

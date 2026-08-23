@@ -40,7 +40,7 @@ relevant only as an upstream installation option for qmd.
 3. qmd integration: project-local qmd initialization, version/capability checks,
    collection containment, index/embed delegation, lexical/semantic/hybrid
    query, get, status, and doctor normalization. No retrieval fallback exists.
-4. Agent behavior: embedded `guiho-s-0002-buda`, prompt/instruction resources,
+4. Agent behavior: embedded `guiho-s-buda`, prompt/instruction resources,
    transactional global/local skill targets, bounded repository instructions,
    and failure-isolated first-success reconciliation split between bare
    global-only bootstrap and explicit-wiki instruction bootstrap.

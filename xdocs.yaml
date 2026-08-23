@@ -13,5 +13,20 @@ scan:
     - dist
     - build
     - vendor
+ignore:
+  gitignore: true
+  rules:
+    - pattern: "**/AGENTS.md"
+      kind: file
+      frontmatter: false
+    - pattern: "**/README.md"
+      kind: file
+      frontmatter: false
+    - pattern: "**/CLAUDE.md"
+      kind: file
+      frontmatter: false
+    - pattern: skills/guiho-s-buda/SKILL.md
+      kind: file
+      frontmatter: false
 project:
   name: buda

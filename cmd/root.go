@@ -340,7 +340,7 @@ func newSelfTestCommand(info BuildInfo) *cobra.Command {
 			if info.Version != "dev" && !releasecatalog.IsSemver(info.Version) {
 				return fmt.Errorf("invalid build version %q", info.Version)
 			}
-			if _, err := fs.ReadFile(skills.FS, "guiho-s-0002-buda/SKILL.md"); err != nil {
+			if _, err := fs.ReadFile(skills.FS, "guiho-s-buda/SKILL.md"); err != nil {
 				return fmt.Errorf("read embedded skill: %w", err)
 			}
 			if _, err := fs.ReadFile(prompts.FS, "guiho-i-buda.md"); err != nil {

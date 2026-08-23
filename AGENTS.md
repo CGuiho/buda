@@ -64,7 +64,7 @@ GUIHO CLI Convention 0001 is the current public CLI authority. It supersedes
 older exact-eleven-asset and `update` guidance. GUIHO Agent Artifacts
 Convention 0002 governs every bundled artifact name and metadata contract.
 Buda's confirmed resource names are CLI home `buda`, main skill
-`guiho-s-0002-buda`, setup prompt `guiho-p-buda`, lifecycle prompts
+`guiho-s-buda`, setup prompt `guiho-p-buda`, lifecycle prompts
 `guiho-p-buda-install` and `guiho-p-buda-uninstall`, and managed instruction
 `guiho-i-buda`; no agent definitions are shipped. The canonical repository is
 `https://github.com/CGuiho/buda` and issues are created at
