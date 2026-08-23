@@ -270,14 +270,14 @@ func TestAgentHumanOutputIsDistinctFromJSON(t *testing.T) {
 	if err != nil {
 		t.Fatal(err)
 	}
-	if strings.HasPrefix(strings.TrimSpace(human), "[") || !strings.Contains(human, "description:") || !strings.Contains(human, "id: guiho-p-buda") {
+	if strings.HasPrefix(strings.TrimSpace(human), "[") || !strings.Contains(human, "description:") || !strings.Contains(human, "id: guiho-p-buda-install") || !strings.Contains(human, "id: guiho-p-buda-uninstall") {
 		t.Fatalf("human output = %q", human)
 	}
 	jsonOutput, _, err := executeTest(t, "agent", "prompt", "list", "--json")
 	if err != nil {
 		t.Fatal(err)
 	}
-	if !strings.HasPrefix(strings.TrimSpace(jsonOutput), "[") || !strings.Contains(jsonOutput, `"id": "guiho-p-buda"`) {
+	if !strings.HasPrefix(strings.TrimSpace(jsonOutput), "[") || !strings.Contains(jsonOutput, `"id": "guiho-p-buda-install"`) || !strings.Contains(jsonOutput, `"id": "guiho-p-buda-uninstall"`) {
 		t.Fatalf("JSON output = %q", jsonOutput)
 	}
 }

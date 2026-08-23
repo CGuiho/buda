@@ -17,6 +17,8 @@ keywords:
   - XDocs
 ---
 
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
 # Buda repository instructions
 
 ## Product contract
@@ -59,12 +61,19 @@ implement search, embeddings, ranking, reranking, or a retrieval fallback.
 ## Convention 0001 authority
 
 GUIHO CLI Convention 0001 is the current public CLI authority. It supersedes
-older exact-eleven-asset and `update` guidance. Buda's confirmed resource
-names are CLI home `buda`, main skill `guiho-s-0002-buda`, setup prompt
-`guiho-p-buda`, and managed instruction `guiho-i-buda`; no agent definitions
-are shipped. The canonical repository is
+older exact-eleven-asset and `update` guidance. GUIHO Agent Artifacts
+Convention 0002 governs every bundled artifact name and metadata contract.
+Buda's confirmed resource names are CLI home `buda`, main skill
+`guiho-s-0002-buda`, setup prompt `guiho-p-buda`, lifecycle prompts
+`guiho-p-buda-install` and `guiho-p-buda-uninstall`, and managed instruction
+`guiho-i-buda`; no agent definitions are shipped. The canonical repository is
 `https://github.com/CGuiho/buda` and issues are created at
 `https://github.com/CGuiho/buda/issues/new`.
+
+Installer scripts are global-only: they install and verify Buda and its global
+skill without accepting a wiki, invoking qmd, or running `buda init`. Wiki
+creation and reconciliation occur only through a later explicit
+`buda init --wiki <path>` operation.
 
 The active implementation plan is
 `docs/GUIHO_CLI_CONVENTION_0001_IMPLEMENTATION_PLAN.md`; the audit and
@@ -128,3 +137,13 @@ stable UIDs, use `runx describe <uid>`, and run
 `runx run --dry-run <uid>` before unfamiliar or side-effecting work.
 RunX options precede the selector; post-selector tokens belong to the child.
 <!-- END RUNX -->
+
+<!-- BEGIN GUIHO MIRROR - DO NOT EDIT THIS SECTION -->
+## Semantic Project Versioning -- GUIHO Mirror
+
+Invoke the guiho-s-mirror agent skill every time the user wants to bump, tag, release, plan, initialize, configure, or troubleshoot semantic project versioning with GUIHO Mirror.
+
+Before editing release docs or changelogs, inspect mirror.config.toml. If [agents].write_changelog is false, skip changelog edits. If it is missing or true, changelog edits are allowed when the project has a changelog.
+
+Use [agents].changelog_path as the changelog file path. If it is missing, use CHANGELOG.md in the project root.
+<!-- END GUIHO MIRROR -->

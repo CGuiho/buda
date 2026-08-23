@@ -1,6 +1,6 @@
 ---
 subject: buda-internal-releasecatalog
-description: Complete paginated release selection and channel matching.
+description: Complete paginated release selection, channel matching, and mandatory convention-named lifecycle prompt validation.
 parent: buda-internal
 children: []
 files:
@@ -12,4 +12,7 @@ flags: []
 status: draft
 ---
 
-The selector rejects incomplete releases before installation or activation.
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
+The selector rejects incomplete releases before installation or activation,
+including releases missing either lifecycle prompt artifact.

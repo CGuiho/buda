@@ -5,11 +5,9 @@ OWNER=CGuiho
 REPOSITORY=buda
 VERSION=""
 CHANNEL=""
-WIKI=""
-WIKI_ID=""
 ASSET_DIR="${BUDA_RELEASE_ASSET_DIR:-}"
 
-usage() { printf '%s\n' "Usage: install.sh --wiki <path> [--wiki-id <id>] [--version <semver> | --channel <channel>]"; }
+usage() { printf '%s\n' "Usage: install.sh [--version <semver> | --channel <channel>]"; }
 semver_gt() {
   awk -v left="$1" -v right="$2" '
     function compare(a, b,    ap, bp, ac, bc, i, ai, bi, ar, br, an, bn, na, nb, np, nq) {
@@ -43,13 +41,10 @@ while [ "$#" -gt 0 ]; do
   case "$1" in
     --version) [ "$#" -ge 2 ] || { usage >&2; exit 2; }; VERSION=$2; shift 2 ;;
     --channel) [ "$#" -ge 2 ] || { usage >&2; exit 2; }; CHANNEL=$2; shift 2 ;;
-    --wiki) [ "$#" -ge 2 ] || { usage >&2; exit 2; }; WIKI=$2; shift 2 ;;
-    --wiki-id) [ "$#" -ge 2 ] || { usage >&2; exit 2; }; WIKI_ID=$2; shift 2 ;;
     -h|--help) usage; exit 0 ;;
     *) printf 'unknown option: %s\n' "$1" >&2; usage >&2; exit 2 ;;
   esac
 done
-[ -n "$WIKI" ] || { printf '%s\n' '--wiki is required; Buda never selects a wiki implicitly' >&2; exit 2; }
 [ -z "$VERSION" ] || [ -z "$CHANNEL" ] || { printf '%s\n' '--version and --channel are mutually exclusive' >&2; exit 2; }
 case "$VERSION" in buda/*) VERSION=${VERSION#buda/} ;; esac
 case "$VERSION" in v*) VERSION=${VERSION#v} ;; esac
@@ -68,7 +63,6 @@ esac
 HOME_DIR=${HOME:?HOME is required}
 GUIHO_HOME=$HOME_DIR/.guiho
 CLI_HOME=$GUIHO_HOME/buda
-GLOBAL_CONFIG_NAME=buda.global.yaml
 BIN_DIR=$GUIHO_HOME/bin
 TEMP_ROOT=$GUIHO_HOME/.temp
 mkdir -p "$TEMP_ROOT"
@@ -78,6 +72,7 @@ if [ -n "$ASSET_DIR" ]; then
   [ -n "$VERSION" ] || VERSION=${BUDA_RELEASE_VERSION:-}
   [ -n "$VERSION" ] || { printf '%s\n' 'BUDA_RELEASE_VERSION or --version is required with BUDA_RELEASE_ASSET_DIR' >&2; exit 2; }
   TAG="buda/v$VERSION"
+  SOURCE="$ASSET_DIR/$BINARY"
   source_asset() { cp "$ASSET_DIR/$1" "$2"; }
 else
   if [ -z "$VERSION" ]; then
@@ -99,6 +94,7 @@ else
     TAG="buda/v$VERSION"
   fi
   BASE="https://github.com/$OWNER/$REPOSITORY/releases/download/$TAG"
+  SOURCE="$BASE/$BINARY"
   source_asset() { curl -fsSL "$BASE/$1" -o "$2"; }
 fi
 
@@ -120,7 +116,9 @@ verify_checksum() {
   [ "$expected" = "$actual" ] || { printf 'checksum mismatch: %s\n' "$name" >&2; return 1; }
 }
 
+VERSION_DIR=$CLI_HOME/versions/$VERSION
 printf 'Resolved Buda %s for %s/%s\n' "$VERSION" "$OS" "$ARCH"
+printf 'Release asset: %s\nSource: %s\nDestination: %s\n' "$BINARY" "$SOURCE" "$VERSION_DIR/buda"
 printf 'CLI home: %s\nStable launcher: %s/buda\n' "$CLI_HOME" "$BIN_DIR"
 
 # Fetch the ownership manifest and checksum index first, then fetch exactly
@@ -144,6 +142,14 @@ done
 for name in "$BINARY" "$LAUNCHER" guiho-s-0002-buda.zip guiho-i-buda.md guiho-p-buda.md buda.schema.json buda.global.schema.json buda.example.yaml buda.global.example.yaml artifacts.json; do
   manifest_has "$name" || { printf 'manifest does not declare required asset: %s\n' "$name" >&2; exit 1; }
 done
+# Releases created after lifecycle-specific prompt artifacts were introduced
+# must carry both canonical guiho-p-* files. Historical complete releases carry
+# only guiho-p-buda.md and remain installable by the latest stable script.
+if manifest_has guiho-p-buda-install.md || manifest_has guiho-p-buda-uninstall.md; then
+  for name in guiho-p-buda-install.md guiho-p-buda-uninstall.md; do
+    manifest_has "$name" || { printf 'manifest does not declare required lifecycle prompt: %s\n' "$name" >&2; exit 1; }
+  done
+fi
 for name in $(manifest_paths); do verify_checksum "$name"; done
 chmod 755 "$STAGE/$BINARY" "$STAGE/$LAUNCHER"
 while read -r digest name extra; do
@@ -157,7 +163,6 @@ observed=$($STAGE/$BINARY --version 2>/dev/null || true)
 self_test=$($STAGE/$BINARY __self-test 2>/dev/null || true)
 [ "$self_test" = "ok" ] || { printf '%s\n' 'candidate self-test failed' >&2; exit 1; }
 
-VERSION_DIR=$CLI_HOME/versions/$VERSION
 BACKUP_DIR=$STAGE/backup
 mkdir -p "$BACKUP_DIR" "$CLI_HOME/versions" "$BIN_DIR"
 # The historical 0.1.x direct-binary installation wrote the payload to
@@ -214,8 +219,9 @@ case ":${PATH:-}:" in
   *":$BIN_DIR:"*) ;;
   *) if [ ! -f "$HOME_DIR/.profile" ] || ! grep -F '$HOME/.guiho/bin' "$HOME_DIR/.profile" >/dev/null 2>&1; then printf '\n# GUIHO Buda\nexport PATH="$HOME/.guiho/bin:$PATH"\n' >> "$HOME_DIR/.profile"; fi ;;
 esac
-# Invoke the required explicit-wiki init without shell evaluation so paths
-# remain opaque to the installer.
-if [ -n "$WIKI_ID" ]; then "$BIN_DIR/buda" init --wiki "$WIKI" --wiki-id "$WIKI_ID"; else "$BIN_DIR/buda" init --wiki "$WIKI"; fi || { printf '%s\n' 'Buda installed, but explicit-wiki init failed; rolling back lifecycle files.' >&2; exit 1; }
 if [ "$had_legacy" -eq 1 ]; then rm -f "$LEGACY_PATH"; fi
+# Installation is global-only. Install the bundled skill globally, but never
+# select, initialize, or mutate a wiki; project initialization is separate.
+"$BIN_DIR/buda" agent skill install >/dev/null
+printf 'Installed agent skill: guiho-s-0002-buda\n'
 printf 'Installed Buda %s\nLauncher: %s/buda\nPayload: %s\nCLI home: %s\n' "$VERSION" "$BIN_DIR" "$VERSION_DIR/buda" "$CLI_HOME"

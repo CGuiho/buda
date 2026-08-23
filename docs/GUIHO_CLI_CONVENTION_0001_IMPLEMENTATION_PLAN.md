@@ -21,11 +21,26 @@ keywords:
   - minor release
 ---
 
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
 # Buda GUIHO CLI Convention 0001 implementation plan
 
 ## Plan status
 
 **Status: complete and released.**
+
+## Post-release installation correction
+
+The user's 2026-08-23 correction and the current GUIHO CLI Convention 0001
+supersede this plan's historical U09 requirement that installers accept a wiki
+and run `init`. Buda installers are global-only: they install and verify the
+launcher, payload, release resources, and global skill, but never select or
+initialize a wiki or invoke qmd. A later `buda init --wiki <path>` operation
+owns all project setup. Dedicated lifecycle prompts are stored under the
+Convention 0002 names `guiho-p-buda-install` and
+`guiho-p-buda-uninstall`; `guiho-p-buda` remains the explicit-wiki setup
+prompt. Historical implementation and acceptance statements below describe the
+0.2.0 release program and do not override this correction.
 
 This plan converts the findings in
 [`GUIHO_CLI_CONVENTION_0001_COMPLIANCE_AUDIT.md`](GUIHO_CLI_CONVENTION_0001_COMPLIANCE_AUDIT.md)

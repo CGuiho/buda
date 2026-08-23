@@ -337,8 +337,10 @@ func newSelfTestCommand(info BuildInfo) *cobra.Command {
 			if _, err := fs.ReadFile(prompts.FS, "guiho-i-buda.md"); err != nil {
 				return fmt.Errorf("read embedded instruction: %w", err)
 			}
-			if _, err := fs.ReadFile(prompts.FS, "guiho-p-buda.md"); err != nil {
-				return fmt.Errorf("read embedded prompt: %w", err)
+			for _, path := range []string{"guiho-p-buda.md", "guiho-p-buda-install.md", "guiho-p-buda-uninstall.md"} {
+				if _, err := fs.ReadFile(prompts.FS, path); err != nil {
+					return fmt.Errorf("read embedded prompt %s: %w", path, err)
+				}
 			}
 			if _, err := fs.ReadFile(schemas.FS, "buda.schema.json"); err != nil {
 				return fmt.Errorf("read embedded project schema: %w", err)

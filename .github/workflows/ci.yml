@@ -40,7 +40,7 @@ jobs:
           ./.bin/xdocs doctor . --warnings-as-errors
       - name: Formatting and module graph
         run: |
-          test -z "$(gofmt -l .)"
+          test -z "$(gofmt -l main.go cmd devops internal prompts schemas skills)"
           go mod tidy
           git diff --exit-code -- go.mod go.sum
       - name: Go tests and vet
@@ -168,14 +168,20 @@ jobs:
           cp examples/buda.global.example.yaml "$HOME/.guiho/buda/buda.global.yaml"
           wiki="$RUNNER_TEMP/wiki"
           mkdir -p "$wiki"
-          sh devops/install.sh --wiki "$wiki" --wiki-id lifecycle-wiki --version 0.2.0-ci
+          sh devops/install.sh --version 0.2.0-ci
           test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
+          test ! -e "$wiki/buda.yaml"
+          test ! -e "$wiki/AGENTS.md"
+          test ! -e "$wiki/knowledge"
+          test -f "$HOME/.guiho/buda/current.json"
+          # Wiki setup is a separate explicit operation.
+          "$HOME/.guiho/bin/buda" init --wiki "$wiki" --wiki-id lifecycle-wiki
           test -f "$wiki/buda.yaml"
           test -f "$wiki/AGENTS.md"
           test -d "$wiki/knowledge"
-          test -f "$HOME/.guiho/buda/current.json"
-          # Same-version reinstall is an idempotent repair.
-          sh devops/install.sh --wiki "$wiki" --version 0.2.0-ci
+          # Same-version reinstall is an idempotent global repair and does not
+          # rerun project initialization.
+          sh devops/install.sh --version 0.2.0-ci
           test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
           # Uninstall is destructive by default but never touches shared or
           # user-owned content.
@@ -212,11 +218,14 @@ jobs:
           LEGACY
           wiki="$RUNNER_TEMP/migration-wiki"
           mkdir -p "$wiki"
-          sh devops/install.sh --wiki "$wiki" --version 0.2.0-ci
+          sh devops/install.sh --version 0.2.0-ci
           test "$("$HOME/.guiho/bin/buda" --version)" = '0.2.0-ci'
           test ! -e "$HOME/.local/bin/buda"
+          test ! -e "$wiki/buda.yaml"
+          "$HOME/.guiho/bin/buda" init --wiki "$wiki"
           test -f "$HOME/.guiho/buda/buda.global.yaml"
           test -f "$HOME/.guiho/buda/buda.yaml"
+          test -f "$wiki/buda.yaml"
           grep -F 'legacy-wiki' "$HOME/.guiho/buda/buda.yaml"
 
   windows-lifecycle:
@@ -276,14 +285,18 @@ jobs:
           Copy-Item -LiteralPath 'dist\buda-windows-amd64.exe' -Destination (Join-Path $legacyDir 'buda.exe')
           $wiki = Join-Path $env:RUNNER_TEMP 'win-wiki'
           New-Item -ItemType Directory -Path $wiki | Out-Null
-          & '.\devops\install.ps1' -Version '0.2.0-ci' -Wiki $wiki -WikiId 'win-lifecycle'
+          & '.\devops\install.ps1' -Version '0.2.0-ci'
           $launcher = Join-Path $lifecycleHome '.guiho\bin\buda.exe'
           $version = (& $launcher --version | Out-String).Trim()
           if ($version -ne '0.2.0-ci') { throw "Unexpected installed version: $version" }
           if (Test-Path -LiteralPath (Join-Path $legacyDir 'buda.exe')) { throw 'Legacy direct binary survived verified launcher activation.' }
-          if (-not (Test-Path -LiteralPath (Join-Path $wiki 'buda.yaml'))) { throw 'Selected wiki configuration missing.' }
-          # Same-version reinstall is an idempotent repair.
-          & '.\devops\install.ps1' -Version '0.2.0-ci' -Wiki $wiki
+          if (Test-Path -LiteralPath (Join-Path $wiki 'buda.yaml')) { throw 'Installer initialized a wiki.' }
+          # Wiki setup is a separate explicit operation.
+          & $launcher init --wiki $wiki --wiki-id 'win-lifecycle'
+          if ($LASTEXITCODE -ne 0) { throw 'Explicit wiki initialization failed.' }
+          if (-not (Test-Path -LiteralPath (Join-Path $wiki 'buda.yaml'))) { throw 'Selected wiki configuration missing after explicit init.' }
+          # Same-version reinstall is an idempotent global repair.
+          & '.\devops\install.ps1' -Version '0.2.0-ci'
           # Uninstall is synchronous and destructive by default; user-owned
           # sentinels survive.
           Set-Content -NoNewline -Path (Join-Path $lifecycleHome '.guiho\sentinel.txt') -Value 'keep'

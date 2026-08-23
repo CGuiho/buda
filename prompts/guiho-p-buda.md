@@ -1,21 +1,24 @@
 ---
 name: guiho-p-buda
-purpose: Install and initialize the Buda repository-agnostic OKF wiki CLI.
-description: Guide an agent through installing, verifying, initializing, upgrading, and safely uninstalling Buda.
+purpose: Initialize one explicitly selected Buda wiki after the CLI is installed.
+description: Use when an agent must set up or reconcile one selected Buda wiki and its persistent agent resources.
 created: 2026-08-16
 version: "0.2.0"
 owner: buda-prompts
+metadata:
+  version: "0.2.0"
 flags: []
 tags:
   - setup
   - lifecycle
 keywords:
   - Buda
-  - install
   - init
-  - upgrade
-  - uninstall
+  - explicit wiki
+  - qmd
 ---
+
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 # Set up Buda
 
@@ -23,22 +26,15 @@ Buda is a repository-agnostic Go CLI for maintaining one explicitly selected
 AI-maintained wiki in Google's portable Open Knowledge Format. It delegates
 indexing and retrieval to qmd and never guesses which repository to change.
 
-Install the latest stable release for the current platform with the canonical
-remote installer, always providing the selected wiki path:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh -s -- --wiki <path>
-```
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1'))) -Wiki <path>
-```
-
-Then verify the installed CLI with:
+Verify that Buda is already installed before selecting a wiki:
 
 ```text
 buda --version
 ```
+
+If Buda is not installed, stop and follow the separate
+`guiho-p-buda-install` prompt. Installation must not select or initialize a
+wiki.
 
 Initialize one selected wiki only by passing its path explicitly:
 
@@ -51,5 +47,5 @@ policy and use `buda upgrade check` followed by `buda upgrade` only when that
 policy and the user's authority allow it. After an upgrade, verify the raw
 version and rerun `buda init --wiki <path>`.
 
-Use `buda uninstall --dry-run --wiki <path>` to inspect ownership before a
-removal. Buda never removes canonical OKF knowledge or raw evidence.
+Use the separate `guiho-p-buda-uninstall` prompt for removal. Buda never
+removes canonical OKF knowledge or raw evidence.

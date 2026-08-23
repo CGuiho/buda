@@ -203,7 +203,7 @@ func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 	command := &cobra.Command{
 		Use:     "prompt",
 		Short:   "Inspect embedded Buda prompt resources without running a model.",
-		Example: "  buda agent prompt show guiho-p-buda",
+		Example: "  buda agent prompt show guiho-p-buda-install",
 		Args:    NoArgs,
 		RunE:    showHelp,
 	}
@@ -213,24 +213,23 @@ func newAgentPromptCommand(deps Dependencies) *cobra.Command {
 		Example: "  buda agent prompt list",
 		Args:    NoArgs,
 		RunE: func(command *cobra.Command, _ []string) error {
-			prompt, err := deps.Agents.Prompt()
+			promptResources, err := deps.Agents.Prompts()
 			if err != nil {
 				return err
 			}
-			prompt.Body = ""
-			return writeAgentValue(command, deps, []agent.Prompt{prompt})
+			for index := range promptResources {
+				promptResources[index].Body = ""
+			}
+			return writeAgentValue(command, deps, promptResources)
 		},
 	})
 	command.AddCommand(&cobra.Command{
 		Use:     "show <id>",
 		Short:   "Print one raw embedded Buda prompt.",
-		Example: "  buda agent prompt show guiho-p-buda",
+		Example: "  buda agent prompt show guiho-p-buda-install",
 		Args:    ExactArgs(1),
 		RunE: func(command *cobra.Command, args []string) error {
-			if args[0] != agent.PromptID {
-				return UsageError("unknown prompt id %q", args[0])
-			}
-			prompt, err := deps.Agents.Prompt()
+			prompt, err := deps.Agents.Prompt(args[0])
 			if err != nil {
 				return err
 			}

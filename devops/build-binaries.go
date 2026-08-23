@@ -21,12 +21,14 @@ import (
 )
 
 const (
-	cliName              = "buda"
-	skillAssetName       = "guiho-s-0002-buda.zip"
-	instructionAssetName = "guiho-i-buda.md"
-	promptAssetName      = "guiho-p-buda.md"
-	manifestAssetName    = "artifacts.json"
-	outputDirectory      = "dist"
+	cliName                  = "buda"
+	skillAssetName           = "guiho-s-0002-buda.zip"
+	instructionAssetName     = "guiho-i-buda.md"
+	setupPromptAssetName     = "guiho-p-buda.md"
+	installPromptAssetName   = "guiho-p-buda-install.md"
+	uninstallPromptAssetName = "guiho-p-buda-uninstall.md"
+	manifestAssetName        = "artifacts.json"
+	outputDirectory          = "dist"
 )
 
 type target struct{ name, goos, goarch, tuning string }
@@ -121,7 +123,9 @@ func main() {
 	}
 	supporting := []struct{ source, name string }{
 		{filepath.Join("prompts", instructionAssetName), instructionAssetName},
-		{filepath.Join("prompts", promptAssetName), promptAssetName},
+		{filepath.Join("prompts", setupPromptAssetName), setupPromptAssetName},
+		{filepath.Join("prompts", installPromptAssetName), installPromptAssetName},
+		{filepath.Join("prompts", uninstallPromptAssetName), uninstallPromptAssetName},
 		{filepath.Join("schemas", "buda.schema.json"), "buda.schema.json"},
 		{filepath.Join("schemas", "buda.global.schema.json"), "buda.global.schema.json"},
 		{filepath.Join("examples", "buda.example.yaml"), "buda.example.yaml"},

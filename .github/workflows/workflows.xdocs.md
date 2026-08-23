@@ -21,6 +21,8 @@ flags: []
 status: stable
 ---
 
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
 CI builds the manifest-derived complete release unit and validates checksums.
 Hosted Linux, macOS, and Windows AMD64 and ARM64 runners execute native
 payload smokes and launcher smokes through a disposable pointer fixture.
@@ -29,13 +31,13 @@ matching hosted runners. RunX, Mirror, strict XDocs, Go quality, lifecycle
 transaction and interruption acceptance, and both installer-language syntax
 checks are required.
 
-Native lifecycle jobs on Linux and Windows install the release from a local
-asset directory into a disposable home with a qmd process stub, verify the
-stable launcher, prove same-version reinstall repair, migrate a synthetic
-0.1.1 direct-binary layout through the launcher transaction (carrying the
-legacy wiki_id into the newly selected wiki), and run a synchronous default
-uninstall while asserting that canonical OKF content and shared GUIHO
-sentinels survive.
+Native lifecycle jobs on Linux and Windows install the release globally from a
+local asset directory, prove that installation creates no wiki state, then run
+explicit wiki initialization with a qmd process stub. They verify the stable
+launcher, prove same-version global repair, migrate a synthetic 0.1.1
+direct-binary layout before a separate init carries the legacy wiki ID, and
+run a synchronous default uninstall while asserting that canonical OKF content
+and shared GUIHO sentinels survive.
 
 Publication runs for canonical `buda/v*` tags or a manual recovery dispatch.
 It reconciles one GitHub Release to every manifest-declared asset, verifies

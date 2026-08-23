@@ -78,6 +78,7 @@ var requiredReleaseAssets = []string{
 	"buda.schema.json", "buda.global.schema.json",
 	"buda.example.yaml", "buda.global.example.yaml",
 	"guiho-s-0002-buda.zip", "guiho-i-buda.md", "guiho-p-buda.md",
+	"guiho-p-buda-install.md", "guiho-p-buda-uninstall.md",
 	"artifacts.json", "checksums.txt",
 }
 

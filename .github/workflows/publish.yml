@@ -42,7 +42,7 @@ jobs:
           ./.bin/runx check --format json
           ./.bin/xdocs meta . --documents --strict
           ./.bin/xdocs doctor . --warnings-as-errors
-          test -z "$(gofmt -l .)"
+          test -z "$(gofmt -l main.go cmd devops internal prompts schemas skills)"
           go mod tidy
           git diff --exit-code -- go.mod go.sum
           go test -count=1 ./...

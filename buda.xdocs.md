@@ -22,7 +22,7 @@ files:
 documents:
   AGENTS.md: Repository engineering, product-boundary, documentation, validation, and release instructions.
   CHANGELOG.md: Chronological Buda release scope, compatibility boundaries, canonical tags, GitHub Release-only policy, and manifest-derived distribution contract.
-  README.md: Public overview of Buda, verified latest and exact installation, installer and native self-upgrade/rollback/uninstall operations, explicit-wiki model, OKF and qmd boundaries, commands, and development workflow.
+  README.md: Public overview of Buda, global-only installation, direct-following uninstall guidance, lifecycle prompts, separate explicit-wiki initialization, OKF and qmd boundaries, commands, and development workflow.
   TODO.md: Convention 0001 implementation-unit, acceptance-gate, human-confirmation, and release-authorization tracking.
 tags:
   - go
@@ -40,6 +40,8 @@ keywords:
 flags: []
 status: draft
 ---
+
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 Buda operates on exactly one explicitly selected wiki repository per command.
 Canonical knowledge remains portable OKF Markdown and evidence; qmd and Buda

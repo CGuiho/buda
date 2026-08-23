@@ -5,6 +5,8 @@ description: Universal repository instructions for one explicitly selected Buda 
 created: 2026-07-26
 version: "0.2.0"
 owner: buda-prompts
+metadata:
+  version: "0.2.0"
 flags: []
 tags:
   - repository-instructions
@@ -14,6 +16,8 @@ keywords:
   - explicit wiki
   - OKF
 ---
+
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 ## Buda Wiki
 

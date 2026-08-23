@@ -46,11 +46,27 @@ func completeReleaseAssetsJSON() string {
 		`{"name":"buda.global.example.yaml","browser_download_url":"https://downloads.example/buda.global.example.yaml"}`,
 		`{"name":"guiho-i-buda.md","browser_download_url":"https://downloads.example/guiho-i-buda.md"}`,
 		`{"name":"guiho-p-buda.md","browser_download_url":"https://downloads.example/guiho-p-buda.md"}`,
+		`{"name":"guiho-p-buda-install.md","browser_download_url":"https://downloads.example/guiho-p-buda-install.md"}`,
+		`{"name":"guiho-p-buda-uninstall.md","browser_download_url":"https://downloads.example/guiho-p-buda-uninstall.md"}`,
 		`{"name":"guiho-s-0002-buda.zip","browser_download_url":"https://downloads.example/guiho-s-0002-buda.zip"}`,
 		`{"name":"artifacts.json","browser_download_url":"https://downloads.example/artifacts.json"}`,
 		`{"name":"checksums.txt","browser_download_url":"https://downloads.example/checksums.txt"}`,
 	}
 	return strings.Join(assets, ",\n")
+}
+
+func TestRecoveryInstallerCommandNeverSelectsOrInitializesWiki(t *testing.T) {
+	command := recoveryCommand("0.2.2", "", `C:\wiki`)
+	for _, required := range []string{"-Version '0.2.2'", "--version '0.2.2'", "devops/install.ps1", "devops/install.sh"} {
+		if !strings.Contains(command, required) {
+			t.Fatalf("recovery command omits %q: %s", required, command)
+		}
+	}
+	for _, forbidden := range []string{"-Wiki", "--wiki", `C:\wiki`} {
+		if strings.Contains(command, forbidden) {
+			t.Fatalf("recovery command selects a wiki through %q: %s", forbidden, command)
+		}
+	}
 }
 
 func catalogClient() *http.Client {

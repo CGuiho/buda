@@ -16,6 +16,8 @@ keywords:
   - provenance
 ---
 
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
 # Buda architecture
 
 Buda opens exactly one explicit wiki per repository-facing command. Repository
@@ -104,9 +106,12 @@ There is no fallback index or search implementation.
 Release tooling builds eight pure-Go immutable payloads for Linux
 AMD64/ARM64/ARMv7/ARMv6, Darwin AMD64/ARM64, and Windows AMD64/ARM64, plus a
 platform-matched stable launcher for each target. It publishes the typed main
-skill, setup prompt, managed instruction, both schemas, complete examples,
-`artifacts.json`, and `checksums.txt` as one manifest-derived release unit.
-ARMv6 and ARMv7 are foreign build-only targets unless tested on native hosts.
-The launcher never performs network work; upgrade and installer transactions
-stage and checksum every declared file before activation. Building these
-artifacts is not publishing them.
+skill, setup prompt, dedicated install and uninstall prompts, managed
+instruction, both schemas, complete examples, `artifacts.json`, and
+`checksums.txt` as one manifest-derived release unit. ARMv6 and ARMv7 are
+foreign build-only targets unless tested on native hosts. The launcher never
+performs network work; upgrade and installer transactions stage and checksum
+every declared file before activation. Installers reconcile the global skill
+but never select or initialize a wiki; project setup remains a separate
+explicit `buda init --wiki <path>` operation. Building these artifacts is not
+publishing them.

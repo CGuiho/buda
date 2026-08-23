@@ -5,7 +5,7 @@ parent: buda-package
 children:
   - buda-cmd-launcher
 files:
-  agent.go: Agent skill, instruction, and prompt command tree.
+  agent.go: Agent skill, instruction, and multi-prompt command tree, including convention-named install and uninstall prompts.
   application.go: Assembly of the public repository command set.
   capture.go: Explicit-wiki capture command orchestration.
   doctor.go: Read-only repository and qmd diagnostic command.
@@ -24,9 +24,9 @@ files:
   root.go: Fresh Cobra root, persistent flags, help routes, dependency injection, bare global bootstrap, explicit-wiki reconciliation routing, and exit handling.
   root_test.go: Root command, help, JSON-error, and bootstrap-scheduling tests.
   status.go: Repository, health, and qmd readiness status command.
-  selfmanage_test.go: Upgrade catalog, no-op, operational progress, automatic rollback, deterministic JSON, uninstall preview, and reconciliation-exclusion command tests.
+  selfmanage_test.go: Upgrade catalog, install-only recovery command, no-op, operational progress, automatic rollback, deterministic JSON, uninstall preview, and reconciliation-exclusion command tests.
   uninstall.go: Manifest-driven ownership-safe uninstall command with preservation and confirmation flags.
-  upgrade.go: Complete release selection, recovery output, checksum-gated upgrade, check/list, and hidden Windows compatibility routes.
+  upgrade.go: Complete release selection, global-only installer recovery output, checksum-gated upgrade, check/list, and hidden Windows compatibility routes.
 documents: {}
 tags:
   - cobra
@@ -39,6 +39,8 @@ keywords:
 flags: []
 status: draft
 ---
+
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 This module owns Buda's user-facing Cobra surface and composes domain services
 without owning canonical wiki persistence or retrieval algorithms.

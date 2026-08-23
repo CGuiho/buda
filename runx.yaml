@@ -8,12 +8,12 @@ commands:
   - uid: budaformatcheck
     id: formatcheck
     summary: Check Go formatting.
-    command: gofmt -l .
+    command: gofmt -l main.go cmd devops internal prompts schemas skills
     description: Verify Go formatting without changing files.
   - uid: budaformat
     id: format
     summary: Format Go source.
-    command: gofmt -w .
+    command: gofmt -w main.go cmd devops internal prompts schemas skills
     description: Format all Go source files.
   - uid: budatidycheck
     id: tidycheck

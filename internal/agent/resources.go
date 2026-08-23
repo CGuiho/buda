@@ -14,12 +14,23 @@ import (
 )
 
 const (
-	SkillID          = "guiho-s-0002-buda"
-	InstructionID    = "guiho-i-buda"
-	InstructionBegin = "<!-- BEGIN BUDA INSTRUCTIONS -->"
-	InstructionEnd   = "<!-- END BUDA INSTRUCTIONS -->"
-	PromptID         = "guiho-p-buda"
+	SkillID           = "guiho-s-0002-buda"
+	InstructionID     = "guiho-i-buda"
+	InstructionBegin  = "<!-- BEGIN BUDA INSTRUCTIONS -->"
+	InstructionEnd    = "<!-- END BUDA INSTRUCTIONS -->"
+	PromptID          = "guiho-p-buda"
+	InstallPromptID   = "guiho-p-buda-install"
+	UninstallPromptID = "guiho-p-buda-uninstall"
 )
+
+var promptFiles = []struct {
+	id   string
+	path string
+}{
+	{id: PromptID, path: "guiho-p-buda.md"},
+	{id: InstallPromptID, path: "guiho-p-buda-install.md"},
+	{id: UninstallPromptID, path: "guiho-p-buda-uninstall.md"},
+}
 
 type Error struct {
 	Code    int
@@ -100,45 +111,59 @@ func (s *Service) Skill() (SkillRecord, error) {
 	if !ok {
 		return SkillRecord{}, mutation("embedded Buda skill is missing YAML frontmatter", nil)
 	}
-	var metadata struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		Version     string `yaml:"version"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+	metadata, err := decodeArtifactMetadata(frontmatter)
+	if err != nil {
 		return SkillRecord{}, mutation("decode embedded Buda skill metadata", err)
 	}
-	if metadata.Name != SkillID || metadata.Description == "" || metadata.Version == "" {
+	if metadata.Name != SkillID || metadata.Description == "" || metadata.Metadata.Version == "" || (metadata.Version != "" && metadata.Version != metadata.Metadata.Version) {
 		return SkillRecord{}, mutation("embedded Buda skill metadata is invalid", nil)
 	}
 	digest, err := treeDigest(s.resources.Skill)
 	if err != nil {
 		return SkillRecord{}, mutation("digest embedded Buda skill", err)
 	}
-	return SkillRecord{ID: SkillID, Version: metadata.Version, Description: metadata.Description, Digest: digest}, nil
+	return SkillRecord{ID: SkillID, Version: metadata.Metadata.Version, Description: metadata.Description, Digest: digest}, nil
 }
 
-func (s *Service) Prompt() (Prompt, error) {
-	content, err := fs.ReadFile(s.resources.Prompt, "guiho-p-buda.md")
+func (s *Service) Prompts() ([]Prompt, error) {
+	result := make([]Prompt, 0, len(promptFiles))
+	for _, resource := range promptFiles {
+		prompt, err := s.Prompt(resource.id)
+		if err != nil {
+			return nil, err
+		}
+		result = append(result, prompt)
+	}
+	return result, nil
+}
+
+func (s *Service) Prompt(id string) (Prompt, error) {
+	path := ""
+	for _, resource := range promptFiles {
+		if resource.id == id {
+			path = resource.path
+			break
+		}
+	}
+	if path == "" {
+		return Prompt{}, usage(fmt.Sprintf("unknown prompt id %q", id))
+	}
+	content, err := fs.ReadFile(s.resources.Prompt, path)
 	if err != nil {
-		return Prompt{}, mutation("read embedded Buda setup prompt", err)
+		return Prompt{}, mutation("read embedded Buda prompt", err)
 	}
 	frontmatter, body, ok := splitFrontmatter(string(content))
 	if !ok {
-		return Prompt{}, mutation("embedded Buda setup prompt is missing YAML frontmatter", nil)
+		return Prompt{}, mutation("embedded Buda prompt is missing YAML frontmatter", nil)
 	}
-	var metadata struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		Version     string `yaml:"version"`
+	metadata, err := decodeArtifactMetadata(frontmatter)
+	if err != nil {
+		return Prompt{}, mutation("decode embedded Buda prompt metadata", err)
 	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
-		return Prompt{}, mutation("decode embedded Buda setup prompt metadata", err)
+	if metadata.Name != id || metadata.Description == "" || metadata.Metadata.Version == "" || (metadata.Version != "" && metadata.Version != metadata.Metadata.Version) {
+		return Prompt{}, mutation("embedded Buda prompt metadata is invalid", nil)
 	}
-	if metadata.Name != PromptID || metadata.Description == "" || metadata.Version == "" {
-		return Prompt{}, mutation("embedded Buda setup prompt metadata is invalid", nil)
-	}
-	return Prompt{ID: PromptID, Version: metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
+	return Prompt{ID: id, Version: metadata.Metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
 }
 
 // Instruction returns the separately typed managed project instruction. It is
@@ -153,18 +178,31 @@ func (s *Service) Instruction() (Prompt, error) {
 	if !ok {
 		return Prompt{}, mutation("embedded Buda instruction is missing YAML frontmatter", nil)
 	}
-	var metadata struct {
-		Name        string `yaml:"name"`
-		Description string `yaml:"description"`
-		Version     string `yaml:"version"`
-	}
-	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+	metadata, err := decodeArtifactMetadata(frontmatter)
+	if err != nil {
 		return Prompt{}, mutation("decode embedded Buda instruction metadata", err)
 	}
-	if metadata.Name != InstructionID || metadata.Description == "" || metadata.Version == "" {
+	if metadata.Name != InstructionID || metadata.Description == "" || metadata.Metadata.Version == "" || (metadata.Version != "" && metadata.Version != metadata.Metadata.Version) {
 		return Prompt{}, mutation("embedded Buda instruction metadata is invalid", nil)
 	}
-	return Prompt{ID: InstructionID, Version: metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
+	return Prompt{ID: InstructionID, Version: metadata.Metadata.Version, Description: metadata.Description, Body: strings.TrimSpace(body)}, nil
+}
+
+type artifactMetadata struct {
+	Name        string `yaml:"name"`
+	Description string `yaml:"description"`
+	Version     string `yaml:"version"`
+	Metadata    struct {
+		Version string `yaml:"version"`
+	} `yaml:"metadata"`
+}
+
+func decodeArtifactMetadata(frontmatter string) (artifactMetadata, error) {
+	var metadata artifactMetadata
+	if err := yaml.Unmarshal([]byte(frontmatter), &metadata); err != nil {
+		return artifactMetadata{}, err
+	}
+	return metadata, nil
 }
 
 func treeDigest(source fs.FS) (string, error) {

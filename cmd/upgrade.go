@@ -283,7 +283,7 @@ func reconcileInstalledResources(executable, wiki string) error {
 	return nil
 }
 
-func recoveryCommand(version, channel, wiki string) string {
+func recoveryCommand(version, channel, _ string) string {
 	version = strings.TrimPrefix(strings.TrimPrefix(strings.TrimSpace(version), "buda/"), "v")
 	selectorPS, selectorSH := "", ""
 	if version != "" {
@@ -293,9 +293,13 @@ func recoveryCommand(version, channel, wiki string) string {
 		selectorPS = "-Channel '" + strings.ReplaceAll(strings.TrimSpace(channel), "'", "''") + "'"
 		selectorSH = "--channel '" + strings.ReplaceAll(strings.TrimSpace(channel), "'", "'\\''") + "'"
 	}
-	psWiki := "'" + strings.ReplaceAll(wiki, "'", "''") + "'"
-	shWiki := "'" + strings.ReplaceAll(wiki, "'", "'\\''") + "'"
-	return fmt.Sprintf("powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1'))) %s -Wiki %s\"\ncurl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh -s -- %s --wiki %s", selectorPS, psWiki, selectorSH, shWiki)
+	powershell := "powershell.exe -NoProfile -ExecutionPolicy Bypass -Command \"& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1')))"
+	posix := "curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh"
+	if selectorPS != "" {
+		powershell += " " + selectorPS
+		posix += " -s -- " + selectorSH
+	}
+	return powershell + "\"\n" + posix
 }
 
 func printRecovery(command *cobra.Command, version, channel, wiki string) {

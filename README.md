@@ -9,62 +9,90 @@ federate repositories, publish knowledge, or implement a retrieval fallback.
 
 ## Install
 
-Install qmd separately according to its upstream documentation. Buda installers
-require an explicit wiki path because no lifecycle action may select a project
-implicitly.
-
-For a new wiki directory, also pass the immutable identifier with
-`--wiki-id <id>` (or `-WikiId <id>` in PowerShell); an existing valid
-`buda.yaml` supplies it automatically.
-
-Linux or macOS (latest stable):
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh -s -- --wiki /path/to/wiki
-```
-
-Windows PowerShell (latest stable):
+Windows PowerShell:
 
 ```powershell
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1'))) -Wiki C:\path\to\wiki
+irm https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1 | iex
 ```
 
-Exact version or channel selectors are full-name options and mutually
-exclusive:
+macOS or Linux:
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh -s -- --version 0.2.0 --wiki /path/to/wiki
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh -s -- --channel canary --wiki /path/to/wiki
+curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh
 ```
 
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1'))) -Version 0.2.0 -Wiki C:\path\to\wiki
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1'))) -Channel canary -Wiki C:\path\to\wiki
+AI agent:
+
+```text
+Load the `prompts/guiho-p-buda-install.md` prompt and follow it to install Buda.
 ```
 
-Verify the raw release version and initialize the selected wiki:
+Verify the raw installed version:
 
 ```text
 buda --version
-buda init --wiki <path>
 ```
 
-The stable launcher is installed at `$HOME/.guiho/bin/buda` (or `buda.exe`),
-and immutable payloads and manifest-owned resources live under
-`$HOME/.guiho/buda/versions/<version>/`. Foreign ARMv6/ARMv7 targets are
-cross-build-only unless run on their native platform.
+Installation is global-only. It installs the stable launcher, immutable
+payload, release resources, and global Buda skill; it does not select,
+initialize, or modify a wiki and does not invoke qmd. Run `buda init` separately
+only when one explicit wiki should be set up.
 
-### Migrating a 0.1.x direct-binary installation
+## Uninstall
+
+Uninstallation removes all Buda-owned installation data by default, including
+the launcher, payloads, configuration, persistent data, caches, manifests, and
+agent resources. It removes the selected wiki's Buda configuration and managed
+instruction block, but never canonical OKF knowledge, raw evidence, qmd-owned
+state, shared `.guiho/` infrastructure, or another CLI's files.
+
+Windows PowerShell:
+
+```powershell
+& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.ps1'))) -Wiki C:\path\to\wiki -Yes
+```
+
+macOS or Linux:
+
+```sh
+curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.sh | sh -s -- --wiki /path/to/wiki --yes
+```
+
+AI agent:
+
+```text
+Load the `prompts/guiho-p-buda-uninstall.md` prompt and follow it to uninstall Buda.
+```
+
+Preview the exact `REMOVE` and `PRESERVE` plan without changing files:
+
+```text
+buda uninstall --wiki <path> --dry-run
+```
+
+The destructive default and the combined configuration/data preservation form
+are:
+
+```text
+buda uninstall --wiki <path> --yes
+buda uninstall --wiki <path> --preserve-config --preserve-data --yes
+```
+
+The remote scripts expose the equivalent `--dry-run`, `--preserve-config`, and
+`--preserve-data` options on macOS/Linux and `-DryRun`, `-PreserveConfig`, and
+`-PreserveData` on PowerShell.
+
+## Migrate a 0.1.x direct-binary installation
 
 A verified 0.1.x direct binary is migrated only through the new launcher
 transaction: the installer activates and verifies the new launcher and
 immutable payload first, then removes the old binary from its exact historical
 path (`~/.local/bin/buda` on Unix, `%LOCALAPPDATA%\GUIHO\bin\buda.exe` on
-Windows). The legacy global `buda.yaml` is strictly validated, mapped into
-`buda.global.yaml`, and left in place; its `wiki_id` is carried into the
-explicitly selected wiki so migration works without a terminal and keeps the
-wiki's identity. Canonical OKF knowledge and configuration are never deleted
-by installation.
+Windows). Installation does not migrate or initialize a wiki. A later explicit
+`buda init --wiki <path>` strictly validates and maps the preserved legacy
+global `buda.yaml` into `buda.global.yaml` and carries its `wiki_id` into the
+selected wiki. Canonical OKF knowledge and configuration are never deleted by
+installation.
 
 ## Upgrade
 
@@ -84,14 +112,17 @@ issue.
 
 ## Agent resources
 
-The main skill is `guiho-s-0002-buda`; the setup prompt is `guiho-p-buda`; the
-managed instruction is `guiho-i-buda`. Inspect them without modifying files:
+The main skill is `guiho-s-0002-buda`; the setup prompt is `guiho-p-buda`;
+the lifecycle prompts are `guiho-p-buda-install` and
+`guiho-p-buda-uninstall`; and the managed instruction is `guiho-i-buda`.
+Inspect them without modifying files:
 
 ```text
 buda agent skill list
 buda agent skill show guiho-s-0002-buda
 buda agent prompt list
-buda agent prompt show guiho-p-buda
+buda agent prompt show guiho-p-buda-install
+buda agent prompt show guiho-p-buda-uninstall
 buda agent instruction show --wiki <path>
 ```
 
@@ -111,7 +142,7 @@ runx check --format json
 xdocs meta . --documents --strict
 xdocs tree
 xdocs doctor .
-gofmt -l .
+gofmt -l main.go cmd devops internal prompts schemas skills
 go mod tidy -diff
 go test -count=1 ./...
 go vet ./...
@@ -124,27 +155,3 @@ from a fixed asset count. CI additionally runs native POSIX and Windows
 lifecycle jobs that install, repair, migrate a synthetic 0.1.1 layout, and
 uninstall in disposable homes, plus interruption, rollback, and locked-file
 acceptance in the Go suite.
-
-## Uninstall
-
-Uninstallation removes all Buda-owned installation data by default, including
-immutable versions, the stable launcher, caches, manifests, configuration, and
-the bounded instruction block for the explicitly selected wiki. It never
-removes canonical OKF knowledge, raw evidence, qmd-owned state, shared
-`.guiho/` infrastructure, or another CLI's files.
-
-Preview first, then confirm explicitly in unattended environments:
-
-```sh
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.sh | sh -s -- --wiki /path/to/wiki --dry-run
-curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.sh | sh -s -- --wiki /path/to/wiki --yes
-```
-
-```powershell
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.ps1'))) -Wiki C:\path\to\wiki -DryRun
-& ([scriptblock]::Create((Invoke-RestMethod 'https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.ps1'))) -Wiki C:\path\to\wiki -Yes
-```
-
-Use `--preserve-config`/`-PreserveConfig` to retain global and selected-project
-configuration, and `--preserve-data`/`-PreserveData` to retain persistent Buda
-data and databases. `--dry-run`/`-DryRun` never mutates the filesystem.

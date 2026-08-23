@@ -1,19 +1,17 @@
 [CmdletBinding()]
 param(
   [string]$Version,
-  [string]$Channel,
-  [Parameter(Mandatory=$true)][string]$Wiki,
-  [string]$WikiId
+  [string]$Channel
 )
 $ErrorActionPreference = 'Stop'
-if (-not [string]::IsNullOrWhiteSpace($Version) -and -not [string]::IsNullOrWhiteSpace($Channel)) { throw '--Version and --Channel are mutually exclusive.' }
+if (-not [string]::IsNullOrWhiteSpace($Version) -and -not [string]::IsNullOrWhiteSpace($Channel)) { throw '-Version and -Channel are mutually exclusive.' }
 if ($Version -match '^buda/') { $Version = $Version.Substring(5) }
 if ($Version -match '^v') { $Version = $Version.Substring(1) }
 if ($Version -and $Version -notmatch '^(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)\.(0|[1-9][0-9]*)(-[0-9A-Za-z.-]+)?(\+[0-9A-Za-z.-]+)?$') { throw "Invalid -Version '$Version'." }
 if (-not $Version) { $Version = $env:BUDA_RELEASE_VERSION }
 $arch = $env:PROCESSOR_ARCHITECTURE.ToUpperInvariant()
-if ($arch -eq 'AMD64') { $binary = 'buda-windows-amd64.exe'; $launcher = 'buda-launcher-windows-amd64.exe' }
-elseif ($arch -eq 'ARM64') { $binary = 'buda-windows-arm64.exe'; $launcher = 'buda-launcher-windows-arm64.exe' }
+if ($arch -eq 'AMD64') { $targetArch = 'amd64'; $binary = 'buda-windows-amd64.exe'; $launcher = 'buda-launcher-windows-amd64.exe' }
+elseif ($arch -eq 'ARM64') { $targetArch = 'arm64'; $binary = 'buda-windows-arm64.exe'; $launcher = 'buda-launcher-windows-arm64.exe' }
 else { throw "Unsupported Windows architecture: $arch" }
 if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
   # Windows PowerShell 5.1 emits a top-level JSON array from Invoke-RestMethod
@@ -61,10 +59,11 @@ if (-not $Version -and -not $env:BUDA_RELEASE_ASSET_DIR) {
 if (-not $Version) { throw 'Version selection did not resolve a stable release.' }
 $tag = "buda/v$Version"
 $assetDir = $env:BUDA_RELEASE_ASSET_DIR
+$base = "https://github.com/CGuiho/buda/releases/download/$tag"
+$source = if ($assetDir) { Join-Path $assetDir $binary } else { "$base/$binary" }
 $userHome = if ($env:USERPROFILE) { $env:USERPROFILE } elseif ($env:HOME) { $env:HOME } else { [Environment]::GetFolderPath('UserProfile') }
 $guihoHome = Join-Path $userHome '.guiho'
 $cliHome = Join-Path $guihoHome 'buda'
-$globalConfigName = 'buda.global.yaml'
 $binDir = Join-Path $guihoHome 'bin'
 $tempRoot = Join-Path $guihoHome '.temp'
 New-Item -ItemType Directory -Force -Path $tempRoot | Out-Null
@@ -85,7 +84,7 @@ $legacyPath = if ($env:LOCALAPPDATA) { Join-Path (Join-Path $env:LOCALAPPDATA 'G
 function Get-Asset([string]$name) {
   $destination = Join-Path $stage $name
   if ($assetDir) { Copy-Item -LiteralPath (Join-Path $assetDir $name) -Destination $destination }
-  else { Invoke-WebRequest -Uri "https://github.com/CGuiho/buda/releases/download/$tag/$name" -OutFile $destination }
+  else { Invoke-WebRequest -Uri "$base/$name" -OutFile $destination }
   return $destination
 }
 function Write-Atomic([string]$path, [string]$content) {
@@ -121,7 +120,10 @@ function Restore-Previous {
 }
 
 try {
-  Write-Host "Resolved Buda $Version for windows/$arch"
+  Write-Host "Resolved Buda $Version for windows/$targetArch"
+  Write-Host "Release asset: $binary"
+  Write-Host "Source: $source"
+  Write-Host "Destination: $(Join-Path $versionDir 'buda.exe')"
   Write-Host "CLI home: $cliHome"
   [void](Get-Asset 'artifacts.json'); [void](Get-Asset 'checksums.txt')
   $manifest = Get-Content -Raw -LiteralPath (Join-Path $stage 'artifacts.json') | ConvertFrom-Json
@@ -134,6 +136,12 @@ try {
     if (-not (Test-Path -LiteralPath (Join-Path $stage $name))) { [void](Get-Asset $name) }
   }
   foreach ($name in $required) { if ($paths -notcontains $name) { throw "Manifest does not declare required asset $name." } }
+  # Historical complete releases carry only guiho-p-buda.md. Once either
+  # lifecycle-specific prompt appears, require both canonical guiho-p-* files.
+  $lifecyclePrompts = @('guiho-p-buda-install.md','guiho-p-buda-uninstall.md')
+  if (@($lifecyclePrompts | Where-Object { $paths -contains $_ }).Count -gt 0) {
+    foreach ($name in $lifecyclePrompts) { if ($paths -notcontains $name) { throw "Manifest does not declare required lifecycle prompt $name." } }
+  }
   $checksumLines = @(Get-Content -LiteralPath (Join-Path $stage 'checksums.txt'))
   foreach ($name in $paths) { Verify-Checksum $name $checksumLines }
   foreach ($line in $checksumLines) {
@@ -178,8 +186,12 @@ try {
   $selfTest = (& $launcherPath __self-test | Out-String).Trim()
   if ($selfTest -ne 'ok') { throw 'Stable launcher self-test failed.' }
   $userPath = [Environment]::GetEnvironmentVariable('Path','User'); $entries = @($userPath -split ';' | Where-Object { $_ }); if ($entries -notcontains $binDir) { [Environment]::SetEnvironmentVariable('Path', (($entries + $binDir) -join ';'), 'User') }
-  if ($WikiId) { & $launcherPath init --wiki $Wiki --wiki-id $WikiId } else { & $launcherPath init --wiki $Wiki }; if ($LASTEXITCODE -ne 0) { throw 'Buda installed, but explicit-wiki init failed.' }
   if ($hadLegacy -and (Test-Path -LiteralPath $legacyPath)) { Remove-Item -Force -LiteralPath $legacyPath }
+  # Installation is global-only. Reconcile the bundled global skill without
+  # selecting, initializing, or mutating a wiki.
+  & $launcherPath agent skill install | Out-Null
+  if ($LASTEXITCODE -ne 0) { throw 'Buda installed, but global agent-skill installation failed.' }
+  Write-Host 'Installed agent skill: guiho-s-0002-buda'
   Write-Host "Installed Buda $Version"
   Write-Host "Launcher: $launcherPath"
   Write-Host "Payload: $(Join-Path $versionDir 'buda.exe')"

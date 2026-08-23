@@ -33,16 +33,75 @@ func TestLifecycleScriptsExposeConventionSelectorsAndOwnershipBoundaries(t *test
 		}
 	}
 	installSh, _ := os.ReadFile("install.sh")
-	for _, required := range []string{"--version", "--channel", "--wiki", "BUDA_RELEASE_ASSET_DIR", "buda.global.yaml", "buda-launcher-"} {
+	for _, required := range []string{"--version", "--channel", "BUDA_RELEASE_ASSET_DIR", "buda-launcher-", "Release asset:", "Source:", "agent skill install"} {
 		if !strings.Contains(string(installSh), required) {
 			t.Fatalf("install.sh missing %q", required)
 		}
 	}
+	for _, forbidden := range []string{"--wiki", "WIKI=", " init --wiki"} {
+		if strings.Contains(string(installSh), forbidden) {
+			t.Fatalf("install.sh performs project setup through %q", forbidden)
+		}
+	}
 	installPS1, _ := os.ReadFile("install.ps1")
-	for _, required := range []string{"-Version", "-Channel", "$Wiki", "buda.global.yaml", "buda-launcher-"} {
+	for _, required := range []string{"-Version", "-Channel", "buda-launcher-", "Release asset:", "Source:", "agent skill install"} {
 		if !strings.Contains(string(installPS1), required) {
 			t.Fatalf("install.ps1 missing %q", required)
 		}
+	}
+	for _, forbidden := range []string{"$Wiki", "$WikiId", "init --wiki"} {
+		if strings.Contains(string(installPS1), forbidden) {
+			t.Fatalf("install.ps1 performs project setup through %q", forbidden)
+		}
+	}
+}
+
+func TestReadmeLifecycleSectionsFollowConvention(t *testing.T) {
+	content, err := os.ReadFile("../README.md")
+	if err != nil {
+		t.Fatal(err)
+	}
+	text := string(content)
+	installStart := strings.Index(text, "## Install\n")
+	uninstallStart := strings.Index(text, "## Uninstall\n")
+	migrationStart := strings.Index(text, "## Migrate a 0.1.x direct-binary installation\n")
+	if installStart < 0 || uninstallStart < 0 || migrationStart < 0 || !(installStart < uninstallStart && uninstallStart < migrationStart) {
+		t.Fatal("README lifecycle sections are missing or out of order")
+	}
+	installSection := text[installStart:uninstallStart]
+	if strings.Contains(strings.TrimPrefix(installSection, "## Install\n"), "\n## ") {
+		t.Fatal("README Uninstall section is not directly after Install")
+	}
+	for _, required := range []string{
+		"irm https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1 | iex",
+		"curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh",
+		"Load the `prompts/guiho-p-buda-install.md` prompt and follow it to install Buda.",
+		"buda --version",
+		"does not select,\ninitialize, or modify a wiki",
+	} {
+		if !strings.Contains(installSection, required) {
+			t.Fatalf("README Install section omits %q", required)
+		}
+	}
+	if strings.Count(installSection, "devops/install.ps1") != 1 || strings.Count(installSection, "devops/install.sh") != 1 {
+		t.Fatal("README Install section must contain one Windows and one macOS/Linux installer command")
+	}
+	uninstallSection := text[uninstallStart:migrationStart]
+	for _, required := range []string{
+		"devops/uninstall.ps1",
+		"devops/uninstall.sh",
+		"Load the `prompts/guiho-p-buda-uninstall.md` prompt and follow it to uninstall Buda.",
+		"buda uninstall --wiki <path> --dry-run",
+		"buda uninstall --wiki <path> --yes",
+		"--preserve-config --preserve-data --yes",
+		"removes all Buda-owned installation data by default",
+	} {
+		if !strings.Contains(uninstallSection, required) {
+			t.Fatalf("README Uninstall section omits %q", required)
+		}
+	}
+	if strings.Count(uninstallSection, "devops/uninstall.ps1") != 1 || strings.Count(uninstallSection, "devops/uninstall.sh") != 1 {
+		t.Fatal("README Uninstall section must contain one Windows and one macOS/Linux uninstaller command")
 	}
 }
 
