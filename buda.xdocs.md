@@ -3,6 +3,7 @@ subject: buda-package
 description: Public Go/Cobra Buda CLI, embedded agent resources, OKF wiki services, qmd adapter, documentation, and GitHub Release-only pure-Go distribution tooling.
 parent: null
 children:
+  - buda-github
   - buda-cmd
   - buda-internal
   - buda-devops
