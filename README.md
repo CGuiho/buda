@@ -24,7 +24,7 @@ curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh 
 AI agent:
 
 ```text
-Load the `prompts/guiho-p-buda-install.md` prompt and follow it to install Buda.
+Load the `guiho-p-buda-install` prompt and follow it in order to install the Buda CLI. Find it here: https://raw.githubusercontent.com/CGuiho/buda/main/prompts/guiho-p-buda-install.md
 ```
 
 Verify the raw installed version:
@@ -61,7 +61,7 @@ curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/uninstall.s
 AI agent:
 
 ```text
-Load the `prompts/guiho-p-buda-uninstall.md` prompt and follow it to uninstall Buda.
+Load the `guiho-p-buda-uninstall` prompt and follow it in order to uninstall the Buda CLI. Find it here: https://raw.githubusercontent.com/CGuiho/buda/main/prompts/guiho-p-buda-uninstall.md
 ```
 
 Preview the exact `REMOVE` and `PRESERVE` plan without changing files:

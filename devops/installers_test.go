@@ -75,7 +75,7 @@ func TestReadmeLifecycleSectionsFollowConvention(t *testing.T) {
 	for _, required := range []string{
 		"irm https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.ps1 | iex",
 		"curl -fsSL https://raw.githubusercontent.com/CGuiho/buda/main/devops/install.sh | sh",
-		"Load the `prompts/guiho-p-buda-install.md` prompt and follow it to install Buda.",
+		"Load the `guiho-p-buda-install` prompt and follow it in order to install the Buda CLI. Find it here: https://raw.githubusercontent.com/CGuiho/buda/main/prompts/guiho-p-buda-install.md",
 		"buda --version",
 		"does not select,\ninitialize, or modify a wiki",
 	} {
@@ -90,7 +90,7 @@ func TestReadmeLifecycleSectionsFollowConvention(t *testing.T) {
 	for _, required := range []string{
 		"devops/uninstall.ps1",
 		"devops/uninstall.sh",
-		"Load the `prompts/guiho-p-buda-uninstall.md` prompt and follow it to uninstall Buda.",
+		"Load the `guiho-p-buda-uninstall` prompt and follow it in order to uninstall the Buda CLI. Find it here: https://raw.githubusercontent.com/CGuiho/buda/main/prompts/guiho-p-buda-uninstall.md",
 		"buda uninstall --wiki <path> --dry-run",
 		"buda uninstall --wiki <path> --yes",
 		"--preserve-config --preserve-data --yes",
