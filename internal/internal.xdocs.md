@@ -23,6 +23,7 @@ children:
   - buda-internal-releasecatalog
   - buda-internal-uninstall
   - buda-internal-upgrade
+  - buda-internal-welcome
 files: {}
 documents: {}
 tags:

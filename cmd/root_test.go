@@ -3,13 +3,16 @@ package cmd
 import (
 	"bytes"
 	"errors"
+	"io"
 	"path/filepath"
 	"reflect"
+	"runtime"
 	"sort"
 	"strings"
 	"testing"
 
 	"github.com/CGuiho/buda/internal/qmd"
+	"github.com/CGuiho/buda/internal/welcome"
 	"github.com/spf13/cobra"
 	"github.com/spf13/pflag"
 )
@@ -50,16 +53,20 @@ func TestJSONErrorDocumentIncludesQMDContext(t *testing.T) {
 
 func TestRootWelcomeVersionAndJSON(t *testing.T) {
 	output, _, err := executeTest(t)
-	if err != nil || output != "Hello Windows - buda 1.2.3\n" {
-		t.Fatalf("welcome = %q, err = %v", output, err)
+	expectedWelcome := welcome.Render(runtime.GOOS, runtime.GOARCH, "1.2.3")
+	if err != nil || output != expectedWelcome {
+		t.Fatalf("welcome = %q, want %q, err = %v", output, expectedWelcome, err)
 	}
 	output, _, err = executeTest(t, "--version")
 	if err != nil || output != "1.2.3\n" {
 		t.Fatalf("version = %q, err = %v", output, err)
 	}
 	output, _, err = executeTest(t, "--json")
-	if err != nil || !strings.Contains(output, `"message": "Hello Windows - buda 1.2.3"`) || !strings.Contains(output, `"wiki_selected": false`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
+	if err != nil || !strings.Contains(output, "buda 1.2.3") || !strings.Contains(output, `"wiki_selected": false`) || strings.Count(strings.TrimSpace(output), "\n{") != 0 {
 		t.Fatalf("json = %q, err = %v", output, err)
+	}
+	if !strings.Contains(output, `"message": "Hello`) {
+		t.Fatalf("json message missing Hello prefix: %q", output)
 	}
 }
 
@@ -262,6 +269,39 @@ func TestRootWithExplicitWikiValidatesAndSchedulesOnlyThatWiki(t *testing.T) {
 	root.SetArgs([]string{"--wiki", t.TempDir()})
 	if err := root.Execute(); ExitCode(err) != 3 {
 		t.Fatalf("invalid explicit wiki error = %v, code = %d", err, ExitCode(err))
+	}
+}
+
+func TestBareWelcomeShowsBorderlessBudaPaletteWhenTerminal(t *testing.T) {
+	t.Setenv("NO_COLOR", "")
+	t.Setenv("TERM", "xterm-256color")
+	var output bytes.Buffer
+	deps := Dependencies{
+		In: strings.NewReader(""), Out: &output, Err: &bytes.Buffer{}, Options: &Options{},
+		Executable:          func() (string, error) { return "buda", nil },
+		ScheduleMaintenance: func(_, _ string) error { return nil },
+		Terminal:            func(io.Writer) bool { return true },
+	}
+	root := NewRootCommand(deps, BuildInfo{Version: "1.2.3"})
+	root.SetArgs(nil)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	colored := output.String()
+	for _, code := range []string{"\x1b[38;2;217;220;214m", "\x1b[38;2;129;195;215m", "\x1b[38;2;58;124;165m", "\x1b[38;2;47;102;144m", "\x1b[38;2;22;66;91m"} {
+		if !strings.Contains(colored, code) {
+			t.Fatalf("colored welcome omits palette %q", code)
+		}
+	}
+	t.Setenv("NO_COLOR", "1")
+	output.Reset()
+	root = NewRootCommand(deps, BuildInfo{Version: "1.2.3"})
+	root.SetArgs(nil)
+	if err := root.Execute(); err != nil {
+		t.Fatal(err)
+	}
+	if strings.Contains(output.String(), "\x1b[") {
+		t.Fatalf("NO_COLOR welcome contains ANSI: %q", output.String())
 	}
 }
 

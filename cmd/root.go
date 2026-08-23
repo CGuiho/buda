@@ -10,6 +10,7 @@ import (
 	"net/http"
 	"os"
 	"path/filepath"
+	"runtime"
 	"strings"
 	"time"
 
@@ -24,6 +25,7 @@ import (
 	"github.com/CGuiho/buda/internal/selfmanage"
 	"github.com/CGuiho/buda/internal/source"
 	"github.com/CGuiho/buda/internal/upgrade"
+	"github.com/CGuiho/buda/internal/welcome"
 	"github.com/CGuiho/buda/prompts"
 	"github.com/CGuiho/buda/schemas"
 	"github.com/CGuiho/buda/skills"
@@ -52,6 +54,7 @@ type Dependencies struct {
 	// configuration metadata. Development/test callers may leave it empty and
 	// receive the repository's current fallback.
 	Version       string
+	Terminal      func(io.Writer) bool
 	HomeDir       func() (string, error)
 	InstallLayout func() (installlayout.Layout, error)
 	// Interactive reports whether prompts may be shown. Keeping terminal
@@ -126,6 +129,7 @@ func DefaultDependencies() Dependencies {
 		In:                  os.Stdin,
 		Out:                 os.Stdout,
 		Err:                 os.Stderr,
+		Terminal:            isTerminalWriter,
 		Interactive:         func() bool { return interactiveReader(os.Stdin) },
 		Options:             &Options{},
 		Agents:              agent.NewService(agent.DefaultResources()),
@@ -275,16 +279,21 @@ func NewRootCommand(deps Dependencies, info BuildInfo, commands ...*cobra.Comman
 			return nil
 		},
 		RunE: func(command *cobra.Command, _ []string) error {
-			message := fmt.Sprintf("Hello Windows - buda %s", info.Version)
 			selected := strings.TrimSpace(options.Wiki) != ""
 			if options.JSON {
+				message := fmt.Sprintf("Hello %s - buda %s", platformLabel(), info.Version)
 				output := map[string]any{"command": "buda", "version": info.Version, "wiki_selected": selected, "message": message}
 				if selected {
 					output["wiki"] = options.Wiki
 				}
 				return WriteJSON(command, output)
 			}
-			fmt.Fprintln(command.OutOrStdout(), message)
+			withColor := welcome.ShouldUseColor(false)
+			if deps.Terminal != nil {
+				withColor = welcome.ShouldUseColor(deps.Terminal(command.OutOrStdout()))
+			}
+			text := welcome.RenderWithColor(runtime.GOOS, runtime.GOARCH, info.Version, withColor)
+			fmt.Fprint(command.OutOrStdout(), text)
 			if selected {
 				fmt.Fprintf(command.OutOrStdout(), "wiki: %s\n", options.Wiki)
 			}
@@ -400,6 +409,9 @@ func normalizeDependencies(deps Dependencies) Dependencies {
 	if deps.Options == nil {
 		deps.Options = &Options{}
 	}
+	if deps.Terminal == nil {
+		deps.Terminal = isTerminalWriter
+	}
 	if deps.Interactive == nil {
 		reader := deps.In
 		deps.Interactive = func() bool { return interactiveReader(reader) }
@@ -497,4 +509,26 @@ func releaseVersion(deps Dependencies) string {
 		}
 	}
 	return "0.2.0"
+}
+
+func platformLabel() string {
+	switch runtime.GOOS {
+	case "darwin":
+		return "macOS"
+	case "linux":
+		return "Linux"
+	case "windows", "win32":
+		return "Windows"
+	default:
+		return runtime.GOOS
+	}
+}
+
+func isTerminalWriter(writer io.Writer) bool {
+	file, ok := writer.(*os.File)
+	if !ok || file == nil {
+		return false
+	}
+	info, err := file.Stat()
+	return err == nil && info.Mode()&os.ModeCharDevice != 0
 }
