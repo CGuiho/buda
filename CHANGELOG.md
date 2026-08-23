@@ -22,6 +22,30 @@ keywords:
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
 
+## [0.2.2] - 2026-08-23
+
+This release renames the main agent skill from `guiho-s-0002-buda` to
+`guiho-s-buda`, dropping the numeric segment from the resource name while
+keeping every other confirmed Buda artifact name unchanged.
+
+### Changed
+
+- The embedded main skill directory, its release asset `guiho-s-buda.zip`,
+  manifest projection paths under `.agents/skills/` and `.claude/skills/`,
+  upgrade validation, installer and uninstaller expectations, the agent
+  command surface, xdocs descriptors, and current-truth documentation now use
+  `guiho-s-buda`.
+- `SKILL.md` frontmatter is reduced to `name`, `description`, and
+  `metadata.version`; the release pipeline continues to stamp the version at
+  staging time.
+- Historical changelog entries, the completed TODO confirmation record, and
+  Convention 0001 audit evidence intentionally retain the former name.
+
+### Fixed
+
+- The `.github` documentation descriptor is now linked as a child of the root
+  module so `xdocs doctor` passes on main again.
+
 ## [0.2.1] - 2026-08-21
 
 This release fixes Windows installer release discovery on Windows PowerShell
