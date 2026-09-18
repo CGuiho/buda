@@ -141,3 +141,39 @@ Before editing release docs or changelogs, inspect mirror.config.toml. If [agent
 
 Use [agents].changelog_path as the changelog file path. If it is missing, use CHANGELOG.md in the project root.
 <!-- END GUIHO MIRROR -->
+## Mandume
+
+GUIHO Buda.
+
+Managed by the GUIHO Mandume swarm ([CGuiho/mandume](https://github.com/CGuiho/mandume)); the full worker-registry example lives at `example/AGENTS.md` there.
+
+### Mode
+
+```yaml
+execution: dnd  # dnd | interruptible — orchestrator NEVER stops during execution/review
+notifications: off  # off | on
+harness: opencode  # only harness, YOLO, full permission
+tmux-session: buda  # orchestrator session on su-57; convention = this project's name
+```
+
+### Coordination
+
+- GitHub repository: https://github.com/CGuiho/buda.git
+- GitHub Project: pending — CG binds one per project; it is the source of truth for new items (`todo.md` mirrors executable state; every item carries its issue URL)
+- To-do file: `todo.md` (repo root)
+- Reserved port: pending — reserve in `apps.md` (`CGuiho/guiho`)
+
+### Workers
+
+| Worker       | Class      | Model (opencode ID, OpenCode Zen)                                                                                     | Thinking | Usage        |
+| ------------ | ---------- | --------------------------------------------------------------------------------------------------------------------- | -------- | ------------ |
+| `mastermind` | mastermind | Muse Spark 1.3 Contributor (`opencode/muse-spark-1.3-contributor-free`) — unavailable until fixed; fallback `opencode/glm-5.3-flash` | max      | api-always   |
+| `engineer`   | workhorse  | DeepSeek V4.1 Flash (`opencode/deepseek-v4-flash`)                                                                    | max      | api-always   |
+| `engineer`   | workhorse  | GLM 5.3 Flash (`opencode/glm-5.3-flash`)                                                                              | max      | api-always   |
+
+### Contract
+
+- The orchestrator is pure orchestration on `main`, always working, always ready to answer CG; subagents are the workers above, called with full permission via `guiho-s-0440-hand-off`.
+- Never stop during execution/review: questions are answered with the safest reversible choice and ledgered under `docs/questions/`. Questions to CG only when CG is present and available, or during brainstorming.
+- Use the Mandume skills (`guiho-s-mandume` + lifecycle skills) and the Essentials skills (`guiho-s-0001-guiho`, `guiho-s-0040-explorer`, `guiho-s-0032-git-commit`). Conventions: `conventions/` in `CGuiho/guiho` (`apps.md` for ports).
+
