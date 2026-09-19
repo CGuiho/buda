@@ -165,11 +165,13 @@ tmux-session: buda  # orchestrator session on su-57; convention = this project's
 
 ### Workers
 
-| Worker       | Class      | Model (opencode ID, OpenCode Zen)                                                                                     | Thinking | Usage        |
+| Worker       | Class      | Model (opencode ID)                                                                                     | Thinking | Usage        |
 | ------------ | ---------- | --------------------------------------------------------------------------------------------------------------------- | -------- | ------------ |
-| `mastermind` | mastermind | Muse Spark 1.3 Contributor (`opencode/muse-spark-1.3-contributor-free`) — unavailable until fixed; fallback `opencode/glm-5.3-flash` | max      | api-always   |
+| `mastermind` | mastermind | Muse Spark 1.3 Contributor (`vercel/meta/muse-spark-1.3-contributor`, Vercel AI Gateway, first-pick mastermind) | max      | api-always   |
 | `engineer`   | workhorse  | DeepSeek V4.1 Flash (`opencode/deepseek-v4-flash`)                                                                    | max      | api-always   |
-| `engineer`   | workhorse  | GLM 5.3 Flash (`opencode/glm-5.3-flash`)                                                                              | max      | api-always   |
+| `engineer`   | workhorse  | GLM 5.3 Flash (`opencode/glm-5.3-flash`)
+
+> All three worker models serve as both mastermind and workhorse (order: Muse Spark → GLM → DeepSeek). Canonical roster, class assignments, and IDs live in `guiho-convention-0007-models.md` (`CGuiho/guiho`, `conventions/`) — the single place CG changes the models.                                                                              | max      | api-always   |
 
 ### Contract
 
