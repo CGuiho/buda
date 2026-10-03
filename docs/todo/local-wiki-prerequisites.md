@@ -51,8 +51,9 @@ host owner. No agent/model/provider/permission/auth configuration edits.
 - Filesystem deltas, immutable evidence equality, canonical versus derived
   artifacts and deterministic pre-write sealing guidance documented.
 - Both issues OPEN/Testing after review checks; local mirrors match readback.
-- Owned coherent main commits only; parent performs new independent review and
-  delivery. Host installation has no Git commit claim.
+- Owned coherent main commits only; new independent review precedes delivery.
+  The later reviewer has express parent plain-push authority after fresh full
+  outgoing-ancestry review. Host installation has no Git commit claim.
 
 ## Decisions and Boundaries
 
@@ -155,9 +156,11 @@ copy this fixture's wiki identity or hash into a different repository.
   safe runtime boundaries. The legacy `XDOCS.md` remains intact. No descriptor
   grant or named-descriptor authorization exists for these new task helpers,
   so no descriptor or configuration change was inferred.
-- Both issues remain OPEN/Testing, with matching local mirrors. Independent
-  parent review and explicit child-push authority are still required; no push,
-  release, whole-family readiness or human acceptance is claimed.
+- Both issues remain OPEN/Testing, with matching local mirrors. The original
+  implementation handoff held commits for independent review and had no child
+  push authority. The later independent acceptance and explicitly authorized
+  delivery are recorded below; release, whole-family readiness and human
+  acceptance remain separate.
 
 ## Evidence and Handoff
 
@@ -174,3 +177,91 @@ copy this fixture's wiki identity or hash into a different repository.
   OPEN/Testing/Project/Component verification for issues #10 and #11.
 - Return packet: `/tmp/opencode/2026-10-03-readiness-buda-prerequisite-result.md`
   and matching JSON, for new independent parent review.
+
+## Independent Review — 2026-10-04
+
+The bounded installation, policy and cited lexical capability are independently
+accepted. Fresh verification confirms the exact launcher/payload/config/pointer
+hashes above, all 26 checked-source manifest artifacts and canonical copies,
+archive/source parity, **41/41 upstream qmd files**, and **16/16 projection
+files** (eight in each supported destination). Runtime and embedded resources
+remain identical to the checked build commit; review corrections touch policy
+and task prose only. All 24 official `buda/v0.2.1` manifest assets were rechecked,
+but that retired-skill release remains uninstalled. Installation-delta
+recomputation confirms only expected additions and no monitored pre-existing
+skill/bin file change or removal. No host installation was changed by review.
+
+New independent fixture:
+`/tmp/opencode/buda-review-2026-10-04/isolated-wiki/wiki`, ID
+`cguiho-buda-independent-review-2026-10-04`. The original implementation fixture
+is preserved. The reviewer pre-sealed the actual README source, its full hash
+and 5,457 bytes, predicted raw/source/work-item paths, canonical write allowlist
+and derived-state subtrees before any writes. Network namespaces, fixture-local
+cache and `BUDA_DISABLE_MAINTENANCE=1` bounded every Buda smoke command.
+
+Init, initial no-match typed-title ingest, cited capture, lint, index, lexical
+query, get and idempotent reinit exit 0. Raw evidence is byte-identical to the
+source and mode `0444`; capture `concepts/reviewer-context.md` cites the original
+source record and sealed bytes while retaining separate `capture-input`
+attribution. Lexical query `repository Go Cobra` returns that concept, document
+`#f10a42`, score `0.55`; get returns exactly its canonical bytes. Lint and reinit
+have zero wiki deltas. Index/query/get/doctor can change derived SQLite state;
+the result is not an all-filesystem purity claim. Protected global policy,
+projections, installed artifacts, legacy index and source bytes remain identical
+through every operation. Cache additions are confined to the fixture, no GGUF
+file appears, and no instance-registry delta is observed.
+
+### Measured general and repeated ingestion gap
+
+The ordinary human title `Buda repository overview` does not complete on initial
+ingest or either of two repeated ingests in the model-free network-isolated
+fixture. Each reaches the reviewer's **45-second deadline** and is killed as a
+process group: recorded return `-9` (SIGKILL), not a natural Buda error exit.
+Buda-wrapped traces show qmd `query` at `Expanding query...`; captured foreground
+stdout/stderr is empty because child output is buffered until completion.
+
+Repeating the initial `lex: <full-source-sha256>` title also reaches that deadline
+at `Reranking 4 chunks...`. This proves the initial no-match success is not a
+repeatable model-free ingest recipe. All four bounded failures preserve
+canonical files and the registered raw/source/work item; only derived SQLite
+bookkeeping changes. Public `ingest --mode lexical` is rejected as an unknown
+flag with exit 2 and zero wiki delta.
+
+Source/API gap: `cmd/ingest.go:36` hardcodes `qmd.ModeHybrid`, and line 42 also
+normalizes candidates as hybrid. The adapter already maps `ModeLexical` to qmd
+`search` (`internal/qmd/adapter.go:275-284`). A separately owned follow-up needs
+an explicit supported public ingest retrieval-mode selection, consistent
+selected-mode evidence normalization, and ordinary-title initial/repeated
+model-free integration proof through Buda. Preserve sole-qmd retrieval, existing
+source seals/idempotence and honest full semantic doctor failure. This review
+does not implement that feature or authorize model downloads.
+
+### Doctor and remaining gates
+
+Independent full doctor exits 1: canonical healthy/conformant, configuration
+valid, agent resources current, pack reproducible, repository resolved; qmd is
+degraded with 12 checks, four warnings and three operational failures. The
+Buda-wrapped trace confirms three missing default semantic models, four active
+documents needing embeddings and no vector table. No semantic-doctor weakening,
+fake embeddings or direct-qmd repair was performed.
+
+The public embedded prompt metadata and trimmed bodies match source exactly;
+the instruction matches source after real wiki/bundle substitution and Buda's
+actual managed markers. Two verifier assertions initially assumed raw-file/body
+equality and another CLI's marker spelling; both were corrected outside the
+repository. Only the missing resource inspections were resumed, without
+replaying the completed wiki smoke or discarding failed-ingest evidence.
+
+Both issues stay OPEN/Testing; existing Project/Component/Status and item
+identities are rechecked read-only. Four disabled external policies still need
+later human ratification. XDocs/RunX CLI checks and missing task-helper descriptor
+registration remain explicit separately owned gaps; no grants, legacy index,
+descriptors or catalog were changed. Parent-authorized plain source delivery
+requires fresh complete outgoing-ancestry review and live ref equality; final
+proof is in `/tmp/opencode/2026-10-04-readiness-buda-review-result.md` and JSON.
+
+Independent raw evidence is under `/tmp/opencode/buda-review-2026-10-04/`:
+`host.json`, `smoke.json`, `smoke-commands.json`, `tracking-pre-doc.json`, source
+checks, protected hashes and the preserved fixture's command output/traces.
+The result certifies only the bounded prerequisite, not general ingestion,
+semantic readiness, family readiness or human acceptance.
