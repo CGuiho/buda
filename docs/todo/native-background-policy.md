@@ -29,9 +29,12 @@ with provider-default thinking. Former models remain inactive history without
 silent fallback. DND human notifications do not suppress child completion.
 
 The parent explicitly waived the broader planning cycle for this bounded
-prerequisite and authorized local coherent main commits, with **no push** until
-a new independent parent review. Current native General GPT-6.1 Sol xhigh is a
-task exception only. This leaf launches no recursive agents or CLI workers.
+prerequisite. The original implementation child was authorized for local coherent
+main commits, with **no push** until new independent review. The later independent
+reviewer has express parent authority for scoped corrections and plain delivery
+after full fresh outgoing-ancestry review. Current native General GPT-6.1 Sol
+xhigh is a task exception only. This leaf launches no recursive agents or CLI
+workers.
 
 ## Acceptance and Evidence
 
@@ -73,5 +76,52 @@ their separately owned side-effect reconciliation has not been accepted for
 this legacy-index repository. No descriptors or configuration grants were
 changed implicitly.
 
-Issue #10 remains open for independent review. Local task commits are held
-for parent delivery; this child has no push authority.
+That implementation handoff held local commits for independent review and gave
+the implementation child no push authority. Issue #10 remains OPEN/Testing for
+later human acceptance.
+
+## Independent Review — 2026-10-04
+
+The independent reviewer inspected every original source commit from
+`5c04071d2fe7488639224167414e16575885a6da` through
+`d9987256a15197982714d9e512f3a17b62c7d839`, along with the complete owning
+instructions and actual GUIHO conventions 0011/0002/0007/CLI 0001. The parent
+review brief expressly authorizes plain push of accepted current-task ranges;
+this does not grant delivery authority to future implementation children.
+
+Correction `6602d8f9692cf17eca1e86a1a5ddd481163f0966` quotes all four mode values
+and distinguishes the historical implementation-child hold from later reviewer
+authority. The unquoted YAML `off` parsed as Boolean `false`; the corrected
+`notifications: "off"` is a string. No artifact, runtime, release version or
+global setting was changed.
+
+The corrected policy passes **21 positive checks**, rejects the old policy and
+unquoted-off regression, and rejects nine connected contradictory directives:
+CLI-worker launch hidden behind unrelated negation, a primary-session label
+hiding worker use, native tail/poll/shell-wait, disabled harness completion,
+invented MiMo xhigh, permission-denial CLI escape and another active harness.
+The positive ordinary-tools/inactive-history/primary-session fixture passes.
+This is bounded semantic regression evidence, not a general text parser or a
+claim that MiMo provider execution was exercised. Live catalog inspection
+confirms MiMo `variants: []` and the task-authorized GPT `xhigh` variant.
+
+Independent `go test -count=1 ./...`, `go vet ./...`, `go mod tidy -diff`, Go
+formatting and range whitespace checks exit 0. Protected legacy index, XDocs
+policy, RunX/Mirror catalogs, runtime/resources and host settings remain intact.
+XDocs/RunX CLI validation is still skipped under the parent's protected boundary.
+
+Read-only tracking refresh at `2026-10-03T22:41:13.513789Z` confirms both Buda
+issues OPEN/Testing, Project `PVT_kwHOBUk1ds4AULOg`, Component option `f14d922e`
+(`buda`, existing PINK) and Testing option `f874e9fb`. Existing issue #10 item
+`PVTI_lAHOBUk1ds4AULOgzg-XTQY` and issue #11 item
+`PVTI_lAHOBUk1ds4AULOgzg-XcTg` are preserved. No tracker mutation or task closure
+was needed. The dated review uses the local 2026-10-04 date; timestamps retain
+the actual UTC clock.
+
+Independent evidence: `/tmp/opencode/buda-review-2026-10-04/policy.json`,
+`source-checks.json`, `tracking-pre-doc.json` and the full reviewed patch in that
+directory; Go output is `/tmp/opencode/buda-review-go-tests.log`. Final
+delivery/readback evidence belongs in the parent-requested
+`/tmp/opencode/2026-10-04-readiness-buda-review-result.md` and matching JSON.
+Technical acceptance is bounded to this policy/prerequisite, not family readiness
+or human acceptance.
