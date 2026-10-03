@@ -2,8 +2,10 @@
 name: guiho-s-buda
 description: Maintain and retrieve one explicitly selected AI-maintained wiki through Buda, preserving OKF provenance and using Buda's qmd-backed commands for discovery.
 metadata:
-  version: "0.2.0"
+  version: "0.3.0"
 ---
+
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
 
 # Buda Wiki Agent
 
@@ -39,6 +41,12 @@ Read the focused workflow before acting:
 - [Cited retrieval](references/retrieval.md)
 - [Curation](references/curation.md)
 - [Maintenance](references/maintenance.md)
+
+For model-free existing-evidence retrieval during source registration, explicitly
+select `buda ingest --wiki <path> --source <value> --actor <actor> --mode lexical`.
+The ingest default remains hybrid; read the ingest workflow for prerequisites,
+sealed repeats, and candidate snapshots. Lexical success does not establish full
+semantic readiness or replace `buda doctor`.
 
 After a semantic write, run `buda lint --wiki <path>` and refresh discovery
 with `buda index --wiki <path>`. Report changed concept paths and their source
