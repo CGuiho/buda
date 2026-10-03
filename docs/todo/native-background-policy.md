@@ -17,7 +17,7 @@ keywords: [Buda, issue-10, OpenCode, MiMo, DND]
 - Index: [TODO.md](../../TODO.md), current task 1.
 - GitHub project item: [Buda issue #10](https://github.com/CGuiho/buda/issues/10).
 - GitHub component: `buda`, [GUIHO Project #2](https://github.com/users/CGuiho/projects/2).
-- Status: in progress (initial live readback); final Testing readback is recorded in the prerequisite handoff.
+- Status: testing (issue OPEN; Project #2 / Component `buda` / Status Testing freshly read back).
 
 ## Outcome and Scope
 
@@ -54,3 +54,24 @@ Related tools and application repositories have separate owners.
 
 Readiness convention: [actual GUIHO 0011](https://github.com/CGuiho/guiho/blob/main/conventions/guiho-convention-0011-agent-readiness.md).
 This policy unit establishes no whole-family readiness or human acceptance.
+
+## Validation and Review Handoff
+
+The live policy passes eighteen positive semantic checks; the original
+`5c04071d` entry fails all eighteen as the old-transport negative fixture.
+The checks cover actual child permissions, explicit model/variant decisions,
+background/completion behavior, no active CLI escape, historical-only models,
+DND, real issue ownership/readbacks and local-only child delivery. The live
+catalog confirms active `xiaomi/mimo-v2.6-pro` with `variants: []`; availability
+is not a provider-execution claim. No recursive worker was launched.
+
+Policy evidence: `/tmp/opencode/buda-native-policy-check.json`.
+Fresh tracking evidence: `/tmp/opencode/buda-testing-task-readbacks.json`.
+The full scoped diff was inspected, and Go tests, vet, tidy-diff, formatting
+and Git whitespace checks passed. XDocs and RunX CLI checks remain skipped:
+their separately owned side-effect reconciliation has not been accepted for
+this legacy-index repository. No descriptors or configuration grants were
+changed implicitly.
+
+Issue #10 remains open for independent review. Local task commits are held
+for parent delivery; this child has no push authority.

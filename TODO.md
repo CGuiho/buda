@@ -36,16 +36,16 @@ is retained; `AGENTS.md` names this same ledger.
 
 | Status | Count |
 | --- | ---: |
-| in progress | 2 |
-| testing | 0 |
+| in progress | 1 |
+| testing | 1 |
 
 ## Current Tasks
 
 ### 1. Deploy Buda native background policy
 
-- Status: in progress
+- Status: testing
 - Created: `2026-10-03T21:27:22Z`
-- Updated: `2026-10-03`
+- Updated: `2026-10-03T22:09:52Z`
 - Outcome: Buda uses the accepted OpenCode-only native background contract and current MiMo model defaults.
 - Spec: [docs/todo/native-background-policy.md](docs/todo/native-background-policy.md)
 - GitHub project item: [Issue #10](https://github.com/CGuiho/buda/issues/10)
