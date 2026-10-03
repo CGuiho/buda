@@ -205,3 +205,148 @@ traces and self-review live under
 `/tmp/opencode/2026-10-04-buda-model-free-ingest-result.md` and `.json`.
 No push or host activation is authorized here. The successor must independently
 review these precise limits before separately authorized delivery/activation.
+
+## Independent Acceptance and Local Activation — 2026-10-04
+
+The NEW native General reviewer `ses_efbdf4f42ffeXiA53mX2y2Xg8V`, on the expressly
+authorized `openai/gpt-6.1-sol#xhigh`, independently accepts the bounded explicit
+lexical-ingest contract. No product-source correction was required. The earlier
+implementation's no-push/no-host-write hold above is its historical authority;
+the separate committed reviewer handoff expressly authorizes reviewed plain
+delivery and reversible activation inside the existing installation.
+
+### Independent Source and Evidence Review
+
+The complete seven-commit range from
+`226fb2cf562aa75d3226ac9949dbc11beb548282` through
+`01cb54d0521ca9e0a7796e2af795cf07423423d9`, all seven touched paths, full patches,
+both complete prior Markdown/JSON packets and retained runtime records were
+reviewed. All 126 implementation evidence-file hashes and all 126 source/build
+input hashes verify. Source acquisition, raw/source/work-item identity, qmd
+adapter, canonical health, doctor, configuration, default hybrid route and
+failure ordering are preserved. Selected-mode normalization and current returned
+candidates are distinguished from immutable original work-item snapshots.
+
+Fresh `go test -count=1 -v ./cmd -run Ingest`, `go test -count=1 ./...`,
+`go vet ./...`, `go mod tidy -diff` and `gofmt -l main.go cmd devops internal
+prompts schemas skills` all naturally exit 0; tidy and formatting output are
+empty and source bytes are unchanged. Complete NEW raw stdout/stderr and command
+records are retained. The implementer's exact full-suite raw shell log remains
+unavailable; the reported harness completion is historical evidence, not a
+reconstructed raw log. The unavailable named Go CLI skill remains an explicit
+qualification; actual Convention 0001 and surrounding Go/Cobra patterns govern.
+
+### New Sealed Offline Fixture
+
+The reviewer exclusively owns
+`/tmp/opencode/buda-lexical-review-2026-10-04/offline/wiki` and its isolated
+`offline/home`. Before any wiki write, exact source revisions, digests, predicted
+raw/source/work-item/capture paths and canonical/derived boundaries were sealed.
+Its non-registry fixture identity is
+`cguiho-buda-lexical-independent-2026-10-04`. Every Buda command runs with
+`unshare --net`, explicit `--wiki`, isolated HOME/XDG cache/config and
+`BUDA_DISABLE_MAINTENANCE=1`. The namespace has only loopback and no routes.
+
+| Input revision | Bytes | SHA-256 |
+| --- | ---: | --- |
+| Reviewed current README copy | 6942 | `4e8f5c0b7ee1ea132a275c1dc2b90e7aec2d9f50cfa692b3c885b1df3f2eb323` |
+| Capture-workflow copy | 827 | `9eed60102b7e3ff284bd209e504f2496f99eb646220dd9fcd8f052bbe6fb26a2` |
+| Same README-copy path with explicit synthetic revision | 7069 | `9347e25bda5a467edf547cbd8fe05fc4f6e6c9d1c2528c8053fe8cc4515cc4f3` |
+
+Twenty-two independent Buda operations verify a nonempty cited prior concept,
+ordinary titles `Buda repository overview` and `Buda capture workflow`, first
+registrations, two first-source repeats, second-source repeat, changed seal and
+its repeat, cited capture, lint/index/query/get, invalid mode, missing source,
+baseline rejection, default-hybrid reproduction, doctor and idempotent reinit.
+All lexical registrations/repeats naturally exit 0. Repeats have zero canonical
+delta, unchanged file sets and unchanged persisted work items. Old raw/source/
+work-item records survive the changed seal; three raw files equal their sealed
+input bytes with mode `0444`. Traces show qmd `search` through Buda, without
+model query, embedding, pull or direct-qmd invocation by the reviewer.
+
+Lexical query `review provenance` returns `concepts/review-provenance.md`,
+`#5e68d6`, score `0.32`, joined `capture-input`/`buda:capture` provenance and
+explicit original source/raw links. Get-by-path and get-by-document-ID bodies
+equal canonical bytes. Invalid `Lexical` naturally exits 2 before any qmd
+execution or wiki delta; missing source naturally exits 5 with no canonical
+delta. The protected original two fixtures and implementation fixture are intact.
+
+Lint naturally exits **1**, OKF-conformant but unhealthy with unchanged
+`duplicate_content` for the old/new same-resource source records. Doctor naturally
+exits **1**, with no repair, three missing models, **seven** active documents
+needing embeddings and no vector table. Baseline and unchanged task default
+hybrid reach qmd `query`/`Expanding query...`; verifier deadlines produce
+process-group SIGKILL/`-9` at **15.016** and **15.012** seconds respectively.
+These are measured verifier terminations, not natural CLI errors. Full health
+and semantic readiness are not accepted.
+
+### Reversible Existing-install Activation
+
+A clean-source, pure-Go Linux amd64 binary was independently built at
+`01cb54d0521ca9e0a7796e2af795cf07423423d9` with honest local task identity
+`0.2.0-readiness.lexical.g01cb54d` and `vcs.modified=false`:
+
+- Active immutable payload:
+  `/root/.guiho/buda/versions/0.2.0-readiness.lexical.g01cb54d/buda`.
+- SHA-256:
+  `0eb005fe1dc030e8054f998820d02dee1242d9b2f2328c7f72bff5f9c70bc5ea`.
+- Existing stable launcher and immutable `0.2.0` directory remain byte-identical;
+  the supported pointer retains `previous: 0.2.0/buda`.
+- Task-local installed ownership inventory declares the actual payload, exact
+  eight-file source-skill archive and its manifest. Native artifact/pointer/
+  containment validators, checksum checks, version and self-test pass. This is a
+  checked local task inventory, not a published full-matrix release.
+- A separate isolated-home copy proves activation, exact original pointer/manifest
+  rollback, and reactivation through the unchanged real launcher. Host selection
+  uses the existing lifecycle lock/atomic-write primitives and verifies the
+  launcher actually executes the task payload.
+- Exact pre-change pointer, ownership manifest and four skill-leaf backups, with
+  hashes, owners and modes, are retained under
+  `/tmp/opencode/buda-lexical-review-2026-10-04/activation-backups/`.
+- Only existing baseline-matching `SKILL.md` and `references/ingest.md` are
+  refreshed in each established agents/claude skill home. All other bytes,
+  file sets, symlinks/extras and configuration remain intact; both eight-file
+  trees now exactly match source artifact `0.3.0`.
+
+Eight necessary installed checks pass their intended contracts: real launcher
+version/self-test, two installed-payload lexical repeats, lexical query, path/ID
+get and doctor (expected natural exit 1). They use the NEW fixture; canonical
+bytes/file sets and fixture-home bytes remain unchanged, with protected host
+equality after the explicitly declared activation. The precise model-free
+interface is the absolute active payload with `--mode lexical` and explicit
+`--wiki`; an isolated HOME is required when reproducing this fixture proof.
+No package/Mirror version, tag, release, qmd package/model configuration or
+existing evolution policy changed. qmd's 41 files remain exact.
+
+### Safe Tool Checks and Remaining Setup Gap
+
+The independently accepted installed RunX/XDocs binary hashes were rechecked.
+Twenty-three explicit, network-disabled, isolated-HOME catalog/data operations
+preserve all tracked/untracked source bytes, the legacy `XDOCS.md`, ordinary
+documents, configurations and global resource trees. RunX check/list plus seven
+stable-UID describe/dry-run pairs pass. Real RunX execution and setup/resource
+maintenance were not invoked.
+
+XDocs strict metadata/doctor for `cmd` and the embedded skill pass; tree exits 0.
+Task-helper strict metadata and doctor naturally exit **2**: the existing
+`docs/todo/todo.xdocs.md` omits the three current task helpers from `documents`,
+including this file; doctor reports six descriptor/metadata errors. This is an
+explicit separately owned setup gap, not a safe-tool failure. `xdocs.yaml` still
+has no descriptor write grants, and this reviewer has no descriptor/config
+sweep authority, so no implicit repair occurs. Earlier skipped checks above
+remain truthful historical evidence.
+
+Verifier-only recoveries are retained: an empty namespace route table was first
+mistakenly required to have a header; lint's `report.healthy` wrapper was initially
+read as a top-level field; task metadata was initially assumed to exit 0.
+Original raw outcomes are preserved, valid completed fixture operations were not
+replayed or reset, and natural failures remain visible.
+
+Fresh `2026-10-03T23:56:59.561202+00:00` readback preserves Buda #10/#11/#12,
+their original item identities, Project #2, exact `buda` Component and
+OPEN/Testing state. Full review, activation, backup, runtime-delta and reviewed
+plain-push/ref-equality evidence belongs to
+`/tmp/opencode/2026-10-04-buda-model-free-ingest-review-result.md` and `.json`,
+with retained records under `/tmp/opencode/buda-lexical-review-2026-10-04/`.
+Technical prerequisite acceptance does not certify human acceptance, full Buda
+setup or any repository/family readiness.
