@@ -4,7 +4,7 @@ purpose: Define the bounded source prerequisite and acceptance signals for Buda 
 description: Explicit ingest retrieval selection with hybrid compatibility, sealed repeated-source runtime proof and independent reviewed delivery.
 created: 2026-10-03T23:07:35Z
 owner: buda-package
-flags: [authorized, in-progress]
+flags: [authorized, testing]
 tags: [todo, ingest, provenance, readiness-prerequisite]
 keywords: [issue-12, lexical, hybrid, qmd, model-free]
 ---
@@ -16,7 +16,7 @@ keywords: [issue-12, lexical, hybrid, qmd, model-free]
 ## Todo Index
 
 - Task: `3. Support explicit model-free lexical ingest`
-- Status: in progress
+- Status: testing
 - Index: [TODO.md](../../TODO.md)
 - GitHub project item: [Buda #12](https://github.com/CGuiho/buda/issues/12), OPEN
 - GitHub component: `buda`
@@ -86,3 +86,14 @@ issue or any original-task mutation. Full proof lives under
 Question-ledger root if a human decision becomes necessary:
 `docs/questions/model-free-lexical-ingest/`. No unresolved decision exists at
 dispatch: the authorized contract and current types determine this change.
+
+## Testing Transition
+
+Readback at `2026-10-03T23:19:02.539742+00:00` confirms #12 OPEN/Testing,
+Project membership and exact `buda` Component. #10/#11 remain OPEN/Testing with
+their original item identities. Implementation `ee70349`, public documentation
+`f86cad8` and embedded skill contract `75150cc` are local committed units.
+Focused ingest tests and the complete Go suite, vet, tidy-diff and formatting
+checks pass. The checked clean-source development binary is built at `75150cc`,
+without changing the installed launcher/payload or host projections. Offline
+integration and technical evidence review continue under the same bounded scope.

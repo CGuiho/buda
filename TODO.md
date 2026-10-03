@@ -36,8 +36,7 @@ is retained; `AGENTS.md` names this same ledger.
 
 | Status | Count |
 | --- | ---: |
-| in progress | 1 |
-| testing | 2 |
+| testing | 3 |
 
 ## Current Tasks
 
@@ -67,14 +66,15 @@ is retained; `AGENTS.md` names this same ledger.
 
 ### 3. Support explicit model-free lexical ingest
 
-- Status: in progress
+- Status: testing
 - Created: `2026-10-03T23:07:35Z`
-- Updated: `2026-10-03T23:07:35Z`
+- Updated: `2026-10-03T23:19:02Z`
 - Outcome: Ordinary initial and repeated source ingestion supports explicit lexical retrieval while preserving hybrid defaults and sealed provenance.
 - Spec: [docs/todo/model-free-lexical-ingest.md](docs/todo/model-free-lexical-ingest.md)
 - GitHub project item: [Issue #12](https://github.com/CGuiho/buda/issues/12)
 - GitHub component: `buda`
 - Delivery: local coherent main commits only; a new independent reviewer must accept before push or installed-binary activation.
+- Validation: focused and full Go tests, vet, tidy and format pass; offline task-binary integration is under technical review. Fresh readback confirms #12 OPEN/Testing and preserves #10/#11.
 
 ## Sources of truth
 
