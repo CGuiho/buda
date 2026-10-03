@@ -131,6 +131,32 @@ name. `buda init --wiki <path>` reconciles all supported global skill
 destinations and the bounded `AGENTS.md` instruction block while preserving
 unmanaged bytes.
 
+## Ingest one source
+
+Select the wiki and source explicitly. Ingest registers immutable raw evidence,
+its source concept, and a pending agent-synthesis work item; it retrieves existing
+qmd candidates before registration and refreshes the index afterwards.
+
+```text
+buda ingest --wiki <path> --source <file-or-url> --actor <actor> --title "Repository overview" --mode lexical
+```
+
+`--mode` accepts `lexical`, `semantic`, or `hybrid` and defaults to `hybrid`.
+Lexical uses qmd's keyword search without semantic models; semantic and hybrid
+retain their qmd model prerequisites. This selects existing-evidence retrieval,
+not source acquisition or synthesis. Without `--title`, retrieval uses the source
+value. Invalid modes fail before qmd setup, retrieval, or source writes.
+
+Repeating the same source bytes and resource preserves the raw artifact, source
+record, and original work item. Changed bytes receive a new digest and source
+record while retaining earlier evidence. JSON output reports the selected `mode`,
+`ingest.unchanged`, and normalized `existing_candidates`; a repeat does not rewrite
+the original work item's candidate snapshot. After agent-directed concept changes,
+run `buda lint --wiki <path>` and `buda index --wiki <path>`. For model-free cited
+discovery, use `buda query --wiki <path> --mode lexical --text <query>` and
+`buda get --wiki <path> <result>`. Full `buda doctor --wiki <path>` still checks
+semantic readiness and may report missing models or embeddings.
+
 ## Development
 
 Repeatable development, lifecycle, documentation, and release commands are
