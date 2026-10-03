@@ -36,8 +36,8 @@ is retained; `AGENTS.md` names this same ledger.
 
 | Status | Count |
 | --- | ---: |
-| in progress | 1 |
-| testing | 1 |
+| in progress | 0 |
+| testing | 2 |
 
 ## Current Tasks
 
@@ -54,14 +54,15 @@ is retained; `AGENTS.md` names this same ledger.
 
 ### 2. Verify Buda and Bun qmd local wiki prerequisites
 
-- Status: in progress
+- Status: testing
 - Created: `2026-10-03T21:52:37Z`
-- Updated: `2026-10-03`
+- Updated: `2026-10-03T22:13:37Z`
 - Outcome: Verified local Buda/qmd and strict policy prerequisites support an isolated provenance-preserving lexical wiki smoke.
 - Spec: [docs/todo/local-wiki-prerequisites.md](docs/todo/local-wiki-prerequisites.md)
 - GitHub project item: [Issue #11](https://github.com/CGuiho/buda/issues/11)
 - GitHub component: `buda`
 - Delivery: local main commits; host installation evidence is separate from Git. Parent independently reviews before push.
+- Validation: isolated lexical smoke passed; full doctor is degraded without semantic models. General/repeated model-free ingest remains unverified.
 
 ## Sources of truth
 
