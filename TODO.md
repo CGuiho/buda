@@ -36,7 +36,7 @@ is retained; `AGENTS.md` names this same ledger.
 
 | Status | Count |
 | --- | ---: |
-| in progress | 0 |
+| in progress | 1 |
 | testing | 2 |
 
 ## Current Tasks
@@ -64,6 +64,17 @@ is retained; `AGENTS.md` names this same ledger.
 - GitHub component: `buda`
 - Delivery: installation and bounded lexical capability independently accepted; reviewed source delivery is parent-authorized. Host evidence is separate from Git; issue remains OPEN/Testing.
 - Validation: new cited lexical smoke passed, with 41/41 qmd files and 16/16 projection files exact. Full doctor exits 1; ordinary initial/two repeated ingests and typed-title repeat hit isolated 45-second deadlines. Public ingest has no lexical mode; separate source follow-up is required.
+
+### 3. Support explicit model-free lexical ingest
+
+- Status: in progress
+- Created: `2026-10-03T23:07:35Z`
+- Updated: `2026-10-03T23:07:35Z`
+- Outcome: Ordinary initial and repeated source ingestion supports explicit lexical retrieval while preserving hybrid defaults and sealed provenance.
+- Spec: [docs/todo/model-free-lexical-ingest.md](docs/todo/model-free-lexical-ingest.md)
+- GitHub project item: [Issue #12](https://github.com/CGuiho/buda/issues/12)
+- GitHub component: `buda`
+- Delivery: local coherent main commits only; a new independent reviewer must accept before push or installed-binary activation.
 
 ## Sources of truth
 
