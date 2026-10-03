@@ -68,13 +68,13 @@ is retained; `AGENTS.md` names this same ledger.
 
 - Status: testing
 - Created: `2026-10-03T23:07:35Z`
-- Updated: `2026-10-03T23:19:02Z`
+- Updated: `2026-10-03T23:24:11Z`
 - Outcome: Ordinary initial and repeated source ingestion supports explicit lexical retrieval while preserving hybrid defaults and sealed provenance.
 - Spec: [docs/todo/model-free-lexical-ingest.md](docs/todo/model-free-lexical-ingest.md)
 - GitHub project item: [Issue #12](https://github.com/CGuiho/buda/issues/12)
 - GitHub component: `buda`
 - Delivery: local coherent main commits only; a new independent reviewer must accept before push or installed-binary activation.
-- Validation: focused and full Go tests, vet, tidy and format pass; offline task-binary integration is under technical review. Fresh readback confirms #12 OPEN/Testing and preserves #10/#11.
+- Validation: Go tests/vet/tidy/format and 22 isolated Buda operations verify explicit lexical ingest, sealed repeats/new seal, cited query/get, errors and host preservation. Lint/doctor remain unhealthy after changed-source duplicate content; semantic models/vectors remain absent. Fresh readback preserves #10/#11 and #12 OPEN/Testing; full evidence is in the linked spec and 2026-10-04 model-free ingest result packet.
 
 ## Sources of truth
 
