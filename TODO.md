@@ -45,24 +45,25 @@ is retained; `AGENTS.md` names this same ledger.
 
 - Status: testing
 - Created: `2026-10-03T21:27:22Z`
-- Updated: `2026-10-03T22:09:52Z`
+- Updated: `2026-10-03T22:47:07Z`
 - Outcome: Buda uses the accepted OpenCode-only native background contract and current MiMo model defaults.
 - Spec: [docs/todo/native-background-policy.md](docs/todo/native-background-policy.md)
 - GitHub project item: [Issue #10](https://github.com/CGuiho/buda/issues/10)
 - GitHub component: `buda`
-- Delivery: local main commits; parent independently reviews before push. Issue remains open.
+- Delivery: independently accepted current-task main range; later reviewer has express parent plain-push authority after fresh full ancestry review. Issue remains OPEN/Testing for human acceptance.
+- Validation: 21 policy checks and connected negative probes pass; mode YAML strings corrected. Final delivery/readback proof is in the 2026-10-04 Buda review packet.
 
 ### 2. Verify Buda and Bun qmd local wiki prerequisites
 
 - Status: testing
 - Created: `2026-10-03T21:52:37Z`
-- Updated: `2026-10-03T22:13:37Z`
+- Updated: `2026-10-03T22:47:07Z`
 - Outcome: Verified local Buda/qmd and strict policy prerequisites support an isolated provenance-preserving lexical wiki smoke.
 - Spec: [docs/todo/local-wiki-prerequisites.md](docs/todo/local-wiki-prerequisites.md)
 - GitHub project item: [Issue #11](https://github.com/CGuiho/buda/issues/11)
 - GitHub component: `buda`
-- Delivery: local main commits; host installation evidence is separate from Git. Parent independently reviews before push.
-- Validation: isolated lexical smoke passed; full doctor is degraded without semantic models. General/repeated model-free ingest remains unverified.
+- Delivery: installation and bounded lexical capability independently accepted; reviewed source delivery is parent-authorized. Host evidence is separate from Git; issue remains OPEN/Testing.
+- Validation: new cited lexical smoke passed, with 41/41 qmd files and 16/16 projection files exact. Full doctor exits 1; ordinary initial/two repeated ingests and typed-title repeat hit isolated 45-second deadlines. Public ingest has no lexical mode; separate source follow-up is required.
 
 ## Sources of truth
 
