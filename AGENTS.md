@@ -147,35 +147,81 @@ GUIHO Buda.
 
 Managed by the GUIHO Mandume swarm ([CGuiho/mandume](https://github.com/CGuiho/mandume)); the full worker-registry example lives at `example/AGENTS.md` there.
 
+**OpenCode is the only currently supported agent harness.** This section owns
+the worker registry. Use OpenCode's built-in native subagent tool, selecting an
+authorized capable agent whose actual permissions cover the assigned work.
+Each child has its own configured permissions; parent authority does not prove
+child authority. General supports broad multi-step shell/write work; Explore
+and restricted Explorer are read-only by default. Never widen host permissions
+to make a handoff succeed.
+
 ### Mode
 
 ```yaml
 execution: dnd  # dnd | interruptible — orchestrator NEVER stops during execution/review
-notifications: off  # off | on
-harness: opencode  # only harness, YOLO, full permission
+notifications: off  # human-facing only; harness child completion remains enabled
+harness: opencode  # only current harness; native background subagents always
 tmux-session: buda  # orchestrator session on su-57; convention = this project's name
 ```
 
 ### Coordination
 
 - GitHub repository: https://github.com/CGuiho/buda.git
-- GitHub Project: pending — CG binds one per project; it is the source of truth for new items (`todo.md` mirrors executable state; every item carries its issue URL)
-- To-do file: `todo.md` (repo root)
+- GitHub Project: https://github.com/users/CGuiho/projects/2 — GUIHO; authoritative for task lists, ownership, status, priority, scope, and fields over all local Markdown helpers.
+- GitHub component: `buda` — exact verified Component option of Project #2.
+- Every task is a real GitHub issue in its owning repository, attached to this Project with Component set; a Project draft alone is insufficient. Repository and Component fields are distinct. Read back issue state, membership, Component and Status after writes, then mirror the accepted state locally.
+- To-do file: `TODO.md` (established repo-root casing; no competing ledger)
+- Current policy task: https://github.com/CGuiho/buda/issues/10; local requirements in `docs/todo/native-background-policy.md`.
 - Reserved port: pending — reserve in `apps.md` (`CGuiho/guiho`)
 
 ### Workers
 
-| Worker       | Class      | Model (opencode ID)                                                                                     | Thinking | Usage        |
-| ------------ | ---------- | --------------------------------------------------------------------------------------------------------------------- | -------- | ------------ |
-| `mastermind` | mastermind | Muse Spark 1.3 Contributor (`vercel/meta/muse-spark-1.3-contributor`, Vercel AI Gateway, first-pick mastermind) | max      | api-always   |
-| `engineer`   | workhorse  | DeepSeek V4.1 Flash (`opencode/deepseek-v4-flash`)                                                                    | max      | api-always   |
-| `engineer`   | workhorse  | GLM 5.3 Flash (`opencode/glm-5.3-flash`)
+| Worker | Class | Model (opencode ID) | Thinking | Usage |
+| --- | --- | --- | --- | --- |
+| `mastermind` | mastermind | MiMo-V2.6-Pro (`xiaomi/mimo-v2.6-pro`, direct Xiaomi API) | provider default; no variant | CG-authorized default; availability subject to provider/account |
+| `engineer` | workhorse | MiMo-V2.6-Pro (`xiaomi/mimo-v2.6-pro`, direct Xiaomi API) | provider default; no variant | CG-authorized default; availability subject to provider/account |
 
-> All three worker models serve as both mastermind and workhorse (order: Muse Spark → GLM → DeepSeek). Canonical roster, class assignments, and IDs live in `guiho-convention-0007-models.md` (`CGuiho/guiho`, `conventions/`) — the single place CG changes the models.                                                                              | max      | api-always   |
+Canonical model authority is [GUIHO convention 0007](https://github.com/CGuiho/guiho/blob/main/conventions/guiho-convention-0007-models.md).
+Both roles use MiMo under CG's 2026-10-03 order. The live catalog advertises
+`variants: []`: explicitly pass the authorized exact provider/model and omit
+the unavailable variant parameter, documenting provider-default thinking.
+Enabled thinking is not a maximum-effort tier; never invent MiMo `max`/`xhigh`.
+Native General `openai/gpt-6.1-sol#xhigh` is authorized for the current
+native-rollout/readiness task only, not as a future default or silent fallback.
+
+Historical roster, inactive and **not fallback capacity**: Muse Spark 1.3
+Contributor (`vercel/meta/muse-spark-1.3-contributor`), GLM 5.3 Flash
+(`opencode/glm-5.3-flash`), DeepSeek V4.1 Flash
+(`opencode/deepseek-v4-flash`). Their former max/api-always guidance is superseded.
+
+### Native Background Completion
+
+Read the actual [GUIHO convention 0011](https://github.com/CGuiho/guiho/blob/main/conventions/guiho-convention-0011-agent-readiness.md)
+and owning instructions before work. A summary is not a substitute. Include
+`Mode: dnd`, task identity, exclusive paths, capabilities, authorized exact
+model/available-variant decision, acceptance/checks and commit/push authority
+in each complete owned-unit brief under `docs/plans/<plan>/execution/handoffs/`.
+Launch the capable native child in the background through the actual live tool
+schema. Do independent work or await harness completion notifications. Native
+workers require no polling, sleeping, shell waits or file tailing.
+
+On completion, inspect the actual child/session result, errors, scoped full
+diff, checks, issue/Project/Component/Status readbacks and owned commits. Verify
+acceptance, integrate and pick the next ready unit without CG prompting. Record
+actual tool/permission/provider failures; choose an already-authorized capable
+native agent where possible, fail the affected unit safely and continue
+independent work. Never silently substitute a model.
+
+There is **no active CLI-worker escape** for native capability gaps, permission
+denials, provider failures or earlier CLI requests. Other harness adapters are
+inactive history. A native-less CLI worker is a dormant future case only if CG
+later authorizes a genuinely native-less harness. Ordinary Git/gh/Bun/Buda CLI
+tools and launching a primary OpenCode session via its CLI are distinct from
+spawning a CLI worker.
 
 ### Contract
 
-- The orchestrator is pure orchestration on `main`, always working, always ready to answer CG; subagents are the workers above, called with full permission via `guiho-s-0440-hand-off`.
-- Never stop during execution/review: questions are answered with the safest reversible choice and ledgered under `docs/questions/`. Questions to CG only when CG is present and available, or during brainstorming.
+- The orchestrator coordinates on `main` and integrates the native workers through `guiho-s-0440-hand-off`; actual child permissions must cover the brief. It remains responsive until authorized execution and technical self-review are verified.
+- DND execution/technical review never waits for CG or asks for a wake-up. Resolve reversible questions from evidence and ledger them under `docs/questions/`; record actual security/data-loss or missing-security-authorization blockers under `docs/issues/` and continue independent valid units. Later human review is a distinct phase.
+- Commit only completed coherent owned work under `guiho-s-0032-git-commit`. Child push requires explicit parent authority; review the full outgoing ancestry before plain push, preserve others' work and verify live remote equality. The current prerequisite child is authorized to commit locally, with no push pending new independent parent review.
 - Use the Mandume skills (`guiho-s-mandume` + lifecycle skills) and the Essentials skills (`guiho-s-0001-guiho`, `guiho-s-0004-working-with-cg`, `guiho-s-0040-explorer`, `guiho-s-0032-git-commit`). Conventions: `conventions/` in `CGuiho/guiho` (`apps.md` for ports).
-
