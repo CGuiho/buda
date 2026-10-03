@@ -17,7 +17,40 @@ keywords:
   - minor release
 ---
 
-# Buda TODO
+#### &copy; 2026 [GUIHO](https://guiho.co) as represented by [Cristóvão GUIHO](https://guiho.co/cguiho) All Rights Reserved.
+
+# Buda TODO List
+
+## GitHub Project
+
+- GitHub repository: `CGuiho/buda`
+- URL: [GUIHO Project #2](https://github.com/users/CGuiho/projects/2)
+- GitHub component: `buda`
+
+GitHub is authoritative for task state. The historical convention program below
+is preserved as release/design evidence; current task mirrors follow live issue,
+Project membership, Component and Status readback. Established `TODO.md` casing
+is retained; `AGENTS.md` names this same ledger.
+
+## Current Status Summary
+
+| Status | Count |
+| --- | ---: |
+| in progress | 1 |
+| testing | 0 |
+
+## Current Tasks
+
+### 1. Deploy Buda native background policy
+
+- Status: in progress
+- Created: `2026-10-03T21:27:22Z`
+- Updated: `2026-10-03`
+- Outcome: Buda uses the accepted OpenCode-only native background contract and current MiMo model defaults.
+- Spec: [docs/todo/native-background-policy.md](docs/todo/native-background-policy.md)
+- GitHub project item: [Issue #10](https://github.com/CGuiho/buda/issues/10)
+- GitHub component: `buda`
+- Delivery: local main commits; parent independently reviews before push. Issue remains open.
 
 ## Sources of truth
 
