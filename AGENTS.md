@@ -158,10 +158,10 @@ to make a handoff succeed.
 ### Mode
 
 ```yaml
-execution: dnd  # dnd | interruptible — orchestrator NEVER stops during execution/review
-notifications: off  # human-facing only; harness child completion remains enabled
-harness: opencode  # only current harness; native background subagents always
-tmux-session: buda  # orchestrator session on su-57; convention = this project's name
+execution: "dnd"  # dnd | interruptible — orchestrator NEVER stops during execution/review
+notifications: "off"  # human-facing only; harness child completion remains enabled
+harness: "opencode"  # only current harness; native background subagents always
+tmux-session: "buda"  # orchestrator session on su-57; convention = this project's name
 ```
 
 ### Coordination
@@ -223,5 +223,5 @@ spawning a CLI worker.
 
 - The orchestrator coordinates on `main` and integrates the native workers through `guiho-s-0440-hand-off`; actual child permissions must cover the brief. It remains responsive until authorized execution and technical self-review are verified.
 - DND execution/technical review never waits for CG or asks for a wake-up. Resolve reversible questions from evidence and ledger them under `docs/questions/`; record actual security/data-loss or missing-security-authorization blockers under `docs/issues/` and continue independent valid units. Later human review is a distinct phase.
-- Commit only completed coherent owned work under `guiho-s-0032-git-commit`. Child push requires explicit parent authority; review the full outgoing ancestry before plain push, preserve others' work and verify live remote equality. The current prerequisite child is authorized to commit locally, with no push pending new independent parent review.
+- Commit only completed coherent owned work under `guiho-s-0032-git-commit`. Child push requires explicit parent authority; review the full outgoing ancestry before plain push, preserve others' work and verify live remote equality. The implementation child was local-only pending independent review; a later reviewer must receive express parent push authorization.
 - Use the Mandume skills (`guiho-s-mandume` + lifecycle skills) and the Essentials skills (`guiho-s-0001-guiho`, `guiho-s-0004-working-with-cg`, `guiho-s-0040-explorer`, `guiho-s-0032-git-commit`). Conventions: `conventions/` in `CGuiho/guiho` (`apps.md` for ports).
