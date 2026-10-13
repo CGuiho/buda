@@ -18,6 +18,10 @@ const (
 	ansiOcean     = "\x1b[38;2;58;124;165m"  // 3A7CA5
 	ansiMist      = "\x1b[38;2;217;220;214m" // D9DCD6 light
 	ansiSky       = "\x1b[38;2;129;195;215m" // 81C3D7
+
+	// ansiAccent is Buda's primary brand colour, used for the GUIHO
+	// attribution and the website in the Author detail.
+	ansiAccent = ansiOcean
 )
 
 var platformLabels = map[string]string{
@@ -76,32 +80,28 @@ func render(platform, architecture, version string, withColor bool) string {
 	architecture = displayValue(archLabels, architecture)
 	version = strings.TrimPrefix(strings.TrimSpace(version), "v")
 
-	innerWidth := 56
-	for _, line := range budaLogo {
-		if width := len([]rune(line)); width > innerWidth {
-			innerWidth = width
-		}
-	}
-	innerWidth += 4
-
 	var output strings.Builder
-	output.WriteString("\n\n")
+	output.WriteString("\n")
 	for index, line := range budaLogo {
-		output.WriteString(colorize(withColor, center(line, innerWidth), logoColors[index]+ansiBold))
+		output.WriteString(colorize(withColor, line, logoColors[index]+ansiBold))
 		output.WriteByte('\n')
 	}
-	output.WriteString(colorize(withColor, center("AI-maintained OKF wiki", innerWidth), ansiSky+ansiDim))
+	output.WriteString(colorize(withColor, "AI-maintained OKF wiki", ansiSky+ansiDim))
 	output.WriteByte('\n')
-	output.WriteString(colorize(withColor, center("GUIHO \u00b7 Crist\u00f3v\u00e3o GUIHO", innerWidth), ansiOcean))
-	output.WriteString("\n\n\n")
+	output.WriteString(colorize(withColor, "GUIHO \u00b7 Crist\u00f3v\u00e3o GUIHO", ansiAccent))
+	output.WriteString("\n\n")
 
-	writeDetail(&output, withColor, "platform", platform+" "+architecture, ansiMist)
-	writeDetail(&output, withColor, "version", "v"+version, ansiSky+ansiBold)
+	writeDetail(&output, withColor, "Platform", colorize(withColor, platform+" "+architecture, ansiMist))
+	writeDetail(&output, withColor, "Version", colorize(withColor, "v"+version, ansiSky+ansiBold))
+	writeDetail(&output, withColor, "Author",
+		colorize(withColor, "GUIHO (", ansiMist)+
+			colorize(withColor, "www.guiho.co", ansiAccent)+
+			colorize(withColor, ")", ansiMist))
 	output.WriteByte('\n')
 	output.WriteString("Run ")
 	output.WriteString(colorize(withColor, "buda --help", ansiMist+ansiBold))
 	output.WriteString(" to see available commands.\n")
-	output.WriteString("\n\n")
+	output.WriteString("\n")
 	return output.String()
 }
 
@@ -112,14 +112,6 @@ func displayValue(labels map[string]string, value string) string {
 	return value
 }
 
-func center(value string, width int) string {
-	padding := width - len([]rune(value))
-	if padding <= 0 {
-		return value
-	}
-	return strings.Repeat(" ", padding/2) + value
-}
-
 func colorize(enabled bool, value, codes string) string {
 	if !enabled {
 		return value
@@ -127,13 +119,11 @@ func colorize(enabled bool, value, codes string) string {
 	return codes + value + ansiReset
 }
 
-func writeDetail(output *strings.Builder, withColor bool, label, value, valueColor string) {
-	if withColor {
-		output.WriteString(colorize(true, fmt.Sprintf("  %-9s", label), ansiOceanDark))
-		output.WriteString("  ")
-		output.WriteString(colorize(true, value, valueColor))
-		output.WriteByte('\n')
-		return
-	}
-	fmt.Fprintf(output, "  %-9s  %s\n", label, value)
+// writeDetail writes one left-aligned detail line. value is already
+// colorized by the caller when colour is enabled.
+func writeDetail(output *strings.Builder, withColor bool, label, value string) {
+	output.WriteString(colorize(withColor, fmt.Sprintf("%-8s", label), ansiOceanDark))
+	output.WriteString("  ")
+	output.WriteString(value)
+	output.WriteByte('\n')
 }
