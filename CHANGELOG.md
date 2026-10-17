@@ -22,6 +22,24 @@ keywords:
 This document records the scope prepared for Buda releases. An entry does not
 by itself assert that a Git tag, hosted release, or binary asset was published.
 
+## [0.2.3] - 2026-10-17
+
+This release ships the corrected left-aligned `buda` hello window and
+publishes the accumulated 0.2.x scope (including the `guiho-s-buda` skill
+rename) under a fresh patch release.
+
+### Changed
+
+- The bare `buda` welcome is now left-aligned like the corrected sibling
+  hello windows: the logo rows, the `AI-maintained OKF wiki` tagline and the
+  GUIHO attribution start at column 0 without centering padding, framed by
+  exactly one leading and one trailing blank line.
+- The detail block now prints capitalised `Platform`, `Version` and `Author`
+  rows with aligned values; `Author` shows `GUIHO (www.guiho.co)` with the
+  website in the Buda accent colour, and no `Creator` line is rendered.
+- Exact plain-text layout and accent colouring are pinned by the welcome
+  tests.
+
 ## [0.2.2] - 2026-08-23
 
 This release renames the main agent skill from `guiho-s-0002-buda` to
