@@ -6,6 +6,9 @@ children: []
 files: {}
 documents:
   cli-convention-0001.md: Durable execution record for Convention 0001 implementation, validation, resolved decisions, and the completed release boundary.
+  local-wiki-prerequisites.md: Bounded local install and lexical wiki verification prerequisites for Buda issue 11.
+  model-free-lexical-ingest.md: Source prerequisite and acceptance record for explicit model-free lexical ingest (Buda task 3).
+  native-background-policy.md: Accepted OpenCode-only native background worker deployment policy for Buda issue 10.
 tags:
   - documentation
   - todo
