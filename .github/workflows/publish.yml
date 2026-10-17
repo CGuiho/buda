@@ -24,9 +24,11 @@ jobs:
           # These projects use repository-prefixed release tags (for example
           # mirror/v4.0.1), which Go does not interpret as module versions.
           # Pin the corresponding release commits with immutable pseudo-versions.
+          # The xdocs pin is the xdocs/v0.12.0 release commit, the released
+          # toolchain that discovers dot-directory descriptors such as .github.
           go install github.com/CGuiho/mirror@v0.0.0-20260802221718-766730ccf4b6
           go install github.com/CGuiho/runx@v0.0.0-20260811091523-2c96e8aec105
-          go install github.com/CGuiho/xdocs@v0.0.0-20260802225907-1d353b79b73e
+          go install github.com/CGuiho/xdocs@v0.0.0-20260912124604-3aae930e079a
       - name: Resolve and validate canonical version
         id: release
         shell: bash
