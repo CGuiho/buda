@@ -44,7 +44,7 @@ host owner. No agent/model/provider/permission/auth configuration edits.
 
 - Installed executable/package identity, full hashes and verified provenance.
 - Exact global configuration path/values and required projections recorded.
-- One explicitly selected isolated `/tmp/opencode` wiki initialized with a
+- One explicitly selected isolated `<local path>` wiki initialized with a
   truthful new ID; one explicit nonsecret source full-SHA256-sealed before ingest.
 - Cited capture, Buda lint/index/doctor, lexical Buda query and retrieval evidence.
   All qmd operations are invoked by Buda, never directly or through a fallback.
@@ -80,23 +80,23 @@ repository version bump, or publication. The verified official `buda/v0.2.1`
 manifest still declares retired `guiho-s-0002-buda` resources, so it was not
 installed over the current source-owned `guiho-s-buda` contract.
 
-- Launcher: `/root/.guiho/bin/buda`, SHA-256
+- Launcher: `~/.guiho/bin/buda`, SHA-256
   `06d24ad2a94bbe714a80186533a4b0712e2d939f5b9964e8315865f4aa23ab95`.
-- Payload: `/root/.guiho/buda/versions/0.2.0/buda`, SHA-256
+- Payload: `~/.guiho/buda/versions/0.2.0/buda`, SHA-256
   `3bfe87ea7fc4e3869525a2db3168cebf7c774eaeb3a86ea1e13e85c1ce78bc37`.
 - Upstream `@tobilu/qmd@2.5.3`: installed with Bun 1.4.2 and lifecycle scripts
   disabled; registry tarball SHA-512 integrity verified and all 41 installed
   package files byte-identical. Actual package location is
-  `/root/.bun/install/global/node_modules/@tobilu/qmd`.
-- `/root/.local/bin/qmd` invokes that exact packaged `dist/cli/qmd.js` through
+  `~/.bun/install/global/node_modules/@tobilu/qmd`.
+- `~/.local/bin/qmd` invokes that exact packaged `dist/cli/qmd.js` through
   Bun. The upstream `bin/qmd` entry routes through Node, so the task-owned
   launcher preserves the no-Node constraint without modifying package bytes.
-- Fresh `/root/.guiho/buda/buda.global.yaml` uses that executable and all four
+- Fresh `~/.guiho/buda/buda.global.yaml` uses that executable and all four
   external evolution policies `disabled`; later human ratification is pending.
   Existing values were preserved. No host agent/provider/model/permission setting
   was changed.
-- `/root/.agents/skills/guiho-s-buda` and
-  `/root/.claude/skills/guiho-s-buda` each contain exactly the eight
+- `~/.agents/skills/guiho-s-buda` and
+  `~/.claude/skills/guiho-s-buda` each contain exactly the eight
   source-declared files, with tree digest
   `sha256:49681908e373e4c2df0686b9385c4b18cb9ce58c9c70e4cc41ed90e44ee83ec8`.
   Pre-existing skill/bin files remained byte-identical; no extras were removed.
@@ -109,12 +109,12 @@ That evidence does not certify every upstream semantic/native capability.
 
 ## Isolated Smoke and Filesystem Evidence
 
-Selected wiki: `/tmp/opencode/buda-readiness-smoke-2026-10-03/wiki`.
+Selected wiki: `<local path>`.
 Wiki ID: `cguiho-buda-readiness-smoke-2026-10-03`. Every Buda command ran inside
 `unshare --net` with fixture-local `XDG_CACHE_HOME` and
 `BUDA_DISABLE_MAINTENANCE=1`. All qmd operations were invoked by Buda.
 
-The original `/root/swe/buda/README.md` was sealed **before init/ingest** with
+The original `README.md` was sealed **before init/ingest** with
 full SHA-256
 `6015c122073583c49c57cb5ac71c01343671efea83afb116819b6a68d03d85ff`.
 Immutable `knowledge/references/raw/<full-sha256>.source` matches its 5,457
@@ -164,18 +164,18 @@ copy this fixture's wiki identity or hash into a different repository.
 
 ## Evidence and Handoff
 
-- `/tmp/opencode/buda-installed-identity.json`: full installed identities,
+- `<local path>`: full installed identities,
   exact build command, package provenance and runtime versions.
-- `/tmp/opencode/buda-global-deltas.json` and
-  `/tmp/opencode/qmd-installed-parity.json`: scoped global additions and parity.
-- `/tmp/opencode/buda-smoke-evidence.json` and the preserved fixture:
+- `<local path>` and
+  `<local path>`: scoped global additions and parity.
+- `<local path>` and the preserved fixture:
   exact commands/exits, pre-write seal, per-command filesystem snapshots,
   retrieval and provenance evidence; doctor trace is fixture-local.
-- `/tmp/opencode/buda-source-checks.json` and `buda-go-tests.log`:
+- `<local path>` and `buda-go-tests.log`:
   successful Go tests, vet, tidy-diff, formatting and whitespace checks.
-- `/tmp/opencode/buda-read-testing-task-readbacks.json`: fresh read-only remote
+- `<local path>`: fresh read-only remote
   OPEN/Testing/Project/Component verification for issues #10 and #11.
-- Return packet: `/tmp/opencode/2026-10-03-readiness-buda-prerequisite-result.md`
+- Return packet: `<local path>`
   and matching JSON, for new independent parent review.
 
 ## Independent Review — 2026-10-04
@@ -192,7 +192,7 @@ recomputation confirms only expected additions and no monitored pre-existing
 skill/bin file change or removal. No host installation was changed by review.
 
 New independent fixture:
-`/tmp/opencode/buda-review-2026-10-04/isolated-wiki/wiki`, ID
+`<local path>`, ID
 `cguiho-buda-independent-review-2026-10-04`. The original implementation fixture
 is preserved. The reviewer pre-sealed the actual README source, its full hash
 and 5,457 bytes, predicted raw/source/work-item paths, canonical write allowlist
@@ -258,9 +258,9 @@ later human ratification. XDocs/RunX CLI checks and missing task-helper descript
 registration remain explicit separately owned gaps; no grants, legacy index,
 descriptors or catalog were changed. Parent-authorized plain source delivery
 requires fresh complete outgoing-ancestry review and live ref equality; final
-proof is in `/tmp/opencode/2026-10-04-readiness-buda-review-result.md` and JSON.
+proof is in `<local path>` and JSON.
 
-Independent raw evidence is under `/tmp/opencode/buda-review-2026-10-04/`:
+Independent raw evidence is under `<local path>`:
 `host.json`, `smoke.json`, `smoke-commands.json`, `tracking-pre-doc.json`, source
 checks, protected hashes and the preserved fixture's command output/traces.
 The result certifies only the bounded prerequisite, not general ingestion,

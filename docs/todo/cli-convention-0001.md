@@ -37,10 +37,11 @@ publication remain deferred to the integration owner after independent review.
 
 - Branch: `codex/cli-convention-0001`
 - Base: `09cba7a` / `origin/main` at delegation
-- Worktree: `C:\GUIHO\buda`
+- Worktree: `<local path>`
 - Executor: `guiho-a-0048-plan-executor` / `guiho-s-0023-plan-executor`
 - Next handoff: `guiho-a-0049-implementation-reviewer`, then validation and PR integration.
-- Question ledger: `docs/questions/cli-convention-0001.md` records the
+- Question ledger: `docs/projects/buda/questions/cli-convention-0001.md` in
+  `CGuiho/guiho` records the
   manifest-count, stable-launcher, and native-installer provisional answers.
 - Production boundary: no deployment, traffic, DNS, database, secret, or live-service mutation.
 

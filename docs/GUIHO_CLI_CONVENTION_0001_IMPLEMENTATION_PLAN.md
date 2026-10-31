@@ -63,7 +63,7 @@ Apply authority in this order for this program:
 
 1. the user's explicit request to adopt GUIHO CLI Convention 0001, including
    acceptance of breaking changes;
-2. `C:\GUIHO\guiho\docs\conventions\guiho-convention-0001-cli.md` at
+2. `conventions/guiho-convention-0001-cli.md (CGuiho/guiho)` at
    convention commit `bd7dc4583fbc0722d3f05b78f7c70c7a970865e2`;
 3. Buda's product contract in `AGENTS.md` and approved GUIHO RFC 0002 at commit
    `30698669a2e72f1ded575574b5b8ff7f0b9b5c6e`;

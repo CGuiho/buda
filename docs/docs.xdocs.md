@@ -4,7 +4,6 @@ description: Durable Buda architecture, governing-reference, convention-audit, i
 parent: buda-package
 children:
   - buda-todo
-  - buda-questions
 files: {}
 documents:
   ARCHITECTURE.md: Component ownership, global-only install and separate explicit-wiki initialization boundaries, canonical-versus-derived state, qmd process boundary, and distribution architecture.
@@ -12,6 +11,7 @@ documents:
   GUIHO_CLI_CONVENTION_0001_COMPLIANCE_AUDIT.md: Aspect-by-aspect evidence audit of Buda against GUIHO CLI Convention 0001, including mandatory gaps, compliant foundations, and dependency-ordered remediation.
   GUIHO_CLI_CONVENTION_0001_IMPLEMENTATION_PLAN.md: Completed Convention 0001 implementation program plus the post-release global-install and lifecycle-prompt correction that supersedes historical installer-init requirements.
   IMPLEMENTATION.md: Historical approved vertical MVP and 0.0.2 delivery record, superseded for current Convention 0001 work by the active implementation plan.
+  internal-records.md: "Where the internal lifecycle records live: the private GUIHO repository CGuiho/guiho, under docs/projects/buda/."
   QMD_COMPATIBILITY.md: Supported qmd version range, pinned upstream revision, project-local process mapping, real runtime evidence, fixtures, and external model-download boundary.
   REFERENCES.md: Normative and informative authorities for LLM Wiki operation, OKF representation, and the approved GUIHO RFC revision.
 tags:

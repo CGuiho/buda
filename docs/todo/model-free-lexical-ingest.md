@@ -21,13 +21,12 @@ keywords: [issue-12, lexical, hybrid, qmd, model-free]
 - GitHub project item: [Buda #12](https://github.com/CGuiho/buda/issues/12), OPEN
 - GitHub component: `buda`
 - Project: [GUIHO #2](https://github.com/users/CGuiho/projects/2)
-- Item: `PVTI_lAHOBUk1ds4AULOgzg-X4CE`
+- Item: `<project id>`
 
 ## Authority and Outcome
 
-Mode: dnd. GUIHO #86's committed pre-dispatch handoff
-`docs/plans/native-subagent-rollout/execution/handoffs/2026-10-04-buda-lexical-ingest-general.md`
-and complete `/tmp/opencode/2026-10-04-buda-model-free-ingest-followup-contract.md`
+Mode: dnd. GUIHO #86's committed pre-dispatch handoff in the private GUIHO
+repository and complete `<local path>`
 separately authorize this minimal source prerequisite. The original independent
 review released ownership at clean main/live main
 `226fb2cf562aa75d3226ac9949dbc11beb548282`. Its full Markdown/JSON packet establishes
@@ -77,14 +76,15 @@ The named Go CLI skill could not be loaded; Convention 0001 and existing Go/Cobr
 patterns supply the applicable guidance. No local MEMORY/rules exist.
 
 Fresh tracker readback at `2026-10-03T23:07:35Z` confirms #12 OPEN/In Progress,
-existing `buda` option `f14d922e`, Project `PVT_kwHOBUk1ds4AULOg` and item above.
+existing `buda` option `f14d922e`, Project `<project id>` and item above.
 The first overlarge verifier query hit GitHub's MAX_NODE_LIMIT_EXCEEDED; reducing
 connection bounds and confirming exhausted pagination recovered without a second
 issue or any original-task mutation. Full proof lives under
-`/tmp/opencode/buda-model-free-ingest-2026-10-04/`.
+`<local path>`.
 
 Question-ledger root if a human decision becomes necessary:
-`docs/questions/model-free-lexical-ingest/`. No unresolved decision exists at
+`docs/projects/buda/questions/model-free-lexical-ingest/` in `CGuiho/guiho`.
+No unresolved decision exists at
 dispatch: the authorized contract and current types determine this change.
 
 ## Testing Transition
@@ -122,7 +122,7 @@ fixture-only global projections exactly match all eight embedded source files.
 
 ### Actual Isolated Runtime and Seals
 
-Binary `/tmp/opencode/buda-model-free-ingest-2026-10-04/buda-task` was built from
+Binary `<local path>` was built from
 clean `75150cc5a9d87735e7e5c80eb39c92c2f975121b`, Go 1.27.1, Linux amd64,
 `CGO_ENABLED=0`, trimpath, exact commit/date/target linker identity and unchanged
 raw development version `0.2.0-dev.0`; metadata says `vcs.modified=false`.
@@ -131,7 +131,7 @@ Build evidence records 126 source/resource input hashes. Later commits affect
 only task prose, so runtime/embedded inputs remain equivalent.
 
 New selected wiki:
-`/tmp/opencode/buda-model-free-ingest-2026-10-04/offline-fixture/wiki`.
+`<local path>`.
 Its truthful fixture identity is not a formal GUIHO registry ID. All 22 Buda
 operations run under `unshare --net`, isolated HOME/XDG cache/config and disabled
 maintenance. The namespace has only loopback and no routes; model caches stay
@@ -201,14 +201,14 @@ Fresh `2026-10-03T23:24:11.497751+00:00` readback confirms #12 and original #10/
 OPEN/Testing, exact Project/Component and all original item identities. Complete
 commands, outputs, per-command file sets/hashes/deltas, source seals, build inputs,
 traces and self-review live under
-`/tmp/opencode/buda-model-free-ingest-2026-10-04/`; the return packet is
-`/tmp/opencode/2026-10-04-buda-model-free-ingest-result.md` and `.json`.
+`<local path>`; the return packet is
+`<local path>` (`.md` and `.json`).
 No push or host activation is authorized here. The successor must independently
 review these precise limits before separately authorized delivery/activation.
 
 ## Independent Acceptance and Local Activation — 2026-10-04
 
-The NEW native General reviewer `ses_efbdf4f42ffeXiA53mX2y2Xg8V`, on the expressly
+The NEW native General reviewer `<session id>`, on the expressly
 authorized `openai/gpt-6.1-sol#xhigh`, independently accepts the bounded explicit
 lexical-ingest contract. No product-source correction was required. The earlier
 implementation's no-push/no-host-write hold above is its historical authority;
@@ -239,7 +239,7 @@ qualification; actual Convention 0001 and surrounding Go/Cobra patterns govern.
 ### New Sealed Offline Fixture
 
 The reviewer exclusively owns
-`/tmp/opencode/buda-lexical-review-2026-10-04/offline/wiki` and its isolated
+`<local path>` and its isolated
 `offline/home`. Before any wiki write, exact source revisions, digests, predicted
 raw/source/work-item/capture paths and canonical/derived boundaries were sealed.
 Its non-registry fixture identity is
@@ -287,7 +287,7 @@ A clean-source, pure-Go Linux amd64 binary was independently built at
 `0.2.0-readiness.lexical.g01cb54d` and `vcs.modified=false`:
 
 - Active immutable payload:
-  `/root/.guiho/buda/versions/0.2.0-readiness.lexical.g01cb54d/buda`.
+  `~/.guiho/buda/versions/0.2.0-readiness.lexical.g01cb54d/buda`.
 - SHA-256:
   `0eb005fe1dc030e8054f998820d02dee1242d9b2f2328c7f72bff5f9c70bc5ea`.
 - Existing stable launcher and immutable `0.2.0` directory remain byte-identical;
@@ -302,7 +302,7 @@ A clean-source, pure-Go Linux amd64 binary was independently built at
   launcher actually executes the task payload.
 - Exact pre-change pointer, ownership manifest and four skill-leaf backups, with
   hashes, owners and modes, are retained under
-  `/tmp/opencode/buda-lexical-review-2026-10-04/activation-backups/`.
+  `<local path>`.
 - Only existing baseline-matching `SKILL.md` and `references/ingest.md` are
   refreshed in each established agents/claude skill home. All other bytes,
   file sets, symlinks/extras and configuration remain intact; both eight-file
@@ -346,7 +346,7 @@ Fresh `2026-10-03T23:56:59.561202+00:00` readback preserves Buda #10/#11/#12,
 their original item identities, Project #2, exact `buda` Component and
 OPEN/Testing state. Full review, activation, backup, runtime-delta and reviewed
 plain-push/ref-equality evidence belongs to
-`/tmp/opencode/2026-10-04-buda-model-free-ingest-review-result.md` and `.json`,
-with retained records under `/tmp/opencode/buda-lexical-review-2026-10-04/`.
+`<local path>` (`.md` and `.json`),
+with retained records under `<local path>`.
 Technical prerequisite acceptance does not certify human acceptance, full Buda
 setup or any repository/family readiness.

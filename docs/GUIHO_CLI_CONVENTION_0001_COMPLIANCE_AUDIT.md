@@ -52,8 +52,8 @@ are green.
 
 | Item | Audited state |
 |---|---|
-| Convention | `C:\GUIHO\guiho\docs\conventions\guiho-convention-0001-cli.md` at commit `bd7dc4583fbc0722d3f05b78f7c70c7a970865e2` |
-| Buda | `C:\GUIHO\buda` at commit and tag `09cba7aa43d09e8dbbcd863d71e38ebcbc835712` / `buda/v0.1.1` |
+| Convention | `conventions/guiho-convention-0001-cli.md (CGuiho/guiho)` at commit `bd7dc4583fbc0722d3f05b78f7c70c7a970865e2` |
+| Buda | `<local path>` at commit and tag `09cba7aa43d09e8dbbcd863d71e38ebcbc835712` / `buda/v0.1.1` |
 | Repository state before the report | `main...origin/main`, clean |
 | Toolchain observed | `go1.26.5 windows/amd64`; Cobra module `v1.10.2` |
 | Evidence | Full convention review; repository instructions; source, tests, workflows, tooling manifests, release tooling, agent resources, README, and XDocs inspection; command-tree and configuration tracing; independent focused reviews |

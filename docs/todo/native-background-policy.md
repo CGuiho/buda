@@ -50,8 +50,8 @@ workers.
 ## Delegation Context
 
 Coordinator: [GUIHO issue #86](https://github.com/CGuiho/guiho/issues/86).
-Actual assignment: `/tmp/opencode/2026-10-03-readiness-tool-prerequisite-contract.md`,
-Buda section, plus `/tmp/opencode/2026-10-03-native-deployment-execution-contract.md`.
+Actual assignment: `<local path>`,
+Buda section, plus `<local path>`.
 Mode: dnd. Scope is Buda policy and its separately tracked host prerequisite.
 Related tools and application repositories have separate owners.
 
@@ -68,8 +68,8 @@ DND, real issue ownership/readbacks and local-only child delivery. The live
 catalog confirms active `xiaomi/mimo-v2.6-pro` with `variants: []`; availability
 is not a provider-execution claim. No recursive worker was launched.
 
-Policy evidence: `/tmp/opencode/buda-native-policy-check.json`.
-Fresh tracking evidence: `/tmp/opencode/buda-testing-task-readbacks.json`.
+Policy evidence: `<local path>`.
+Fresh tracking evidence: `<local path>`.
 The full scoped diff was inspected, and Go tests, vet, tidy-diff, formatting
 and Git whitespace checks passed. XDocs and RunX CLI checks remain skipped:
 their separately owned side-effect reconciliation has not been accepted for
@@ -111,17 +111,17 @@ policy, RunX/Mirror catalogs, runtime/resources and host settings remain intact.
 XDocs/RunX CLI validation is still skipped under the parent's protected boundary.
 
 Read-only tracking refresh at `2026-10-03T22:41:13.513789Z` confirms both Buda
-issues OPEN/Testing, Project `PVT_kwHOBUk1ds4AULOg`, Component option `f14d922e`
+issues OPEN/Testing, Project `<project id>`, Component option `f14d922e`
 (`buda`, existing PINK) and Testing option `f874e9fb`. Existing issue #10 item
-`PVTI_lAHOBUk1ds4AULOgzg-XTQY` and issue #11 item
-`PVTI_lAHOBUk1ds4AULOgzg-XcTg` are preserved. No tracker mutation or task closure
+`<project id>` and issue #11 item
+`<project id>` are preserved. No tracker mutation or task closure
 was needed. The dated review uses the local 2026-10-04 date; timestamps retain
 the actual UTC clock.
 
-Independent evidence: `/tmp/opencode/buda-review-2026-10-04/policy.json`,
-`source-checks.json`, `tracking-pre-doc.json` and the full reviewed patch in that
-directory; Go output is `/tmp/opencode/buda-review-go-tests.log`. Final
+Independent evidence: `<local path>`
+(`policy.json`, `source-checks.json`, `tracking-pre-doc.json`) and the full
+reviewed patch in that directory; Go output is `<local path>`. Final
 delivery/readback evidence belongs in the parent-requested
-`/tmp/opencode/2026-10-04-readiness-buda-review-result.md` and matching JSON.
+`<local path>` and matching JSON.
 Technical acceptance is bounded to this policy/prerequisite, not family readiness
 or human acceptance.

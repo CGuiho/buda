@@ -86,7 +86,12 @@ resource command tree; `update` is not a supported alias.
 
 Follow `guiho-s-xdocs` for every changed module. `xdocs.yaml` uses `ai.mode:
 auto`, so update the owning named `*.xdocs.md` descriptor and companion-document
-metadata in the same work unit. Keep parent/children links synchronized.
+metadata in the same work unit. Keep parent/children links synchronized. The
+internal lifecycle records — plans, question ledgers, review handoffs,
+validation evidence and the completed-task archive — live in the private GUIHO
+repository `CGuiho/guiho` under `docs/projects/buda/` (see
+[`docs/internal-records.md`](docs/internal-records.md)); read them there, they
+are not kept in this public repository.
 
 The approved implementation authority is GUIHO RFC 0002 at GUIHO commit
 `30698669a2e72f1ded575574b5b8ff7f0b9b5c6e`. Preserve the canonical OKF
@@ -161,7 +166,7 @@ to make a handoff succeed.
 execution: "dnd"  # dnd | interruptible — orchestrator NEVER stops during execution/review
 notifications: "off"  # human-facing only; harness child completion remains enabled
 harness: "opencode"  # only current harness; native background subagents always
-tmux-session: "buda"  # orchestrator session on su-57; convention = this project's name
+tmux-session: "buda"  # orchestrator session on <host>; convention = this project's name
 ```
 
 ### Coordination
@@ -200,7 +205,8 @@ Read the actual [GUIHO convention 0011](https://github.com/CGuiho/guiho/blob/mai
 and owning instructions before work. A summary is not a substitute. Include
 `Mode: dnd`, task identity, exclusive paths, capabilities, authorized exact
 model/available-variant decision, acceptance/checks and commit/push authority
-in each complete owned-unit brief under `docs/plans/<plan>/execution/handoffs/`.
+in each complete owned-unit brief under
+`docs/projects/buda/plans/<plan>/execution/handoffs/` in `CGuiho/guiho`.
 Launch the capable native child in the background through the actual live tool
 schema. Do independent work or await harness completion notifications. Native
 workers require no polling, sleeping, shell waits or file tailing.
@@ -222,6 +228,7 @@ spawning a CLI worker.
 ### Contract
 
 - The orchestrator coordinates on `main` and integrates the native workers through `guiho-s-0440-hand-off`; actual child permissions must cover the brief. It remains responsive until authorized execution and technical self-review are verified.
-- DND execution/technical review never waits for CG or asks for a wake-up. Resolve reversible questions from evidence and ledger them under `docs/questions/`; record actual security/data-loss or missing-security-authorization blockers under `docs/issues/` and continue independent valid units. Later human review is a distinct phase.
+- DND execution/technical review never waits for CG or asks for a wake-up. Resolve reversible questions from evidence and ledger them under
+`docs/projects/buda/questions/` in `CGuiho/guiho`; record actual security/data-loss or missing-security-authorization blockers under `docs/issues/` and continue independent valid units. Later human review is a distinct phase.
 - Commit only completed coherent owned work under `guiho-s-0032-git-commit`. Child push requires explicit parent authority; review the full outgoing ancestry before plain push, preserve others' work and verify live remote equality. The implementation child was local-only pending independent review; a later reviewer must receive express parent push authorization.
 - Use the Mandume skills (`guiho-s-mandume` + lifecycle skills) and the Essentials skills (`guiho-s-0001-guiho`, `guiho-s-0004-working-with-cg`, `guiho-s-0040-explorer`, `guiho-s-0032-git-commit`). Conventions: `conventions/` in `CGuiho/guiho` (`apps.md` for ports).
