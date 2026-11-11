@@ -183,21 +183,18 @@ tmux-session: "buda"  # orchestrator session on <host>; convention = this projec
 
 | Worker | Class | Model (opencode ID) | Thinking | Usage |
 | --- | --- | --- | --- | --- |
-| `mastermind` | mastermind | MiMo-V2.6-Pro (`xiaomi/mimo-v2.6-pro`, direct Xiaomi API) | provider default; no variant | CG-authorized default; availability subject to provider/account |
-| `engineer` | workhorse | MiMo-V2.6-Pro (`xiaomi/mimo-v2.6-pro`, direct Xiaomi API) | provider default; no variant | CG-authorized default; availability subject to provider/account |
+| `mastermind` | mastermind | see Convention 0007 | provider default; no variant | CG-authorized default; availability subject to provider/account |
+| `engineer` | workhorse | see Convention 0007 | provider default; no variant | CG-authorized default; availability subject to provider/account |
 
-Canonical model authority is [GUIHO convention 0007](https://github.com/CGuiho/guiho/blob/main/conventions/guiho-convention-0007-models.md).
-Both roles use MiMo under CG's 2026-10-03 order. The live catalog advertises
-`variants: []`: explicitly pass the authorized exact provider/model and omit
-the unavailable variant parameter, documenting provider-default thinking.
-Enabled thinking is not a maximum-effort tier; never invent MiMo `max`/`xhigh`.
-Native General `openai/gpt-6.1-sol#xhigh` is authorized for the current
-native-rollout/readiness task only, not as a future default or silent fallback.
+Model selection: read Convention 0007 — Models (`conventions/guiho-convention-0007-models.md`) in `CGuiho/guiho` — the single source of truth. Never duplicate the model list here; verify the live catalog before dispatch.
+Explicitly pass the authorized exact provider/model and omit the unavailable
+variant parameter where Convention 0007 specifies no variant, documenting
+provider-default thinking. Enabled thinking is not a maximum-effort tier; never
+invent `max`/`xhigh`. Any task-specific model exception is authorized for that
+task only, not as a future default or silent fallback.
 
-Historical roster, inactive and **not fallback capacity**: Muse Spark 1.3
-Contributor (`vercel/meta/muse-spark-1.3-contributor`), GLM 5.3 Flash
-(`opencode/glm-5.3-flash`), DeepSeek V4.1 Flash
-(`opencode/deepseek-v4-flash`). Their former max/api-always guidance is superseded.
+Historical roster, inactive and **not fallback capacity** — see Convention
+0007. Their former max/api-always guidance is superseded.
 
 ### Native Background Completion
 
